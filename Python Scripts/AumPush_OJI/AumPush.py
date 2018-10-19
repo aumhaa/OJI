@@ -26,6 +26,8 @@ from ableton.v2.control_surface.elements import adjust_string, ButtonElement, Bu
 from ableton.v2.control_surface.mode import CompoundMode, AddLayerMode, ModesComponent
 from ableton.v2.control_surface.input_control_element import ParameterSlot
 from ableton.v2.control_surface.elements import ButtonElement
+#from ableton.v2.control_surface.components import DeviceComponent as DeviceComponentBase
+
 
 from Push.push import Push
 from Push.device_navigation_component import DeviceNavigationComponent
@@ -42,7 +44,7 @@ from pushbase.instrument_component import InstrumentComponent
 from pushbase.step_seq_component import StepSeqComponent
 from pushbase.loop_selector_component import LoopSelectorComponent
 from pushbase.clip_control_component import ClipControlComponent
-from pushbase.device_component import DeviceComponent as ProviderDeviceComponent
+#from pushbase.device_component import DeviceComponent as ProviderDeviceComponent
 from pushbase.note_repeat_component import NoteRepeatComponent
 from pushbase.matrix_maps import PAD_TRANSLATIONS, FEEDBACK_CHANNELS
 from pushbase.control_element_factory import create_sysex_element
@@ -131,7 +133,7 @@ class AumPush(Push):
 
 		self.monomodular = get_monomodular(self)
 		self.monomodular.name = 'monomodular_switcher'
-		with inject(register_component = const(self._register_component), song = const(self.song)).everywhere():
+		with inject(song = const(self.song)).everywhere():
 			self.modhandler = PushModHandler(self) ## song = self.song, register_component = self._register_component)
 		self.modhandler.name = 'ModHandler'
 		self.modhandler.layer = Layer( priority = 10, lock_button = self.elements.note_mode_button,
@@ -392,7 +394,7 @@ class PushModHandler(ModHandler):
 					'push_alt_name_display': {'obj': Array('push_alt_name_display', 8, _value = ' '), 'method': self._receive_push_alt_name_display},
 					'push_alt_value_display': {'obj': Array('push_alt_value_display', 8, _value = ' '), 'method': self._receive_push_alt_value_display}}
 		super(PushModHandler, self).__init__(addresses = addresses, *a, **k)
-		self.nav_box = self.register_component(NavigationBox(self, 16, 16, 8, 8, self.set_offset,)) # song = self.song, register_component = self.register_component, is_enabled = False))
+		self.nav_box = NavigationBox(self, 16, 16, 8, 8, self.set_offset,) # song = self.song, register_component = self.register_component, is_enabled = False))
 		self._push_colors = range(128)
 		self._push_colors[1:8] = [3, 85, 33, 95, 5, 21, 67]
 		self._push_colors[127] = 67
