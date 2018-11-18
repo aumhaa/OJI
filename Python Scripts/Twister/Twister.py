@@ -11,8 +11,8 @@ import sys
 from ableton.v2.base import inject, listens, listens_group, inject
 from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator, DeviceBankRegistry
 from ableton.v2.control_surface.elements import ButtonMatrixElement, DoublePressElement, MultiElement, DisplayDataSource, SysexElement
-from ableton.v2.control_surface.components import M4LInterfaceComponent, ClipSlotComponent, SceneComponent, SessionComponent, TransportComponent, BackgroundComponent, ViewControlComponent, SessionRingComponent, SessionRecordingComponent, SessionNavigationComponent, SessionOverviewComponent, MixerComponent, PlayableComponent
-from ableton.v2.control_surface.components.mixer import simple_track_assigner
+from ableton.v2.control_surface.components import ClipSlotComponent, SceneComponent, SessionComponent, TransportComponent, BackgroundComponent, ViewControlComponent, SessionRingComponent, SessionRecordingComponent, SessionNavigationComponent, SessionOverviewComponent, MixerComponent, PlayableComponent
+#from ableton.v2.control_surface.components.mixer import simple_track_assigner
 from ableton.v2.control_surface.mode import AddLayerMode, ModesComponent, DelayMode, CompoundMode
 from ableton.v2.control_surface.elements.physical_display import PhysicalDisplayElement
 from ableton.v2.control_surface.components.session_recording import *
@@ -20,6 +20,7 @@ from ableton.v2.control_surface.control import PlayableControl, ButtonControl, c
 from ableton.v2.control_surface.components.scroll import ScrollComponent
 from ableton.v2.control_surface.components.view_control import BasicSceneScroller
 from ableton.v2.control_surface.percussion_instrument_finder import PercussionInstrumentFinder, find_drum_group_device
+from ableton.v2.control_surface.elements import PlayheadElement
 
 from aumhaa.v2.base import initialize_debug
 from aumhaa.v2.control_surface import SendLividSysexMode, MomentaryBehaviour, ExcludingMomentaryBehaviour, DelayedExcludingMomentaryBehaviour, ShiftedBehaviour, LatchingShiftedBehaviour, FlashingBehaviour
@@ -32,13 +33,13 @@ from aumhaa.v2.control_surface.components.device import DeviceComponent
 from aumhaa.v2.control_surface.components.mono_instrument import *
 from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMode, CancellableBehaviourWithRelease, ColoredCancellableBehaviourWithRelease, MomentaryBehaviour, BicoloredMomentaryBehaviour, DefaultedBehaviour
 from aumhaa.v2.livid import LividControlSurface, LividSettings, LividRGB
+from aumhaa.v2.control_surface.components.m4l_interface import M4LInterfaceComponent
 
-
-from pushbase.auto_arm_component import AutoArmComponent
-from pushbase.grid_resolution import GridResolution
-from pushbase.playhead_element import PlayheadElement
+#from pushbase.auto_arm_component import AutoArmComponent
+#from pushbase.grid_resolution import GridResolution
+#from pushbase.playhead_element import PlayheadElement
 #from pushbase.percussion_instrument_finder import PercussionInstrumentFinder, find_drum_group_device
-from pushbase.drum_group_component import DrumGroupComponent
+#from pushbase.drum_group_component import DrumGroupComponent
 
 debug = initialize_debug()
 
@@ -83,11 +84,11 @@ def special_parameter_bank_names(device, bank_name_dict = BANK_NAME_DICT):
 		banks = special_number_of_parameter_banks(device)
 		def _default_bank_name(bank_index):
 			return 'Bank ' + str(bank_index + 1)
-		
+
 		if device.class_name in MAX_DEVICES and banks != 0:
 			def _is_ascii(c):
 				return ord(c) < 128
-			
+
 			def _bank_name(bank_index):
 				try:
 					name = device.get_bank_name(bank_index)
@@ -97,7 +98,7 @@ def special_parameter_bank_names(device, bank_name_dict = BANK_NAME_DICT):
 					return str(filter(_is_ascii, name))
 				else:
 					return _default_bank_name(bank_index)
-			
+
 			return map(_bank_name, range(0, banks))
 		else:
 			return map(_default_bank_name, range(0, banks))
@@ -112,7 +113,7 @@ def special_parameter_banks(device, device_dict = DEVICE_DICT):
 		elif device.class_name in device_dict.keys():
 			def names_to_params(bank):
 				return map(partial(get_parameter_by_name, device), bank)
-			
+
 			return group([i for i in flatten(map(names_to_params, device_dict[device.class_name]))], 16)
 		else:
 			if device.class_name in MAX_DEVICES:
@@ -130,7 +131,7 @@ def special_parameter_banks(device, device_dict = DEVICE_DICT):
 							return [ None for i in range(0, 32) ]
 						else:
 							return [ (device.parameters[i] if i != -1 else None) for i in parameter_indices ]
-					
+
 					return map(_bank_parameters, range(0, banks))
 			return group(device_parameters_to_map(device), 16)
 	return []
@@ -143,7 +144,7 @@ class SpecialDeviceComponent(DeviceComponent):
 	def __init__(self, script, *a, **k):
 		self._script = script
 		super(SpecialDeviceComponent, self).__init__(*a, **k)
-	
+
 
 	def display_device(self):
 		track = self.find_track(livedevice(self._get_device()))
@@ -153,7 +154,7 @@ class SpecialDeviceComponent(DeviceComponent):
 		if ((not self.application().view.is_view_visible('Detail')) or (not self.application().view.is_view_visible('Detail/DeviceChain'))):
 			self.application().view.show_view('Detail')
 			self.application().view.show_view('Detail/DeviceChain')
-	
+
 
 	def find_track(self, obj):
 		if obj != None:
@@ -165,11 +166,11 @@ class SpecialDeviceComponent(DeviceComponent):
 				return self.find_track(obj.canonical_parent)
 		else:
 			return None
-	
+
 
 	def update(self):
 		super(SpecialDeviceComponent, self).update()
-	
+
 
 	def _current_bank_details(self):
 		bank_name = self._bank_name
@@ -187,19 +188,19 @@ class SpecialDeviceComponent(DeviceComponent):
 				bank_name = 'Best of Parameters'
 		#debug('current_bank_details:', bank_name, bank)
 		return (bank_name, bank)
-	
+
 
 	def _parameter_banks(self):
 		return special_parameter_banks(self._get_device())
-	
+
 
 	def _parameter_bank_names(self):
 		return special_parameter_bank_names(self._get_device())
-	
+
 
 	def _number_of_parameter_banks(self):
 		return special_number_of_parameter_banks(self._get_device())
-	
+
 
 	def _release_parameters(self, controls):
 		if controls != None:
@@ -207,7 +208,7 @@ class SpecialDeviceComponent(DeviceComponent):
 				if control != None:
 					control.release_parameter()
 					control.reset()
-	
+
 
 
 class TwisterButtonElement(MonoButtonElement):
@@ -242,7 +243,7 @@ class TwisterButtonElement(MonoButtonElement):
 				self._force_next_value = False
 		else:
 			debug('Button bad send value:', value)
-	
+
 
 
 class Twister(LividControlSurface):
@@ -273,29 +274,29 @@ class Twister(LividControlSurface):
 			self._setup_modes()
 		self._on_device_changed.subject = self.song
 		self._on_selected_track_changed.subject = self.song.view
-	
+
 
 	def _initialize_script(self):
 		super(Twister, self)._initialize_script()
 		self._connected = True
-	
+
 
 	def _setup_controls(self):
 		is_momentary = True
 		optimized = True
 		resource = PrioritizedResource
-		self._encoder = [CodecEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = TWISTER_DIALS[index], name = 'Encoder_' + str(index), num = TWISTER_DIALS[index], script = self, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(16)] 
-		self._encoder_button = [TwisterButtonElement(is_momentary = is_momentary, msg_type = MIDI_CC_TYPE, channel = 1, identifier = TWISTER_DIAL_BUTTONS[index], name = 'Encoder_Button_' + str(index), script = self, skin = self._skin, color_map = COLOR_MAP, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(16)]	
+		self._encoder = [CodecEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = TWISTER_DIALS[index], name = 'Encoder_' + str(index), num = TWISTER_DIALS[index], script = self, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(16)]
+		self._encoder_button = [TwisterButtonElement(is_momentary = is_momentary, msg_type = MIDI_CC_TYPE, channel = 1, identifier = TWISTER_DIAL_BUTTONS[index], name = 'Encoder_Button_' + str(index), script = self, skin = self._skin, color_map = COLOR_MAP, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(16)]
 
 		self._dial_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder[index*4:(index*4)+4] for index in range(4)])
 		self._dial_button_matrix = ButtonMatrixElement(name = 'Dial_Button_Matrix', rows = [self._encoder_button[index*4:(index*4)+4] for index in range(4)])
-	
+
 
 	def _setup_background(self):
 		self._background = BackgroundComponent(name = 'Background')
 		self._background.layer = Layer(priority = 3, dials = self._dial_matrix, dial_buttons = self._dial_button_matrix.submatrix[:,:])
 		self._background.set_enabled(True)
-	
+
 
 	def _setup_m4l_interface(self):
 		self._m4l_interface = M4LInterfaceComponent(controls=self.controls, component_guard=self.component_guard, priority = 10)
@@ -304,48 +305,48 @@ class Twister(LividControlSurface):
 		self.get_control = self._m4l_interface.get_control
 		self.grab_control = self._m4l_interface.grab_control
 		self.release_control = self._m4l_interface.release_control
-	
+
 
 	def _define_sysex(self):
 		pass
-	
+
 
 	def _check_connection(self):
 		self._connected = True
 		self._initialize_hardware()
 		self._initialize_script()
-	
 
+	"""
 	def _setup_mixer_control(self):
 		self._mixer_session_ring = SessionRingComponent(num_tracks = 4, num_scenes = 4)
 		self._mixer = MonoMixerComponent(name = 'Mixer', tracks_provider = self._mixer_session_ring, track_assigner = simple_track_assigner, invert_mute_feedback = True, auto_name = True, enable_skinning = True)
 
-		self._mixer.layer = Layer(priority = 4, 
+		self._mixer.layer = Layer(priority = 4,
 											solo_buttons = self._dial_button_matrix.submatrix[:,0],
 											stop_clip_buttons = self._dial_button_matrix.submatrix[:,1],
 											track_select_buttons = self._dial_button_matrix.submatrix[:,2])
 		self._mixer.set_enabled(True)
-	
+	"""
 
 	def _setup_device_control(self):
 		self._device = SpecialDeviceComponent(name = 'Device_Component', device_provider = self._device_provider, device_bank_registry = DeviceBankRegistry(), script = self)
 		self._device.layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:,:],)
-		self._device.bank_layer = AddLayerMode(self._device, Layer(priority = 4, 
+		self._device.bank_layer = AddLayerMode(self._device, Layer(priority = 4,
 												bank_prev_button = self._encoder_button[12],
 												bank_next_button = self._encoder_button[13]))
 		self._device.set_enabled(False)
-	
+
 
 	def _setup_mod(self):
 		self.monomodular = get_monomodular(self)
 		self.monomodular.name = 'monomodular_switcher'
 		self.modhandler = TwisterModHandler(self, device_provider = self._device_provider)
-		self.modhandler.name = 'ModHandler' 
+		self.modhandler.name = 'ModHandler'
 		self.modhandler.layer = Layer(priority = 8,
 										twister_encoder_button_grid = self._dial_button_matrix.submatrix[:,:],)
 										#twister_encoder_grid = self._dial_matrix.submatrix[:,:],)
 		self.modhandler.set_enabled(False)
-	
+
 
 	def _setup_modes(self):
 		self._modswitcher = ModesComponent(name = 'ModSwitcher')
@@ -353,7 +354,7 @@ class Twister(LividControlSurface):
 		self._modswitcher.add_mode('device', [self._device, self._device.bank_layer])
 		self._modswitcher.selected_mode = 'device'
 		self._modswitcher.set_enabled(True)
-	
+
 
 	def _update_modswitcher(self):
 		debug('update modswitcher', self.modhandler.active_mod())
@@ -361,13 +362,13 @@ class Twister(LividControlSurface):
 			self._modswitcher.selected_mode = 'mod'
 		else:
 			self._modswitcher.selected_mode = 'device'
-	
+
 
 	@listens('appointed_device')
 	def _on_device_changed(self):
 		debug('appointed device changed, script')
 		self._update_modswitcher()
-	
+
 
 	@listens('selected_track')
 	def _on_selected_track_changed(self):
@@ -376,14 +377,14 @@ class Twister(LividControlSurface):
 		#self._drum_group_finder.device_parent = self.song.veiw.selected_track
 		if not len(self.song.view.selected_track.devices):
 			self._update_modswitcher()
-	
+
 
 	def restart_monomodular(self):
 		#debug('restart monomodular')
 		self.modhandler.disconnect()
 		with self.component_guard():
 			self._setup_mod()
-	
+
 
 
 class TwisterModHandler(ModHandler):
@@ -396,55 +397,55 @@ class TwisterModHandler(ModHandler):
 					'twister_encoder_button_grid': {'obj':Grid('twister_encoder_button_grid', 4, 4), 'method':self._receive_twister_encoder_button_grid},}
 		super(TwisterModHandler, self).__init__(addresses = addresses, *a, **k)
 		self._color_type = 'RGB'
-	
+
 
 	def _receive_grid(self, x, y, value = -1, *a, **k):
 		pass
-	
+
 
 	def _receive_twister_encoder_grid(self, x, y, value = -1, *a, **K):
 		#debug('_receive_twister_encoder_grid:', x, y, value, mode, green, custom, local, relative)
 		if self.is_enabled() and self._active_mod and self._twister_encoder_grid and x < 4 and y < 4:
 			if value > -1:
 				self._twister_encoder_grid.send_value(x, y, value, True)
-	
+
 
 	def _receive_twister_encoder_button_grid(self, x, y, value, *a, **k):
 		if self.is_enabled() and self._active_mod:
 			if self._twister_encoder_button_grid:
 				self._twister_encoder_button_grid.send_value(x, y, self._colors[value], True)
-	
+
 
 	def set_twister_encoder_grid(self, grid):
 		self._twister_encoder_grid = grid
 		#self._twister_encoder_grid_value.subject = self._twister_encoder_grid
-	
+
 
 	def set_twister_encoder_button_grid(self, buttons):
 		self._twister_encoder_button_grid = buttons
 		self._twister_encoder_button_grid_value.subject = self._twister_encoder_button_grid
-	
+
 
 	@listens('value')
 	def _twister_encoder_grid_value(self, value, x, y, *a, **k):
 		#debug('_twister_encoder_grid_value:', x, y, value)
 		if self._active_mod:
 			self._active_mod.send('twister_encoder_grid', x, y, value)
-	
+
 
 	@listens('value')
 	def _twister_encoder_button_grid_value(self, value, x, y, *a, **k):
 		#debug('_twister_encoder_button_grid_value:', x, y, value)
 		if self._active_mod:
 			self._active_mod.send('twister_encoder_button_grid', x, y, value)
-	
+
 
 	def update(self, *a, **k):
 		mod = self.active_mod()
 		#debug('modhandler update:', mod)
 		if self.is_enabled() and not mod is None:
 			mod.restore()
-	
+
 
 
 #a
