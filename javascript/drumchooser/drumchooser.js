@@ -33,7 +33,7 @@ var DRUMCHOOSER_BANKS = {'MultiSampler':[['Transpose', 'Mod_Chain_Vol', 'Filter 
 var TRANS = [48, 49, 50, 51, 44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39];
 
 var ACTIVATE_NEWLY_SELECTED_LAYER = true;
-
+var ARM_NEW_TRACK_EXPLICITLY = true;
 
 if (!Array.prototype.indexOf) {
   Array.prototype.indexOf = function (obj, fromIndex) {
@@ -188,6 +188,7 @@ function initialize(val)
 		setup_translations();
 		setup_colors();
 		setup_patcher();
+		setup_api();
     setup_dict();
 		setup_controls();
 		setup_device();
@@ -314,6 +315,9 @@ function setup_patcher()
 	}
 }
 
+function setup_api()
+{}
+
 function setup_dict()
 {
   script['dict'] = new Dict(dict_obj.getattr('name'));
@@ -433,6 +437,7 @@ function make_gui_send_function(patcher_object, message_header)
 function test_stuff()
 {
 	//DetentDial.add_listener(function(obj){debug('detent_dial value:', obj._value);});
+	//create_new_track();
 }
 
 function detect_adjacent_drumrack()
@@ -584,6 +589,63 @@ function _trig_samp_left(val)
 function _trig_samp_right(val)
 {
     drumMatrix._selected_pad._selectors[drumMatrix._selected_pad._selectedLayer._value].increase_value();
+}
+
+function find_root_track(obj)
+{
+	debug('find_root_track', obj.id);
+	if(obj.id > 0)
+	{
+		if(obj.type == 'Track')
+		{
+			var name = (obj.get('name'));
+			return name;
+		}
+		else
+		{
+			obj.goto('canonical_parent');
+			find_root_track(obj);
+		}
+	}
+	else
+	{
+		return 'Undefined';
+	}
+}
+
+function create_new_track()
+{
+	var root_track_name_because_max_sux = 'undefined';
+	finder.goto('this_device');
+	finder.goto('canonical_parent');
+	if(finder.type == 'Track'){
+		root_track_name_because_max_sux = finder.get('name');
+	}
+	else{
+		finder.goto('canonical_parent');
+	}
+	if(finder.type == 'Track'){
+		root_track_name_because_max_sux = finder.get('name');
+	}
+
+	debug('root_track_name_because_max_sux:', root_track_name_because_max_sux);
+	//var root_track_name = find_root_track(finder);
+	//debug('root track is:', root_track_name, find_root_track(finder));
+
+	debug('create_new_track');
+	finder.path = 'live_set';
+	finder.call('create_midi_track');
+	finder.goto('view', 'selected_track');
+	var routings = finder.get('output_routings');
+	//debug('routings:', routings.length, routings);
+	//debug('indexOf:', typeof(routings), routings.indexOf(root_track_name_because_max_sux));
+	/*if(routings.indexOf(root_track_name_because_max_sux)>-1)
+	{*/
+	//debug('setting routing to:', routings.indexOf(root_track_name_because_max_sux), root_track_name_because_max_sux);
+	finder.set('current_output_routing', root_track_name_because_max_sux);
+	//}
+	ARM_NEW_TRACK_EXPLICITLY&&finder.set('arm', 1);
+	debug('finished with create_new_track');
 }
 
 function DrumMatrix(drumrack_id, drumpads, args)
