@@ -28,9 +28,12 @@ var alted = false;
 var shifted = false;
 var selected = false;
 
-var DRUMCHOOSER_BANKS = {'MultiSampler':[['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', undefined]]};
+var DRUMCHOOSER_BANKS = {'MultiSampler':[['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']]};
 									//['Mod_Chain_Vol_0', 'Mod_Chain_Vol_1', 'Mod_Chain_Vol_2', 'Mod_Chain_Vol_3']]};
 var TRANS = [48, 49, 50, 51, 44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39];
+
+var ACTIVATE_NEWLY_SELECTED_LAYER = true;
+
 
 if (!Array.prototype.indexOf) {
   Array.prototype.indexOf = function (obj, fromIndex) {
@@ -54,7 +57,7 @@ function inArray(arr,obj) {
 
 function init()
 {
-	debug('drumchooser init');
+	debug('drumchooser 1218 init');
 
 	if(precheck())
 	{
@@ -1004,6 +1007,9 @@ DrumPad.prototype.update = function(grid)
 			finder.path = 'live_set view';
 			finder.call('select_device', 'id', Math.floor(this._devices[this._selectedLayer._value].id));
 		}
+
+		ACTIVATE_NEWLY_SELECTED_LAYER&&this._mutes[this._selectedLayer._value].receive(127);
+
 		//if(trackView){trackView.set('selected_device', this._devices[this._selectedLayer._value]);}
 		/*for(var i in this._apiView)
 		{
@@ -1060,11 +1066,22 @@ DrumPad.prototype._detent_dial_callback = function(obj)
 	//debug(this._name, '_detent_dial_callback', obj._value, this._selectedLayer._value);
 	if(obj._value < 64)
 	{
-		this._selectors[this._selectedLayer._value].increase_value();
+		if(!alted){
+			this._selectors[this._selectedLayer._value].increase_value();
+		}
+		else{
+			this._selectors[this._selectedLayer._value].next_favorite();
+		}
+
 	}
 	else
 	{
-		this._selectors[this._selectedLayer._value].decrease_value();
+		if(!alted){
+			this._selectors[this._selectedLayer._value].decrease_value();
+		}
+		else{
+			this._selectors[this._selectedLayer._value].previous_favorite();
+		}
 	}
 }
 
@@ -1120,7 +1137,7 @@ DrumPad.prototype.set_solo_button = function(button)
 
 function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue, offValue, args)
 {
-	this.add_bound_properties(this, ['_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
+	this.add_bound_properties(this, ['next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
   this._faveValue = 30;
   this._faveValue2 = 60;
   this._faveOffValue = 80;
@@ -1220,6 +1237,69 @@ PagedRadioComponent.prototype.decrease_value = function()
 	}
 }
 
+PagedRadioComponent.prototype.next_favorite = function()
+{
+	var cur_value = this._value;
+	debug('next_favorite', cur_value);
+	var faves = this._parent._favorites.sort(function(a, b){return a-b});
+	debug('faves:', faves);
+	if(faves.length>0)
+	{
+		var fave_index= faves.indexOf(cur_value);
+		debug('fave_index:', fave_index);
+		if(fave_index < 0){
+			debug('fave_index < 0');
+			var prev_closest_value = function(accum, val){
+				debug('val:', val, 'accum:', accum, 'this._value:', cur_value);
+				return val <= cur_value ? val : accum;
+			}
+			fave_index = faves.indexOf(faves.reduce(prev_closest_value, cur_value));
+			debug('new fave_index:', fave_index);
+		}
+		var new_fave_index = Math.min(fave_index+1, faves.length-1);
+		var new_val = faves[new_fave_index];
+		debug('new_fave_index:', new_fave_index, 'new_val:', new_val);
+
+		this.receive(new_val);
+		if(this._apiObj){this._apiObj.set('value', this._value);}
+		if(this._play_callback)
+		{
+			this._play_callback();
+		}
+	}
+}
+
+PagedRadioComponent.prototype.previous_favorite = function()
+{
+	var cur_value = this._value;
+	debug('previous_favorite', cur_value);
+	var faves = this._parent._favorites.sort(function(a, b){return a-b});
+	debug('faves:', faves);
+	if(faves.length>0)
+	{
+		var fave_index= faves.indexOf(cur_value);
+		debug('fave_index:', fave_index);
+		if(fave_index < 0){
+			debug('fave_index < 0');
+			var next_closest_value = function(accum, val){
+				debug('val:', val, 'accum:', accum, 'this._value:', cur_value);
+				return val >= cur_value ? val : accum;
+			}
+			fave_index = faves.indexOf(faves.reduceRight(next_closest_value, cur_value));
+			debug('new fave_index:', fave_index);
+		}
+		var new_fave_index = Math.max(fave_index-1, 0);
+		var new_val = faves[new_fave_index];
+		debug('new_fave_index:', new_fave_index, 'new_val:', new_val);
+
+		this.receive(new_val);
+		if(this._apiObj){this._apiObj.set('value', this._value);}
+		if(this._play_callback)
+		{
+			this._play_callback();
+		}
+	}
+}
 
 function SpecialToggledParameter(name, args)
 {
