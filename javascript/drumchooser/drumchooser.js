@@ -598,13 +598,14 @@ function find_root_track(obj)
 	{
 		if(obj.type == 'Track')
 		{
-			var name = (obj.get('name'));
-			return name;
+			//var name = (obj.get('name'));
+			//return name;
+			return obj;
 		}
 		else
 		{
 			obj.goto('canonical_parent');
-			find_root_track(obj);
+			return find_root_track(obj);
 		}
 	}
 	else
@@ -615,34 +616,41 @@ function find_root_track(obj)
 
 function create_new_track()
 {
-	var root_track_name_because_max_sux = 'undefined';
 	finder.goto('this_device');
-	finder.goto('canonical_parent');
-	if(finder.type == 'Track'){
-		root_track_name_because_max_sux = finder.get('name');
-	}
-	else{
-		finder.goto('canonical_parent');
-	}
-	if(finder.type == 'Track'){
-		root_track_name_because_max_sux = finder.get('name');
-	}
+	var device_name = finder.get('name');
+	var root_track = find_root_track(finder);
+	var root_track_name = root_track.get('name');
+	debug('root track is:', root_track_name);
 
-	debug('root_track_name_because_max_sux:', root_track_name_because_max_sux);
-	//var root_track_name = find_root_track(finder);
-	//debug('root track is:', root_track_name, find_root_track(finder));
+	finder.id = drumMatrix._DrumRack_id;
+	var drumrack_name = finder.get('name');
+	debug('drumrack_name is:', drumrack_name);
+
+
 
 	debug('create_new_track');
 	finder.path = 'live_set';
 	finder.call('create_midi_track');
 	finder.goto('view', 'selected_track');
 	var routings = finder.get('output_routings');
+
 	//debug('routings:', routings.length, routings);
 	//debug('indexOf:', typeof(routings), routings.indexOf(root_track_name_because_max_sux));
 	/*if(routings.indexOf(root_track_name_because_max_sux)>-1)
 	{*/
 	//debug('setting routing to:', routings.indexOf(root_track_name_because_max_sux), root_track_name_because_max_sux);
-	finder.set('current_output_routing', root_track_name_because_max_sux);
+	finder.set('current_output_routing', root_track_name);
+
+	var sub_routings = finder.get('output_sub_routings');
+	//var sub_routings = finder.get('available_output_routing_channels');
+	/*for(var i in sub_routings){
+		debug('entry:', i, sub_routings[i])
+		for(var j in sub_routings[i]){
+			debug('sub_entry:', j, sub_routings[i][j])
+		}
+	}*/
+	//debug('sub_routings:', sub_routings);
+	finder.set('current_output_sub_routing', sub_routings[1]);
 	//}
 	ARM_NEW_TRACK_EXPLICITLY&&finder.set('arm', 1);
 	debug('finished with create_new_track');
