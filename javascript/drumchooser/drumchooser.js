@@ -1,8 +1,8 @@
 autowatch = 1;
 
 aumhaa = require('_base');
-var FORCELOAD = false;
-var DEBUG = false;
+var FORCELOAD = true;
+var DEBUG = true;
 aumhaa.init(this);
 var script = this;
 
@@ -476,7 +476,7 @@ function detect_adjacent_drumrack()
 					//debug('drumpad id is:',  drumpads[i]._apiDrumpad.id);
 				}
 			}
-			drumMatrix = new DrumMatrix(finder.id, drumpads);
+			drumMatrix = new DrumMatrix(Math.floor(finder.id), drumpads);
 		}
 		else
 		{
@@ -591,26 +591,26 @@ function _trig_samp_right(val)
     drumMatrix._selected_pad._selectors[drumMatrix._selected_pad._selectedLayer._value].increase_value();
 }
 
-function find_root_track(obj)
+function find_root_track_id(obj)
 {
-	debug('find_root_track', obj.id);
+	debug('find_root_track_id', obj.id);
 	if(obj.id > 0)
 	{
 		if(obj.type == 'Track')
 		{
 			//var name = (obj.get('name'));
 			//return name;
-			return obj;
+			return obj.id;
 		}
 		else
 		{
 			obj.goto('canonical_parent');
-			return find_root_track(obj);
+			return find_root_track_id(obj);
 		}
 	}
 	else
 	{
-		return 'Undefined';
+		return -1;
 	}
 }
 
@@ -618,13 +618,14 @@ function create_new_track()
 {
 	finder.goto('this_device');
 	var device_name = finder.get('name');
-	var root_track = find_root_track(finder);
-	var root_track_name = root_track.get('name');
+	var root_track_id = find_root_track_id(finder);
+	finder.id = Math.floor(root_track_id);
+	var root_track_name = finder.get('name');
 	debug('root track is:', root_track_name);
 
-	finder.id = drumMatrix._DrumRack_id;
+	finder.id = Math.floor(drumMatrix._DrumRack_id);
 	var drumrack_name = finder.get('name');
-	debug('drumrack_name is:', drumrack_name);
+	debug('drumrack_name is:', drumrack_name, finder.type);
 
 
 
@@ -632,13 +633,9 @@ function create_new_track()
 	finder.path = 'live_set';
 	finder.call('create_midi_track');
 	finder.goto('view', 'selected_track');
+	finder.set('name', '@drumAlias:'+drumrack_name);
 	var routings = finder.get('output_routings');
 
-	//debug('routings:', routings.length, routings);
-	//debug('indexOf:', typeof(routings), routings.indexOf(root_track_name_because_max_sux));
-	/*if(routings.indexOf(root_track_name_because_max_sux)>-1)
-	{*/
-	//debug('setting routing to:', routings.indexOf(root_track_name_because_max_sux), root_track_name_because_max_sux);
 	finder.set('current_output_routing', root_track_name);
 
 	var sub_routings = finder.get('output_sub_routings');

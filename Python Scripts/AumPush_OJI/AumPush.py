@@ -1,4 +1,5 @@
 # by amounra 0915 : http://www.aumhaa.com
+# written against Live 10.0.5 120418
 
 from __future__ import with_statement
 import Live
@@ -10,6 +11,7 @@ from re import *
 import logging
 logger = logging.getLogger(__name__)
 
+from ableton.v2.control_surface.device_chain_utils import find_instrument_devices, find_instrument_meeting_requirement
 from ableton.v2.control_surface.component import Component as ControlSurfaceComponent
 from ableton.v2.control_surface.elements.display_data_source import DisplayDataSource
 from ableton.v2.control_surface.mode import LatchingBehaviour
@@ -19,7 +21,7 @@ from ableton.v2.control_surface.resource import PrioritizedResource
 from ableton.v2.control_surface import defaults
 from ableton.v2.control_surface.components import MixerComponent, TransportComponent
 from ableton.v2.control_surface.skin import *
-from ableton.v2.base import inject, clamp, nop, const, NamedTuple, listens, listens_group, find_if, mixin, forward_property, first, NamedTuple, in_range, flatten, task
+from ableton.v2.base import liveobj_valid, inject, clamp, nop, const, NamedTuple, listens, listens_group, find_if, mixin, forward_property, first, NamedTuple, in_range, flatten, task
 from ableton.v2.control_surface import BackgroundLayer, ClipCreator, ControlSurface, DeviceBankRegistry, Layer, midi
 from ableton.v2.control_surface.components import ViewControlComponent, BackgroundComponent, ModifierBackgroundComponent, SessionNavigationComponent, SessionRingComponent, SessionOverviewComponent, ViewControlComponent
 from ableton.v2.control_surface.elements import adjust_string, ButtonElement, ButtonMatrixElement, ChoosingElement, ComboElement, DoublePressContext, MultiElement, OptionalElement, to_midi_value
@@ -27,7 +29,7 @@ from ableton.v2.control_surface.mode import CompoundMode, AddLayerMode, ModesCom
 from ableton.v2.control_surface.input_control_element import ParameterSlot
 from ableton.v2.control_surface.elements import ButtonElement
 #from ableton.v2.control_surface.components import DeviceComponent as DeviceComponentBase
-
+from ableton.v2.control_surface.percussion_instrument_finder import *
 
 from Push.push import Push
 from Push.device_navigation_component import DeviceNavigationComponent
@@ -80,6 +82,65 @@ from ModDevices import *
 
 CHANNEL_TEXT = ['Ch. 1', 'Ch. 2', 'Ch. 3', 'Ch. 4', 'Ch. 5', 'Ch. 6', 'Ch. 7', 'Ch. 8']
 
+
+def drumrack_devices(song):
+	found_drumrack_devices = []
+	for track in song.tracks:
+		if liveobj_valid(track) and track.has_midi_input:
+			for device in track.devices:
+				if liveobj_valid(device):
+					debug(device.type, device)
+				if liveobj_valid(device) and isinstance(device, Live.RackDevice.RackDevice):  # and device.has_drum_pads:
+					found_drumrack_devices.append(device)
+	#debug('found_drumrack_devices:', found_drumrack_devices)
+	return found_drumrack_devices
+
+
+class SpecialPercussionInstrumentFinder(PercussionInstrumentFinder):
+
+	def __init__(self, song = None, *a, **k):
+		self.song = song
+		super(SpecialPercussionInstrumentFinder, self).__init__(*a, **k)
+
+	def _update_instruments(self):
+		drum_group = self.find_drum_group_device(self.device_parent)
+		simpler = find_sliced_simpler(self.device_parent)
+		do_notify = liveobj_changed(drum_group, self._drum_group) or liveobj_changed(simpler, self._simpler)
+		self._drum_group = drum_group
+		self._simpler = simpler
+		if do_notify:
+			self.notify_instrument()
+
+	def find_drum_group_device(self, track_or_chain):
+		drum_device = None
+		for device in track_or_chain.devices:
+			if liveobj_valid(device):
+				if device.name.startswith('@drumAlias:'):
+					alias_name = device.name.split('@drumAlias:')[1]
+					for drumrack_device in drumrack_devices(self.song):
+						name = drumrack_device.name
+						if str(name) == str(alias_name):
+							drum_device = drumrack_device
+							break;
+		if drum_device is None:
+			requirement = lambda i: i.can_have_drum_pads
+			drum_device = find_instrument_meeting_requirement(requirement, track_or_chain)
+		return drum_device
+
+	def find_drum_group_device(self, track_or_chain):
+		drum_device = None
+		if track_or_chain.name.startswith('@drumAlias:'):
+			alias_name = track_or_chain.name.split('@drumAlias:')[1]
+			for drumrack_device in drumrack_devices(self.song):
+				name = drumrack_device.name
+				if str(name) == str(alias_name):
+					drum_device = drumrack_device
+					break;
+		if drum_device is None:
+			requirement = lambda i: i.can_have_drum_pads
+			drum_device = find_instrument_meeting_requirement(requirement, track_or_chain)
+		return drum_device
+
 class AumPush(Push):
 
 
@@ -96,7 +157,21 @@ class AumPush(Push):
 		with self.component_guard():
 			self._device_component._alt_pressed = False
 			self.set_feedback_channels(FEEDBACK_CHANNELS)
+		self.__on_selected_track_changed.subject = self.song.view
 		self.log_message('<<<<<<<<<<<<<<<<<<<<<<<< AumPush ' + str(self._monomod_version) + ' log opened >>>>>>>>>>>>>>>>>>>>>>>>')
+
+
+	@listens('selected_track')
+	def __on_selected_track_changed(self):
+		debug('_on_selected_track_changed')
+		self.__on_selected_track_name_changed.subject = self.song.view.selected_track
+
+
+	@listens('name')
+	def __on_selected_track_name_changed(self):
+		debug('_on_selected_track_name_changed')
+		self._percussion_instrument_finder.update()
+		#self._select_note_mode()
 
 
 	def _create_skin(self):
@@ -161,6 +236,11 @@ class AumPush(Push):
 																			alt_value_display_line = self.elements.display_line4 ))
 
 
+	def _create_controls(self):
+		self._percussion_instrument_finder = self.register_disconnectable(SpecialPercussionInstrumentFinder(song=self.song, device_parent=self.song.view.selected_track))
+		super(AumPush, self)._create_controls()
+
+
 	def _init_matrix_modes(self):
 		super(AumPush, self)._init_matrix_modes()
 		self._setup_mod()
@@ -180,12 +260,35 @@ class AumPush(Push):
 		self.schedule_message(1, self._select_note_mode)
 
 
+	def _create_note_mode(self):
+		return super(Push, self)._create_note_mode() + [self._percussion_instrument_finder, self._global_pad_parameters]
+
+	def _percussion_instruments_for_track(self, track):
+		#debug('_percussion_instruments_for_track.TYPE:', type(self._percussion_instrument_finder))
+		self._percussion_instrument_finder.device_parent = track
+		drum_device = self._percussion_instrument_finder.drum_group
+		sliced_simpler = self._percussion_instrument_finder.sliced_simpler
+		return (drum_device, sliced_simpler)
+
 	def _select_note_mode(self, mod_device = None):
 		if not self._main_modes.selected_mode is 'troll':
 			track = self.song.view.selected_track
 			drum_device, sliced_simpler = self._percussion_instruments_for_track(track)
 			self._drum_component.set_drum_group_device(drum_device)
 			self._slicing_component.set_simpler(sliced_simpler)
+			debug('select_note_mode drum_device is:', drum_device)
+			"""device = self._device_provider.device
+			debug('select_note_mode device is:', device)
+			if liveobj_valid(device):
+				if device.name.startswith('@drumAlias:'):
+					alias_name = device.name.split('@drumAlias:')[1]
+					debug('---------------drumAlias name is:', alias_name)
+					for drumrack_device in drumrack_devices(self.song):
+						name = drumrack_device.name
+						if str(name) == str(alias_name):
+							drum_device = drumrack_device
+							break;"""
+
 			channelized = False
 			debug('select_note_mode: ' + str(self.modhandler.active_mod()) + ' ' + str(len(track.devices)))
 			if not (self._note_modes.selected_mode is 'mod' and self.modhandler.is_locked()):
