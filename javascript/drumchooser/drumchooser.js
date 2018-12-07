@@ -192,6 +192,7 @@ function initialize(val)
     setup_dict();
 		setup_controls();
 		setup_device();
+		setup_external_input()
 		setup_notifiers();
 		setup_modes();
 		setup_pset_id();
@@ -309,6 +310,8 @@ function setup_patcher()
 	script['storage'] = this.patcher.getnamed('drumchooser_storage');
 	script['pad_pattrs'] = new Array(16);
   script['dict_obj'] = this.patcher.getnamed('dict');
+	script['MPD_Toggle'] = this.patcher.getnamed('MPD_Toggle');
+	script['MPD_Gate'] = this.patcher.getnamed('MPD_Gate');
 	for(var i=0;i<16;i++)
 	{
 		pad_pattrs[i] = this.patcher.getnamed('pad['+i+']');
@@ -338,9 +341,25 @@ function setup_device()
 	}
 }
 
+function setup_external_input()
+{
+	var callback = function(val)
+	{
+		debug('externalInput', val);
+		MPD_Gate.message(externalInputToggle._value > 0);
+		MPD_Toggle.message('set', externalInputToggle._value > 0);
+	}
+	var current_toggle_state = MPD_Toggle.getvalueof();
+	script['externalInputToggle']=new ToggledParameter('External_Input_Toggle', {'callback':callback, 'onValue':4, 'offValue':0, 'value':current_toggle_state});
+
+}
+
 function setup_notifiers()
 {
+
 }
+
+//
 
 function setup_modes()
 {
@@ -355,6 +374,7 @@ function setup_modes()
 			drumMatrix.set_solo_button(Key2Buttons[2]);
 			drumMatrix.set_mute_button(Key2Buttons[3]);
 			drumMatrix._audition.set_control(Key2Buttons[0]);
+			externalInputToggle.set_control(KeyButtons[7]);
       main_Page.set_shift_button(SelectButton);
 		}
 		main_Page.exit_mode = function()
@@ -591,6 +611,12 @@ function _trig_samp_right(val)
     drumMatrix._selected_pad._selectors[drumMatrix._selected_pad._selectedLayer._value].increase_value();
 }
 
+function _MPD_Toggle_in(val)
+{
+	debug('_MPD_Toggle_in', val);
+	externalInput.receive(val);
+}
+
 function find_root_track_id(obj)
 {
 	debug('find_root_track_id', obj.id);
@@ -614,7 +640,7 @@ function find_root_track_id(obj)
 	}
 }
 
-function create_new_track()
+function _create_new_track()
 {
 	finder.goto('this_device');
 	var device_name = finder.get('name');
