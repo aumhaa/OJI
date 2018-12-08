@@ -28,6 +28,8 @@ var alted = false;
 var shifted = false;
 var selected = false;
 
+var selectedPortOutput = undefined;
+
 var DRUMCHOOSER_BANKS = {'MultiSampler':[['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']]};
 									//['Mod_Chain_Vol_0', 'Mod_Chain_Vol_1', 'Mod_Chain_Vol_2', 'Mod_Chain_Vol_3']]};
 var TRANS = [48, 49, 50, 51, 44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39];
@@ -640,6 +642,12 @@ function find_root_track_id(obj)
 	}
 }
 
+function selected_port_output(port_name)
+{
+	var selectedPortOutput = port_name;
+	debug('selectedPortOutput', selectedPortOutput);
+}
+
 function _create_new_track()
 {
 	finder.goto('this_device');
@@ -660,11 +668,21 @@ function _create_new_track()
 	finder.call('create_midi_track');
 	finder.goto('view', 'selected_track');
 	finder.set('name', '@drumAlias:'+drumrack_name);
-	var routings = finder.get('output_routings');
+	var output_routings = finder.get('output_routings');
+	var input_routings = finder.get('input_routings');
+	var sub_routings = finder.get('output_sub_routings');
 
 	finder.set('current_output_routing', root_track_name);
 
-	var sub_routings = finder.get('output_sub_routings');
+	for(var i in input_routings){
+		debug('input_routings', i, ':', input_routings[i]);
+		if(input_routings[i].indexOf('Drumchooser')>-1){
+			finder.set('current_input_routing', input_routings[i]);
+			break;
+		}
+	}
+	//finder.set('current_input_routing', selectedPortOutput);
+
 	//var sub_routings = finder.get('available_output_routing_channels');
 	/*for(var i in sub_routings){
 		debug('entry:', i, sub_routings[i])
