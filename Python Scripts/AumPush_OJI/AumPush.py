@@ -19,7 +19,7 @@ from ableton.v2.control_surface.mode import LatchingBehaviour
 
 from ableton.v2.control_surface.resource import PrioritizedResource
 from ableton.v2.control_surface import defaults
-from ableton.v2.control_surface.components import MixerComponent, TransportComponent
+from ableton.v2.control_surface.components import MixerComponent, TransportComponent, ClipSlotComponent, SceneComponent, SessionComponent
 from ableton.v2.control_surface.skin import *
 from ableton.v2.base import liveobj_valid, inject, clamp, nop, const, NamedTuple, listens, listens_group, find_if, mixin, forward_property, first, NamedTuple, in_range, flatten, task
 from ableton.v2.control_surface import BackgroundLayer, ClipCreator, ControlSurface, DeviceBankRegistry, Layer, midi
@@ -61,7 +61,7 @@ from pushbase.consts import *
 #from pushbase.scrollable_list_component import ScrollableListWithTogglesComponent
 from pushbase.device_parameter_component import DeviceParameterComponent
 from pushbase.skin_default import make_default_skin
-
+from pushbase.special_session_component import SpecialSessionComponent as SpecialSessionComponentBase, SpecialSceneComponent as SpecialSceneComponentBase, SpecialClipSlotComponent as SpecialClipSlotComponentBase
 
 from aumhaa.v2.control_surface.components.mono_device import MonoDeviceComponent
 from aumhaa.v2.control_surface.components.device_selector import DeviceSelectorComponent
@@ -72,7 +72,7 @@ from aumhaa.v2.control_surface.mod_devices import *
 from aumhaa.v2.control_surface.components.mono_instrument import *
 from aumhaa.v2.base.debug import *
 from aumhaa.v2.control_surface.mod import *
-from aumhaa.v2.control_surface.components.m4l_interface import M4LInterfaceComponent
+#from aumhaa.v2.control_surface.components.m4l_interface import M4LInterfaceComponent
 
 from .Map import *
 
@@ -95,6 +95,75 @@ def drumrack_devices(song):
 	#debug('found_drumrack_devices:', found_drumrack_devices)
 	return found_drumrack_devices
 
+
+
+class SpecialClipSlotComponent(SpecialClipSlotComponentBase, Messenger):
+
+	def test(self):
+		pass
+
+
+class SpecialSceneComponent(SpecialSceneComponentBase, Messenger):
+
+	clip_slot_component_type = SpecialClipSlotComponent
+
+	def __init__(self, *a, **k):
+		super(SpecialSceneComponent, self).__init__(*a, **k)
+		self._shift_button = None
+
+
+	def set_select_button(self, button):
+		debug('set_select_button:', button)
+		self._select_button = button
+
+	def set_shift_button(self, button):
+		debug('set_shift_button:', button)
+		self._shift_button = button
+
+	def _on_launch_button_pressed(self):
+		debug('on_launch_button_pressed')
+		debug('self._select_button:', self._select_button)
+		if self._shift_button and self._shift_button.is_pressed():
+			self._do_launch_record_enabled_clips_in_scene(self._scene, True)
+		if self._select_button and self._select_button.is_pressed():
+			self._do_select_scene(self._scene)
+			debug('about to launch scene with select_button pressed')
+			for clip_slot in self._scene.clip_slots:
+				debug('clip_slot track is armed:', clip_slot.canonical_parent.arm)
+				clip_slot.canonical_parent.arm and clip_slot.fire()
+		elif liveobj_valid(self._scene):
+			if self._delete_button and self._delete_button.is_pressed():
+				self._do_delete_scene(self._scene)
+			else:
+				self._do_launch_scene(True)
+
+
+	def _do_launch_record_enabled_clips_in_scene(self, scene, value):
+		launched = False
+		if self.launch_button.is_momentary:
+			self._scene.set_fire_button_state(value != 0)
+			launched = value != 0
+		elif value != 0:
+			for clip_slot in scene.clip_slots:
+				clip_slot.canonical_parent.arm  and clip_slot.fire()
+			launched = True
+		if launched and self.song.select_on_launch:
+			self.song.view.selected_scene = self._scene
+
+
+
+class SpecialSessionComponent(SpecialSessionComponentBase):
+
+	scene_component_type = SpecialSceneComponent
+
+	def set_select_button(self, button):
+		debug('setting select_button:', button)
+		for scene in self._scenes:
+			scene.set_select_button(button)
+
+	def set_shift_button(self, button):
+		for scene in self._scenes:
+			scene.set_shift_button(button)
 
 class SpecialPercussionInstrumentFinder(PercussionInstrumentFinder):
 
@@ -160,6 +229,12 @@ class AumPush(Push):
 		self.__on_selected_track_changed.subject = self.song.view
 		self.log_message('<<<<<<<<<<<<<<<<<<<<<<<< AumPush ' + str(self._monomod_version) + ' log opened >>>>>>>>>>>>>>>>>>>>>>>>')
 
+
+	def _instantiate_session(self):
+		return SpecialSessionComponent(session_ring=self._session_ring, is_enabled=False, auto_name=True, fixed_length_recording=self._create_fixed_length_recording(), layer=self._create_session_layer())
+
+	def _create_session_layer(self):
+		return Layer(select_button = u'select_button', clip_launch_buttons=u'matrix', scene_launch_buttons=u'side_buttons', duplicate_button=u'duplicate_button', touch_strip=u'touch_strip_control')
 
 	@listens('selected_track')
 	def __on_selected_track_changed(self):
