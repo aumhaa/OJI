@@ -1,8 +1,8 @@
 autowatch = 1;
 
 aumhaa = require('_base');
-var FORCELOAD = true;
-var DEBUG = true;
+var FORCELOAD = false;
+var DEBUG = false;
 aumhaa.init(this);
 var script = this;
 
@@ -669,13 +669,24 @@ function _create_new_track()
 	finder.goto('view', 'selected_track');
 	finder.set('name', '@drumAlias:'+drumrack_name);
 	var output_routings = finder.get('output_routings');
+	debug('output_routings:', output_routings);
+
 	var input_routings = finder.get('input_routings');
-	var sub_routings = finder.get('output_sub_routings');
+	debug('input_routings', input_routings);
+
+
+	/*
+	var available_sub_routings = finder.get('available_output_routing_channels');
+	debug('output_sub_routings:', available_sub_routings[0].length, available_sub_routings[0]);
+	for(var i in available_sub_routings[0]){
+		debug(i, available_sub_routings[0][i]);
+	}
+	*/
 
 	finder.set('current_output_routing', root_track_name);
 
 	for(var i in input_routings){
-		debug('input_routings', i, ':', input_routings[i]);
+		//debug('input_routings', i, ':', input_routings[i]);
 		if(input_routings[i].indexOf('Drumchooser')>-1){
 			finder.set('current_input_routing', input_routings[i]);
 			break;
@@ -690,7 +701,10 @@ function _create_new_track()
 			debug('sub_entry:', j, sub_routings[i][j])
 		}
 	}*/
-	//debug('sub_routings:', sub_routings);
+
+	var sub_routings = finder.get('output_sub_routings');
+	debug('sub_routings:', sub_routings);
+
 	finder.set('current_output_sub_routing', sub_routings[1]);
 	//}
 	ARM_NEW_TRACK_EXPLICITLY&&finder.set('arm', 1);
