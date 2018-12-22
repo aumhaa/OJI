@@ -1,6 +1,7 @@
 autowatch = 1;
 
 aumhaa = require('_base');
+var ROLI = require('ROLI');
 var FORCELOAD = false;
 var DEBUG = false;
 aumhaa.init(this);
@@ -23,12 +24,16 @@ var name_listener;
 var device_name = '';
 var NOTE_DURATION = '8n';
 var PreInitVars = {'dc_pset':undefined, 'pgm':undefined};
-
+var guiPads = [];
+var guiKeys = [];
+var guiKeys2 = [];
+var guiShift, guiAlt;
 var alted = false;
 var shifted = false;
 var selected = false;
 
 var selectedPortOutput = undefined;
+
 
 var DRUMCHOOSER_BANKS = {'MultiSampler':[['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']]};
 									//['Mod_Chain_Vol_0', 'Mod_Chain_Vol_1', 'Mod_Chain_Vol_2', 'Mod_Chain_Vol_3']]};
@@ -185,7 +190,7 @@ function initialize(val)
 {
 	if(val>0)
 	{
-		debug('drumchooser initialize\n');
+		debug('drumchooser initialize.');
 		setup_tasks();
 		setup_translations();
 		setup_colors();
@@ -194,7 +199,8 @@ function initialize(val)
     setup_dict();
 		setup_controls();
 		setup_device();
-		setup_external_input()
+		setup_external_input();
+		setup_gridGUI();
 		setup_notifiers();
 		setup_modes();
 		setup_pset_id();
@@ -223,11 +229,53 @@ function setup_translations()
 function setup_colors()
 {
 	mod.Send( 'set_color_map', 'RGB', 0, 8, 16, 24, 32, 40, 48, 56, 64, 72);
+	script['PALETTE'] = ROLI.PALETTE;
+	script['colors'] = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
+	script['PushColors'] = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 }
 
 function setup_controls()
 {
 	//debug('setup controls!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+
+
+	var make_grid_send_func = function()
+	{
+		var args = arrayfromargs(arguments);
+		var func = function(value)
+		{
+			mod.Send(args[0], args[1], args[2], args[3], value);
+			var COLOR = PALETTE[value<0?0:value];
+			guiPads[args[2] + (args[3]*8)].message('bgcolor', COLOR[0], COLOR[1], COLOR[2], COLOR[3]);
+			//miraPads[args[2] + (args[3]*8)].message('text', '');
+		}
+		return func;
+	}
+
+	var make_key_send_func = function()
+	{
+		var args = arrayfromargs(arguments);
+		var func = function(value)
+		{
+			mod.Send(args[0], args[1], args[2], value);
+			var COLOR = PALETTE[value<0?0:value];
+			guiKeys[args[2]].message('bgcolor', COLOR[0], COLOR[1], COLOR[2], 1);
+		}
+		return func;
+	}
+
+	var make_key2_send_func = function()
+	{
+		var args = arrayfromargs(arguments);
+		var func = function(value)
+		{
+			mod.Send(args[0], args[1], args[2], value);
+			var COLOR = PALETTE[value<0?0:value];
+			guiKeys2[args[2]].message('bgcolor', COLOR[0], COLOR[1], COLOR[2], 1);
+		}
+		return func;
+	}
+
 	script['GridControlRegistry'] = new ControlRegistry('GridRegistry');
 	script['GridButtons'] = [];
 	script['Grid'] = new GridClass(8, 8, 'Grid');
@@ -237,25 +285,28 @@ function setup_controls()
 		for(var y=0;y<8;y++)
 		{
 			var id = x+(y*8);
-			GridButtons[x][y] = new ButtonClass(id, 'Button_'+id, make_send_func('grid', 'value', x, y));
+			GridButtons[x][y] = new ButtonClass(id, 'Button_'+id, make_grid_send_func('grid', 'value', x, y));
 			GridControlRegistry.register_control(id, GridButtons[x][y]);
 			Grid.add_control(x, y, GridButtons[x][y]);
 		}
 	}
+
 	script['KeyControlRegistry'] = new ControlRegistry('KeyRegistry');
 	script['KeyButtons'] = [];
 	for(var id=0;id<8;id++)
 	{
-		KeyButtons[id] = new ButtonClass(id, 'Key_'+id, make_send_func('key', 'value', id));
+		KeyButtons[id] = new ButtonClass(id, 'Key_'+id, make_key_send_func('key', 'value', id));
 		KeyControlRegistry.register_control(id, KeyButtons[id]);
 	}
+
 	script['Key2ControlRegistry'] = new ControlRegistry('Key2Registry');
 	script['Key2Buttons'] = [];
 	for(var id=0;id<8;id++)
 	{
-		Key2Buttons[id] = new ButtonClass(id, 'Key2_'+id, make_send_func('key2', 'value', id));
+		Key2Buttons[id] = new ButtonClass(id, 'Key2_'+id, make_key2_send_func('key2', 'value', id));
 		Key2ControlRegistry.register_control(id, Key2Buttons[id]);
 	}
+
   script['ExternalInputRegistry'] = new ControlRegistry('ExternalInputRegistry');
 	script['ExternalInput'] = [];
 	script['ExternalGrid'] = new GridClass(4, 4, 'ExternalGrid');
@@ -270,37 +321,40 @@ function setup_controls()
 			ExternalGrid.add_control(x, y, ExternalInput[x][y]);
 		}
 	}
+
 	script['DialControlRegistry'] = new ControlRegistry('DialRegistry')
 	script['DetentDial'] = new ControlClass(0, 'DetentDial', make_send_func('detent_dial', 'value'));
 	DialControlRegistry.register_control(0, DetentDial);
-	script['_grid'] = function(x, y, val)
-	{
-		GridControlRegistry.receive(x+(y*8), val);
-	}
-	script['_key'] = function(x, val)
-	{
-		KeyControlRegistry.receive(x, val);
-	}
-	script['_key2'] = function(x, val)
-	{
-		Key2ControlRegistry.receive(x, val);
-	}
-	script['_detent_dial'] = function(val)
-	{
-		DialControlRegistry.receive(0, val);
-	}
-  script['_external_in'] = function(x, val)
-  {
-    ExternalInputRegistry.receive(x, val);
-  }
+
+	script['_grid'] = function(x, y, val){GridControlRegistry.receive(x+(y*8), val);}
+	script['_key'] = function(x, val){KeyControlRegistry.receive(x, val);}
+	script['_key2'] = function(x, val){Key2ControlRegistry.receive(x, val);}
+	script['_detent_dial'] = function(val){DialControlRegistry.receive(0, val);}
+  script['_external_in'] = function(x, val){ExternalInputRegistry.receive(x, val);}
+
   script['ModifierRegistry'] = new ControlRegistry('ModifierRegistry');
   script['SelectButton'] = new ButtonClass(0, 'SelectButton', function(){});
   ModifierRegistry.register_control(0, SelectButton);
-  script['_select'] = function(val)
-  {
-    debug('select in:', val);
-    ModifierRegistry.receive(0, val);
-  }
+  script['_select'] = function(val){ModifierRegistry.receive(0, val);}
+
+
+	script['_gui_GridOutput'] = function(x, y, val){
+		_grid(x, y, 100);
+		_grid(x, y, 0);
+	}
+	script['_gui_KeyOutput'] = function(x, y, val){
+		debug('_gui_KeyOutput', x, y, val)
+		if(y){
+			_key2(x, 100);
+			_key2(x, 0);
+		}
+		else{
+			_key(x, 100);
+			_key(x, 0);
+		}
+	}
+	script['_gui_ShiftOutput'] = _shift;
+	script['_gui_AltOutput'] = _alt;
 
   //script['select_button'] = new ButtonClass(0, 'SelectButton', make_send_func('shift', 'value'));
 
@@ -312,12 +366,23 @@ function setup_patcher()
 	script['storage'] = this.patcher.getnamed('drumchooser_storage');
 	script['pad_pattrs'] = new Array(16);
   script['dict_obj'] = this.patcher.getnamed('dict');
-	script['MPD_Toggle'] = this.patcher.getnamed('MPD_Toggle');
+	script['MPD_Toggle_gui'] = this.patcher.getnamed('MPD_Toggle_gui');
 	script['MPD_Gate'] = this.patcher.getnamed('MPD_Gate');
 	for(var i=0;i<16;i++)
 	{
 		pad_pattrs[i] = this.patcher.getnamed('pad['+i+']');
 	}
+	for(var i = 0;i < 64;i++)
+	{
+		guiPads[i] = this.patcher.getnamed('grid_gui').subpatcher().getnamed('cell['+i+']');
+	}
+	for(var i = 0;i < 8;i++)
+	{
+		guiKeys[i] = this.patcher.getnamed('grid_gui').subpatcher().getnamed('key['+i+']');
+		guiKeys2[i] = this.patcher.getnamed('grid_gui').subpatcher().getnamed('key2['+i+']');
+	}
+	guiShift = this.patcher.getnamed('grid_gui').subpatcher().getnamed('shift_toggle');
+	guiAlt = this.patcher.getnamed('grid_gui').subpatcher().getnamed('alt_toggle');
 }
 
 function setup_api()
@@ -349,11 +414,31 @@ function setup_external_input()
 	{
 		debug('externalInput', val);
 		MPD_Gate.message(externalInputToggle._value > 0);
-		MPD_Toggle.message('set', externalInputToggle._value > 0);
+		MPD_Toggle_gui.message('set', externalInputToggle._value > 0);
 	}
-	var current_toggle_state = MPD_Toggle.getvalueof();
+	var current_toggle_state = MPD_Toggle_gui.getvalueof();
 	script['externalInputToggle']=new ToggledParameter('External_Input_Toggle', {'callback':callback, 'onValue':4, 'offValue':0, 'value':current_toggle_state});
 
+}
+
+function setup_gridGUI()
+{
+	script['gridGUI_button']=this.patcher.getnamed('gridGUI_button');
+	var obj = this.patcher.getnamed('grid_gui');
+	var pcontrol = undefined;  //this.patcher.getnamed('gridGUI_pcontrol');
+	var thispatcher = obj.subpatcher().getnamed('thispatcher');
+	var window_position = obj.subpatcher().getnamed('window_position');
+	script['gridGUI'] = new FloatingWindowModule('GridGUI', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':373, 'sizeY':550, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
+	script['gridGUI_close'] = function(val){
+		gridGUI.close();
+		gridGUI_button.message('set', 0);
+	}
+	gridGUI.lock();
+	/*GUI = function(val){
+		debug('_GUI:', val);
+		val&&gridGUI.open()||gridGUI.close();
+	}*/
+	//gridGUI.open();
 }
 
 function setup_notifiers()
@@ -613,12 +698,21 @@ function _trig_samp_right(val)
     drumMatrix._selected_pad._selectors[drumMatrix._selected_pad._selectedLayer._value].increase_value();
 }
 
-function _MPD_Toggle_in(val)
+function _MPD_Toggle(val)
 {
-	debug('_MPD_Toggle_in', val);
-	externalInput.receive(val);
+	debug('_MPD_Toggle', val);
+	externalInputToggle
+
+
+
+	.receive(val);
 }
 
+function _GUI(val)
+{
+	debug('_GUI:', val);
+	val&&gridGUI.open()||gridGUI.close();
+}
 function find_root_track_id(obj)
 {
 	debug('find_root_track_id', obj.id);
