@@ -35,7 +35,15 @@ var selected = false;
 var selectedPortOutput = undefined;
 
 
-var DRUMCHOOSER_BANKS = {'MultiSampler':[['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']]};
+var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice'];
+
+var DRUMCHOOSER_BANKS = {};
+for(var i in DEVICE_TYPES)
+{
+	DRUMCHOOSER_BANKS[DEVICE_TYPES[i]] = [['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']];
+}
+
+//var DRUMCHOOSER_BANKS = {'MultiSampler':[['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']]};
 									//['Mod_Chain_Vol_0', 'Mod_Chain_Vol_1', 'Mod_Chain_Vol_2', 'Mod_Chain_Vol_3']]};
 var TRANS = [48, 49, 50, 51, 44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39];
 
@@ -446,8 +454,6 @@ function setup_notifiers()
 
 }
 
-//
-
 function setup_modes()
 {
 	if(drumMatrix!=undefined)
@@ -713,6 +719,7 @@ function _GUI(val)
 	debug('_GUI:', val);
 	val&&gridGUI.open()||gridGUI.close();
 }
+
 function find_root_track_id(obj)
 {
 	debug('find_root_track_id', obj.id);
@@ -1210,7 +1217,6 @@ DrumPad.prototype.update = function(grid)
 	this.update_solo();
 	if(this._selected)
 	{
-		this._apiView.set('selected_chain', 'id', Math.floor(this._solos[this._selectedLayer._value]._apiObj.id));
 
 		//debug('id will be:', Math.floor(this._devices[this._selectedLayer._value].id));
 		mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  Math.floor(this._devices[this._selectedLayer._value].id));
@@ -1218,6 +1224,9 @@ DrumPad.prototype.update = function(grid)
 		mod.Send( 'push_value_display', 'value', 0, this._selectedLayer._value);
 		mod.Send( 'push_name_display', 'value', 2, 'DeviceName');
 		mod.Send( 'push_value_display', 'value', 2, this._devices[this._selectedLayer._value].get('name'));
+
+		//the idea here is to set the currently viewed device in Live's GUI to the selected Layer's device....however, it disrupts selection of the correct Parameters on Push
+		//this._apiView.set('selected_chain', 'id', Math.floor(this._solos[this._selectedLayer._value]._apiObj.id));
 
 		DetentDial.set_target(this._detent_dial_callback.bind(this));
 
