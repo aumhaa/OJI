@@ -48,7 +48,7 @@ for(var i in DEVICE_TYPES)
 									//['Mod_Chain_Vol_0', 'Mod_Chain_Vol_1', 'Mod_Chain_Vol_2', 'Mod_Chain_Vol_3']]};
 var TRANS = [48, 49, 50, 51, 44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39];
 
-var ACTIVATE_NEWLY_SELECTED_LAYER = true;
+var ACTIVATE_NEWLY_SELECTED_LAYER = false;
 var ARM_NEW_TRACK_EXPLICITLY = true;
 
 if (!Array.prototype.indexOf) {
