@@ -10,8 +10,8 @@ var uid = jsarguments[1];
 var unique = jsarguments[1];
 
 aumhaa = require('_base');
-var FORCELOAD = true;
-var DEBUG = true;
+var FORCELOAD = false;
+var DEBUG = false;
 aumhaa.init(this);
 
 var finder;

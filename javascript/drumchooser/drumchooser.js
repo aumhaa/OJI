@@ -34,6 +34,7 @@ var selected = false;
 
 var selectedPortOutput = undefined;
 
+var OUTPUT_VELOCITY = 127;
 
 var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice'];
 
@@ -1183,7 +1184,7 @@ DrumPad.prototype.audition_selected_sample = function(obj)
 	}
 	else
 	{
-		makenote.message('list', this._note, 110, NOTE_DURATION);
+		makenote.message('list', this._note, OUTPUT_VELOCITY, NOTE_DURATION);
 	}
 }
 
@@ -1206,7 +1207,7 @@ DrumPad.prototype._view_callback = function(args)
 
 DrumPad.prototype._Callback = function(obj)
 {
-	if(obj){outlet(0, this._note, obj._value);  this.receive(obj._value);}
+	if(obj){outlet(0, this._note, obj._value ? OUTPUT_VELOCITY : 0);  this.receive(obj._value);}
 }
 
 DrumPad.prototype.update_control = function(){if(this._control){this._control.send(this._value ? this._onValue : this._selected ? this._selectedValue : this._offValue);}}
