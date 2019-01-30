@@ -38,6 +38,7 @@ from Push.navigation_node import make_navigation_node, RackNode
 from Push.special_chan_strip_component import SpecialChanStripComponent
 from Push.special_mixer_component import SpecialMixerComponent
 from Push.mode_behaviours import CancellableBehaviour
+from Push.with_priority import WithPriority
 from Push import sysex
 
 from pushbase.value_component import ValueComponent, ParameterValueComponent, ValueDisplayComponent, ParameterValueDisplayComponent
@@ -53,7 +54,10 @@ from pushbase.control_element_factory import create_sysex_element
 from pushbase.touch_encoder_element import TouchEncoderElement
 from pushbase.touch_strip_element import TouchStripElement
 from pushbase.touch_strip_controller import TouchStripControllerComponent, TouchStripEncoderConnection
+from pushbase.note_editor_component import NoteEditorComponent
 from pushbase.selection import PushSelection
+from pushbase.velocity_levels_component import VelocityLevelsComponent
+from pushbase.step_seq_component import DrumStepSeqComponent
 #from pushbase.accent_component import AccentComponent
 #from pushbase.auto_arm_component import AutoArmComponent
 from pushbase.matrix_maps import *
@@ -210,10 +214,74 @@ class SpecialPercussionInstrumentFinder(PercussionInstrumentFinder):
 			drum_device = find_instrument_meeting_requirement(requirement, track_or_chain)
 		return drum_device
 
+class AumPushDrumStepSeqComponent(DrumStepSeqComponent):
+
+	def set_repeat_button(self, button):
+		self._note_editor.repeat_button.set_control_element(button)
+
+
+class AumPushNoteEditorComponent(NoteEditorComponent):
+
+	repeat_button = ButtonControl(color=u'DefaultButton.Transparent')
+
+	def _on_press_step(self, step):
+		debug('NoteEditor._on_press_step:', step)
+		if liveobj_valid(self._sequencer_clip) and step not in self._pressed_steps and step not in self._modified_steps:
+			if self._step_duplicator.is_duplicating:
+				self._add_step_to_duplicator(step)
+			else:
+				self._step_tap_tasks[step].restart()
+				continued_step = self._find_continued_step(step)
+				if continued_step:
+					self._modify_length_of_notes_within_existing_step(continued_step, step)
+				else:
+					debug('not continued')
+					self._pressed_steps.append(step)
+					debug('pressed_steps:', self._pressed_steps)
+				self._velocity_provider.set_velocities_playable(False)
+		self.notify_active_steps()
+		self.notify_active_note_regions()
+
+	def _add_new_note_in_step(self, step, pitch, time):
+		debug('repeat_button.is_pressed:', self.repeat_button.is_pressed)
+		if self.repeat_button.is_pressed:
+			mute = self.mute_button.is_pressed
+			velocity = 127 if self.full_velocity else self._velocity_provider.velocity
+			length = self._get_step_length()/4
+			note = (pitch,
+			 time,
+			 length,
+			 velocity,
+			 mute)
+			note1 = (pitch,
+			 time+length,
+			 length,
+			 velocity,
+			 mute)
+			note2 = (pitch,
+			 time+(length*2),
+			 length,
+			 velocity,
+			 mute)
+			note3 = (pitch,
+			 time+(length*3),
+			 length,
+			 velocity,
+			 mute)
+			self._sequencer_clip.set_notes((note,note1,note2,note3))
+			self._sequencer_clip.deselect_all_notes()
+			self._trigger_modification(step, done=True)
+			debug('_add_new_note_in_step', step, pitch, time)
+		else:
+			super(AumPushNoteEditorComponent, self)._add_new_note_in_step(step, pitch, time)
+
+
 class AumPush(Push):
 
 
 	device_provider_class = ModDeviceProvider
+	note_editor_class = AumPushNoteEditorComponent
+	drum_sequencer_type = AumPushDrumStepSeqComponent
 
 	def __init__(self, c_instance):
 		self._monomod_version = 'b996'
@@ -228,6 +296,20 @@ class AumPush(Push):
 			self.set_feedback_channels(FEEDBACK_CHANNELS)
 		self.__on_selected_track_changed.subject = self.song.view
 		self.log_message('<<<<<<<<<<<<<<<<<<<<<<<< AumPush ' + str(self._monomod_version) + ' log opened >>>>>>>>>>>>>>>>>>>>>>>>')
+
+
+	def _init_drum_step_sequencer(self):
+		self._drum_velocity_levels = VelocityLevelsComponent(target_note_provider=self._drum_component, skin_base_key=self.drum_group_velocity_levels_skin, is_enabled=False, layer=Layer(velocity_levels=u'velocity_levels_element', select_button=u'select_button'))
+		drum_note_editor = self.note_editor_class(clip_creator=self._clip_creator, grid_resolution=self._grid_resolution, skin_base_key=self.drum_group_note_editor_skin, velocity_provider=self._drum_velocity_levels, velocity_range_thresholds=self.note_editor_velocity_range_thresholds)
+		self._note_editor_settings_component.add_editor(drum_note_editor)
+		self._drum_step_sequencer = self.drum_sequencer_type(self._clip_creator, self._skin, name=u'Drum_Step_Sequencer', grid_resolution=self._grid_resolution, note_editor_component=drum_note_editor, instrument_component=self._drum_component, is_enabled=False)
+		self._drum_step_sequencer.layer = self._create_drum_step_sequencer_layer()
+		self._audio_loop = LoopSelectorComponent(follow_detail_clip=True, name=u'Loop_Selector', default_size=8)
+		self._audio_loop.set_enabled(False)
+		self._audio_loop.layer = Layer(loop_selector_matrix=u'matrix')
+
+	def _create_drum_step_sequencer_layer(self):
+		return Layer(playhead=u'playhead_element', full_velocity=u'full_velocity_element', accent_button=u'accent_button', button_matrix=self.elements.matrix.submatrix[:8, :4], quantization_buttons=u'side_buttons', solo_button=u'global_solo_button', select_button=u'select_button', delete_button=u'delete_button', mute_button=u'global_mute_button', duplicate_button=u'duplicate_button', repeat_button = WithPriority(SHARED_PRIORITY, u'repeat_button'))
 
 
 	def _instantiate_session(self):
@@ -273,10 +355,6 @@ class AumPush(Push):
 				del settings['aftertouch_threshold']
 				self._user.settings = settings
 		self._device_provider.reevaluate_device()
-
-
-	def _init_value_components(self):
-		debug('init value components')
 
 
 	def _setup_mod(self):
