@@ -32,6 +32,8 @@ function anything(){
 	debug('anything:', messagename, arrayfromargs(arguments));
 }
 
+function note_in(){}
+
 function init(){
 	debug('init', script._name);
 	mod = new ModProxy(script, ['Send', 'SendDirect', 'restart']);
