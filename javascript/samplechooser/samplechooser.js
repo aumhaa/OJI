@@ -10,8 +10,8 @@ var uid = jsarguments[1];
 var unique = jsarguments[1];
 
 aumhaa = require('_base');
-var FORCELOAD = true;
-var DEBUG = true;
+var FORCELOAD = false;
+var DEBUG = false;
 aumhaa.init(this);
 
 var finder;
@@ -26,7 +26,7 @@ var Alive = false;
 var colors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 var PushColors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 
-var AUDITION_NOTE = 36;
+var AUDITION_NOTE = 60;
 
 function anything(){
 	debug('anything:', messagename, arrayfromargs(arguments));
