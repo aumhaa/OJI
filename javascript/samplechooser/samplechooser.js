@@ -230,7 +230,7 @@ function _redetect_adjacent_rack(){
 
 function audition(obj){
 	debug('audition...');
-	obj._value||outlet(0, 36, 127, '4n');
+	obj._value||outlet(0, AUDITION_NOTE, 127, '4n');
 }
 
 
