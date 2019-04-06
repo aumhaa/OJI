@@ -28,6 +28,15 @@ var PushColors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5
 
 var AUDITION_NOTE = 60;
 
+
+var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice'];
+
+var DRUMCHOOSER_BANKS = {};
+for(var i in DEVICE_TYPES)
+{
+	DRUMCHOOSER_BANKS[DEVICE_TYPES[i]] = [['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']];
+}
+
 function anything(){
 	debug('anything:', messagename, arrayfromargs(arguments));
 }
@@ -50,11 +59,14 @@ function init(){
 	setup_controls();
 	setup_dict();
 	setup_components();
+	setup_device();
 	setup_modes();
 	setup_listeners();
 	setup_storage();
 	setup_global_link();
 	deprivatize_script_functions(this);
+
+	update_background();
 
 	Alive = true;
 }
@@ -99,11 +111,14 @@ function setup_patchers(){
 function setup_controls(){
 	script['GridControlRegistry'] = new ControlRegistry('GridRegistry');
 	script['KeysControlRegistry'] = new ControlRegistry('KeysRegistry');
+	script['Keys2ControlRegistry'] = new ControlRegistry('Keys2Registry');
 	script['grid'] = [];
 	script['raw_grid'] = [];
 	script['KeyButtons'] = [];
+	script['Key2Buttons'] = [];
 	script['Grid'] = new GridClass(8, 8, 'Grid');
 	script['Keys'] = new GridClass(8, 1, 'Keys');
+	script['Keys2'] = new GridClass(8, 1, 'Keys2');
 	script['ShiftButton'] = new ButtonClass('shift', 'Shift', function(){});
 	script['AltButton'] = new ButtonClass('alt', 'Alt', function(){});
 	script['LayerDial'] = new GUI_Element('LayerDial'); // {'send':function(val){layer.message('set', val);} });
@@ -145,15 +160,23 @@ function setup_controls(){
 	for(var id=0;id<8;id++)
 	{
 		KeyButtons[id] = new ButtonClass(id, 'Key_'+id, make_send_func('key', 'value', id));
+		Key2Buttons[id] = new ButtonClass(id, 'Key2_'+id, make_send_func('key2', 'value', id));
 		KeysControlRegistry.register_control(id, KeyButtons[id]);
+		Keys2ControlRegistry.register_control(id, Key2Buttons[id]);
 		Keys.add_control(id, 0, KeyButtons[id]);
+		Keys2.add_control(id, 0, Key2Buttons[id]);
 	}
+
+	//script['DetentDial'] = new ControlClass(0, 'DetentDial', {'_send':make_send_func('detent_dial', 'value')});
+
 
 	script['_grid'] = function(x, y, val){GridControlRegistry.receive(x+(y*8), val);}
 	script['_key'] = function(num, val){KeysControlRegistry.receive(num, val);}
+	script['_key2'] = function(num, val){Keys2ControlRegistry.receive(num, val);}
 	script['_shift'] = function(val){ShiftButton.receive(val);}
 	script['_alt'] = function(val){AltButton.receive(val);}
 	script['_IN_layer'] = function(val){LayerDial.receive(val);}
+	//script['_detent_dial'] = function(val){DetentDial.receive(val);}
 }
 
 function setup_dict(){
@@ -161,10 +184,24 @@ function setup_dict(){
 }
 
 function setup_components(){
-	layerChooser = new PagedRadioComponent('LayerChooser', 0, 64, 0, undefined, 1, 5, {'play_callback':audition});
+	layerChooser = new PagedRadioComponent('LayerChooser', 0, 128, 0, undefined, 1, 11, {'play_callback':audition});
 	rackDevice = new RackDevice('RackDevice');
 	rackDevice.set_layerChooser(layerChooser);
 	layerChooser.set_target(rackDevice.set_parameter_value);
+}
+
+function setup_device(){
+	mod.Send('receive_device', 'set_mod_device_type', 'DrumChooser');
+	mod.Send( 'receive_device', 'set_number_params', 8);
+	//detect_adjacent_drumrack();
+	for(var dev_type in DRUMCHOOSER_BANKS)
+	{
+		for(var bank_num in DRUMCHOOSER_BANKS[dev_type])
+		{
+			mod.SendDirect('receive_device_proxy', 'set_bank_dict_entry', dev_type, bank_num, DRUMCHOOSER_BANKS[dev_type][bank_num]);
+		}
+		//mod.Send('receive_device_proxy', 'update_parameters');
+	}
 }
 
 function setup_modes(){
@@ -175,6 +212,8 @@ function setup_modes(){
 		debug('mainPage entered');
 		layerChooser.set_controls(Grid);
 		layerChooser.activeLayer.set_control(LayerDial);
+		layerChooser._page_offset.set_control(Key2Buttons[1]);
+		//layerChooser._detentDialValue.set_control(DetentDial);
 	}
 	mainPage.exit_mode = function()
 	{
@@ -204,7 +243,6 @@ function setup_modes(){
 }
 
 function setup_listeners(){
-	//layerChooser.add_listener(update_layerDial);
 }
 
 function setup_storage(){}
@@ -213,6 +251,9 @@ function setup_global_link(){}
 
 
 
+function _detent_dial(val){
+	layerChooser._detent_dial_callback({'_value':val})
+}
 
 function update_layerDial(){
 	debug('update_layerDial', layer.getvalueof(), layerChooser._value);
@@ -226,15 +267,58 @@ function layerDial_update_callback(){
 	layer.message('set', layerChooser._value);
 }
 
+function set_audition_note(val){
+	AUDITION_NOTE = Math.min(127, Math.max(0, val));
+	audition({'_value':0});
+}
+
 function _redetect_adjacent_rack(){
 	rackDevice.detect_next_device_in_track();
 }
 
 function audition(obj){
-	debug('audition...');
-	obj._value||outlet(0, AUDITION_NOTE, 127, '4n');
+	if(obj){
+		obj._value&&outlet(0, AUDITION_NOTE, 127, '4n');
+	}
+	else{
+		outlet(0, AUDITION_NOTE, 127, '4n');
+	}
 }
 
+function _Audition(val){
+	if(val){
+		audition({'_value':0});
+	}
+	audition_button.message('set', 0);
+}
+
+function _Inc(val){
+	if(val){
+		//layer.message(layer.getvalueof()+1);
+		layerChooser.increase_value();
+	}
+	inc_button.message('set', 0);
+}
+
+function _Dec(val){
+	if(val){
+		//layer.message(layer.getvalueof()-1);
+		layerChooser.decrease_value();
+	}
+	dec_button.message('set', 0);
+}
+
+function _Favorite(val){
+	if(val){
+		layerChooser.toggle_favorite_status(layerChooser._value);
+	}
+	favorite_button.message('set', 0);
+}
+
+function update_background(){
+
+	background_panel.message('bgfillcolor', layerChooser.is_favorite(layerChooser._value) ? [.5, 0, 0] : [.4, .4, .4]);
+}
 
 
 
@@ -243,16 +327,20 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
   this._faveValue2 = 60;
   this._faveOffValue = 80;
   this._faveOffValue2 = 100;
+	this._onValue2 = 1;
+	this._offValue2 = 23;
   this._page_offset = new ToggledParameter(this._name + '_PageOffset', {'onValue':50, 'offValue':40, 'value':0})
 	this._page_offset.set_target(this._page_offset_callback.bind(this));
 	this._page_length = 64;
 	this._play_callback = undefined;
-	this.activeLayer = new RangedParameter('activeLayer', 64);
+	this.activeLayer = new RangedParameter('activeLayer', 128);
 	this.activeLayer.set_target(this.activeLayer_callback.bind(this));
 	this._rackDevice = undefined;
+	this._detentDialValue = new ParameterClass(this._name + '_detentDial');
+	this._detentDialValue.set_target(this._detent_dial_callback.bind(this));
 	//this._favorites = dict.getkeys().indexof('favorites')>-1 ? dict.get('favorites') : [];
 	this._favorites = [];
-	this.add_bound_properties(this, ['activeLayer', 'activeLayer_callback', 'next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
+	this.add_bound_properties(this, ['_detent_dial_callback', 'toggle_favorite_status', 'is_favorite', 'activeLayer', 'activeLayer_callback', 'next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
 
 	PagedRadioComponent.super_.call(this, name, minimum, maximum, initial, callback, onValue, offValue, args);
 
@@ -267,15 +355,16 @@ PagedRadioComponent.prototype.activeLayer_callback = function(obj){
 		if(this._play_callback){
 			this._play_callback({'value':0});
 		}
+		//update_background();
 	}
+}
+
+PagedRadioComponent.prototype.is_favorite = function(num){
+	return this._favorites.indexOf(num)>-1;
 }
 
 PagedRadioComponent.prototype._Callback = function(obj){
 	debug('PagedRadioComponent._Callback:', obj._name);
-	if(this._play_callback)
-	{
-		this._play_callback(obj);
-	}
 	if(obj._value)
 	{
 		var val = this._buttons.indexOf(obj) + (this._page_offset._value*this._page_length);
@@ -285,24 +374,33 @@ PagedRadioComponent.prototype._Callback = function(obj){
   		this.set_value(val);
   		if(this._apiObj){this._apiObj.set('value', val);}
 			debug('PagedRadio:', this._value);
+			if(this._play_callback)
+			{
+				this._play_callback(obj);
+			}
+			rackDevice.update_controlled_parameters(this._value);
     }
     else
     {
-      debug('faves:', this._favorites, this._favorites.indexOf(val));
-      if(this._favorites.indexOf(val)>-1)
-      {
-        debug('in there, removing...', this._favorites.indexOf(val));
-        this._favorites.splice(this._favorites.indexOf(val), 1);
-      }
-      else
-      {
-        this._favorites.push(val);
-      }
-      dict.replace('favorites', this._favorites);
-      this.update_controls();
-      //debug('faves:', this._parent._favorites);
+			this.toggle_favorite_status(val);
     }
 	}
+}
+
+PagedRadioComponent.prototype.toggle_favorite_status = function(num){
+	//debug('faves:', this._favorites, this._favorites.indexOf(num));
+	if(this._favorites.indexOf(num)>-1)
+	{
+		//debug('in there, removing...', this._favorites.indexOf(num));
+		this._favorites.splice(this._favorites.indexOf(num), 1);
+	}
+	else
+	{
+		this._favorites.push(num);
+	}
+	dict.replace('favorites', this._favorites);
+	this.update_controls();
+	//update_background();
 }
 
 PagedRadioComponent.prototype.update_controls = function(){
@@ -314,27 +412,31 @@ PagedRadioComponent.prototype.update_controls = function(){
 		if(this._buttons[i])
 		{
       var actual = parseInt(i) + offset;
-      //debug('indexOf:', actual, faves.indexOf(actual));
+      //debug('indexOf:', actual, faves.indexOf(actual), 'this._value:', this._value);
       if(faves.indexOf(actual)>-1)
       {
+				//debug('value to send:', ((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._faveValue2 : this._faveValue : this._page_offset._value ? this._faveOffValue2 : this._faveOffValue));
         this._buttons[i].send((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._faveValue2 : this._faveValue : this._page_offset._value ? this._faveOffValue2 : this._faveOffValue);
       }
       else
       {
+				//debug('value to send:', (this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._onValue2 : this._onValue : this._page_offset._value ? this._offValue2 : this._offValue);
         this._buttons[i].send((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._onValue2 : this._onValue : this._page_offset._value ? this._offValue2 : this._offValue);
       }
 		}
 	}
 	update_layerDial();
+	update_background();
 
 }
 
 PagedRadioComponent.prototype._page_offset_callback = function(obj){
+	debug('offset:', this._page_offset._value);
 	this.update_controls();
 }
 
 PagedRadioComponent.prototype.increase_value = function(){
-	this.receive(this._value + 1);
+	this.set_value(this._value + 1);
 	if(this._apiObj){this._apiObj.set('value', this._value);}
 	if(this._play_callback)
 	{
@@ -343,7 +445,7 @@ PagedRadioComponent.prototype.increase_value = function(){
 }
 
 PagedRadioComponent.prototype.decrease_value = function(){
-	this.receive(this._value - 1);
+	this.set_value(this._value - 1);
 	if(this._apiObj){this._apiObj.set('value', this._value);}
 	if(this._play_callback)
 	{
@@ -413,6 +515,30 @@ PagedRadioComponent.prototype.previous_favorite = function(){
 	}
 }
 
+PagedRadioComponent.prototype._detent_dial_callback = function(obj){
+	debug(this._name, '_detent_dial_callback', obj._value);
+	if(obj._value < 64)
+	{
+		if(!AltButton.pressed()){
+			this.increase_value();
+		}
+		else{
+			this.next_favorite();
+		}
+
+	}
+	else
+	{
+		if(!AltButton.pressed()){
+			this.decrease_value();
+		}
+		else{
+			this.previous_favorite();
+		}
+	}
+}
+
+
 
 function RackDevice(name, args){
 	var self = this;
@@ -420,7 +546,7 @@ function RackDevice(name, args){
 	this._api_device = new LiveAPI(this._device_callback.bind(this), 'this_device');
 	this._api_parameter = new LiveAPI(this._parameter_callback.bind(this), 'this_device');
 	this._layerChooser = undefined;
-	this.add_bound_properties(this, ['_layerChooser', '_device_id', '_api_device', '_api_parameter', 'set_parameter_value', 'set_layerChooser', 'detect_next_device_in_track']);
+	this.add_bound_properties(this, ['get_device_in_chain', 'update_controlled_parameters', '_layerChooser', '_device_id', '_api_device', '_api_parameter', 'set_parameter_value', 'set_layerChooser', 'detect_next_device_in_track']);
 	RackDevice.super_.call(this, name, args);
 	this._initialize();
 }
@@ -453,6 +579,7 @@ RackDevice.prototype.detect_next_device_in_track = function(){
 				finder.goto('parameters', 1);
 				this._api_parameter.id = Math.floor(finder.id);
 				this._api_parameter.property = 'value';
+				mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  this._api_device.id);
 			}
 		}
 		else{
@@ -484,4 +611,32 @@ RackDevice.prototype.set_parameter_value = function(obj){
 		this._api_parameter.set('value', obj._value);
 	}
 }
+
+RackDevice.get_device_in_chain = function(num){
+	debug('get_device_in_chain')
+	//probably need to put some of the action from update_controlled_parameters() in here...
+
+}
+
+RackDevice.prototype.update_controlled_parameters = function(num){
+	debug('update_controlled_parameters for chain:', num);
+	//var device_id = this.get_device_in_chain(num);
+	var id = -1;
+	if(this._api_device.id){
+		finder.id = Math.floor(this._api_device.id);
+		var count = finder.getcount('chains');
+		debug('chaincount is:', count);
+		if(num<count){
+			finder.goto('chains', num);
+			id = Math.floor(finder.id);
+		}
+	}
+	debug('id is:', id);
+	mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_chain', num);
+	mod.Send( 'push_name_display', 'value', 0, 'SelLayer');
+	mod.Send( 'push_value_display', 'value', 0, num);
+	mod.Send( 'push_name_display', 'value', 2, 'DeviceName');
+	mod.Send( 'push_value_display', 'value', 2, finder.get('name'));
+}
+
 forceload(this);
