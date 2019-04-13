@@ -27,7 +27,7 @@ var colors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GR
 var PushColors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 
 var AUDITION_NOTE = 60;
-
+var AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE = false;
 
 var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice'];
 
@@ -273,7 +273,12 @@ function set_audition_note(val){
 }
 
 function _redetect_adjacent_rack(){
-	rackDevice.detect_next_device_in_track();
+	if(AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE){
+		rackDevice.detect_containing_rack();
+	}
+	else{
+		rackDevice.detect_next_device_in_track();
+	}
 }
 
 function audition(obj){
@@ -286,8 +291,9 @@ function audition(obj){
 }
 
 function _Audition(val){
+	//debug('Audition', val);
 	if(val){
-		audition({'_value':0});
+		audition({'_value':1});
 	}
 	audition_button.message('set', 0);
 }
@@ -340,7 +346,7 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
 	this._detentDialValue.set_target(this._detent_dial_callback.bind(this));
 	//this._favorites = dict.getkeys().indexof('favorites')>-1 ? dict.get('favorites') : [];
 	this._favorites = [];
-	this.add_bound_properties(this, ['_detent_dial_callback', 'toggle_favorite_status', 'is_favorite', 'activeLayer', 'activeLayer_callback', 'next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
+	this.add_bound_properties(this, ['_play_callback', '_detent_dial_callback', 'toggle_favorite_status', 'is_favorite', 'activeLayer', 'activeLayer_callback', 'next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
 
 	PagedRadioComponent.super_.call(this, name, minimum, maximum, initial, callback, onValue, offValue, args);
 
@@ -349,11 +355,12 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
 inherits(PagedRadioComponent, RadioComponent);
 
 PagedRadioComponent.prototype.activeLayer_callback = function(obj){
+	debug('activeLayer_callback', obj._value ? obj._value : 'no value attr', this._value, this._play_callback);
 	var val = obj._value;
 	if(val!=this._value){
 		this.set_value(val);
 		if(this._play_callback){
-			this._play_callback({'value':0});
+			this._play_callback({'_value':1});
 		}
 		//update_background();
 	}
@@ -546,7 +553,7 @@ function RackDevice(name, args){
 	this._api_device = new LiveAPI(this._device_callback.bind(this), 'this_device');
 	this._api_parameter = new LiveAPI(this._parameter_callback.bind(this), 'this_device');
 	this._layerChooser = undefined;
-	this.add_bound_properties(this, ['get_device_in_chain', 'update_controlled_parameters', '_layerChooser', '_device_id', '_api_device', '_api_parameter', 'set_parameter_value', 'set_layerChooser', 'detect_next_device_in_track']);
+	this.add_bound_properties(this, ['detect_containing_rack', 'get_device_in_chain', 'update_controlled_parameters', '_layerChooser', '_device_id', '_api_device', '_api_parameter', 'set_parameter_value', 'set_layerChooser', 'detect_next_device_in_track']);
 	RackDevice.super_.call(this, name, args);
 	this._initialize();
 }
@@ -555,7 +562,12 @@ inherits(RackDevice, Bindable);
 
 RackDevice.prototype._initialize = function(){
 	debug('RackMacro._initialize');
-	this.detect_next_device_in_track();
+	if(AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE){
+		this.detect_containing_rack();
+	}
+	else{
+		this.detect_next_device_in_track();
+	}
 }
 
 RackDevice.prototype.detect_next_device_in_track = function(){
@@ -584,6 +596,30 @@ RackDevice.prototype.detect_next_device_in_track = function(){
 		}
 		else{
 			post('No Adjacent Rack Device found.');
+		}
+	}
+}
+
+RackDevice.prototype.detect_containing_rack = function(){
+	if((!finder)||(!finder.id)){
+		finder = new LiveAPI('this_device');
+		debug('this set id is', finder.id);
+	}
+	if(finder.id!==0){
+		finder.goto('this_device');
+		this_device_id = Math.floor(finder.id);
+		finder.goto('canonical_parent');
+		finder.goto('canonical_parent');
+		if(finder.get('can_have_chains')!=0){
+			debug('found a container');
+			this._api_device.id = Math.floor(finder.id);
+			finder.goto('parameters', 1);
+			this._api_parameter.id = Math.floor(finder.id);
+			this._api_parameter.property = 'value';
+			mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  this._api_device.id);
+		}
+		else{
+			post('No Containing Rack Device found.');
 		}
 	}
 }
