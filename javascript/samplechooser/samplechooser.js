@@ -229,7 +229,7 @@ function setup_modes(){
 		debug('mainPage entered');
 		layerChooser.set_controls(Grid);
 		layerChooser.activeLayer.set_control(LayerDial);
-		layerChooser._page_offset.set_control(Key2Buttons[1]);
+		layerChooser._page_offset.set_control(KeyButtons[7]);
 		//layerChooser._detentDialValue.set_control(DetentDial);
 	}
 	mainPage.exit_mode = function()
@@ -415,6 +415,7 @@ function update_background(){
 
 	background_panel.message('bgfillcolor', layerChooser.is_favorite(layerChooser._value) ? [.5, 0, 0] : [.4, .4, .4]);
 }
+
 
 
 function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue, offValue, args){
@@ -759,9 +760,9 @@ RackDevice.prototype.update_controlled_parameters = function(num){
 	debug('id is:', id);
 	mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_chain', num);
 	mod.Send( 'push_name_display', 'value', 0, 'SelLayer');
-	mod.Send( 'push_value_display', 'value', 0, num);
+	mod.Send( 'push_name_display', 'value', 1, num);
 	mod.Send( 'push_name_display', 'value', 2, 'DeviceName');
-	mod.Send( 'push_value_display', 'value', 2, finder.get('name'));
+	mod.Send( 'push_name_display', 'value', 3, finder.get('name'));
 }
 
 
