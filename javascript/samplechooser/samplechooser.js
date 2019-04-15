@@ -21,19 +21,30 @@ var mod_finder;
 var Mod = ModComponent.bind(script);
 var ModProxy = ModProxyComponent.bind(script);
 
+var INIT_GLOBAL = false;
+var aumhaaGlobal = new Global('aumhaaGlobal');
+
+if((!aumhaaGlobal.sampleChooser)||(INIT_GLOBAL)){
+	debug('making sampleChooser global');
+	aumhaaGlobal.sampleChooser = {};
+}
+var compatible_relays = [];
+var check_relays = false;
+var drumrack_output_note = 0;
+var drumrack_input_note = 0;
+
 var Alive = false;
 
 var colors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 var PushColors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 
 var AUDITION_NOTE = 60;
-var AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE = false;
+var AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE = true;
+var USE_RELAY_FOR_AUDITION = true;
 
 var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice'];
-
 var DRUMCHOOSER_BANKS = {};
-for(var i in DEVICE_TYPES)
-{
+for(var i in DEVICE_TYPES){
 	DRUMCHOOSER_BANKS[DEVICE_TYPES[i]] = [['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']];
 }
 
@@ -51,7 +62,6 @@ function init(){
 	mod_finder = new LiveAPI(mod_callback, 'this_device');
 	found_mod.assign_api(mod_finder);
 
-
 	setup_tasks();
 	setup_translations();
 	setup_colors();
@@ -64,6 +74,7 @@ function init(){
 	setup_listeners();
 	setup_storage();
 	setup_global_link();
+	setup_tests();
 	deprivatize_script_functions(this);
 
 	update_background();
@@ -184,10 +195,16 @@ function setup_dict(){
 }
 
 function setup_components(){
-	layerChooser = new PagedRadioComponent('LayerChooser', 0, 128, 0, undefined, 1, 11, {'play_callback':audition});
-	rackDevice = new RackDevice('RackDevice');
+	script['layerChooser'] = new PagedRadioComponent('LayerChooser', 0, 128, 0, undefined, 1, 11, {'play_callback':audition});
+	script['rackDevice'] = new RackDevice('RackDevice');
 	rackDevice.set_layerChooser(layerChooser);
 	layerChooser.set_target(rackDevice.set_parameter_value);
+	script['apiUtil'] = new APIUtility();
+	var drumrack = apiUtil.container_from_id(apiUtil.container_from_id(apiUtil.container_id));
+	drumrack_output_note = apiUtil.drum_output_note_from_drumchain(drumrack);
+	drumrack_input_note = apiUtil.drum_input_note_from_drumchain(drumrack);
+	debug('id:', drumrack, apiUtil.name_from_id(drumrack));
+	debug('drumrack_input_note', drumrack_input_note);
 }
 
 function setup_device(){
@@ -243,13 +260,71 @@ function setup_modes(){
 }
 
 function setup_listeners(){
+	debug('track id:', track_id());
 }
 
 function setup_storage(){}
 
-function setup_global_link(){}
+function setup_global_link(){
+	debug('setup_global_link');
+	var glob = aumhaaGlobal.sampleChooser;
+	if(!glob.chooser_list){
+		glob.chooser_list = {};
+	}
+	glob.chooser_list[unique] = script;
+	debug('done with link');
+	detect_compatible_relays();
+}
+
+function setup_tests(){
+  //introspect_global();
+}
 
 
+
+function detect_compatible_relays(){
+	//debug('detect_compatible_relays');
+	check_relays = false;
+	compatible_relays = [];
+	var glob = aumhaaGlobal.sampleChooser;
+	var this_track_id = track_id();
+	for(var i in glob.relay_list){
+		var id =  glob.relay_list[i];
+		//debug('relay:', i, id);
+		if(id==this_track_id){
+				compatible_relays.push(i);
+		}
+	}
+	//debug('compatible_relays:', compatible_relays)
+}
+
+function introspect_global(){
+	debug('introspect_global', aumhaaGlobal.sampleChooser, aumhaaGlobal.sampleChooser.length);
+  for(var i in aumhaaGlobal.sampleChooser){
+    debug('item:', i, aumhaaGlobal.sampleChooser[i]);
+    for(var j in aumhaaGlobal.sampleChooser[i]){
+      debug('subitem:', j, aumhaaGlobal.sampleChooser[i][j]);
+    }
+  }
+}
+
+function track_id(){
+	id = this_device_id;
+	finder.id = id;
+	var recurse = function(id){
+		if(id == 0){
+			return 0;
+		}
+		finder.goto('canonical_parent');
+		if(finder.type=='Track'){
+			return parseInt(finder.id);
+		}
+		else{
+			return recurse(id);
+		}
+	}
+	return recurse(id);
+}
 
 function _detent_dial(val){
 	layerChooser._detent_dial_callback({'_value':val})
@@ -283,10 +358,25 @@ function _redetect_adjacent_rack(){
 
 function audition(obj){
 	if(obj){
-		obj._value&&outlet(0, AUDITION_NOTE, 127, '4n');
+		obj._value&&audition_destination(AUDITION_NOTE, 127, '4n');
 	}
 	else{
-		outlet(0, AUDITION_NOTE, 127, '4n');
+		audition_destination(AUDITION_NOTE, 127, '4n');
+	}
+}
+
+function audition_destination(note, velocity, duration){
+	if(USE_RELAY_FOR_AUDITION){
+		if(check_relays){
+			detect_compatible_relays();
+		}
+		for(var i in compatible_relays){
+			var address = compatible_relays[i]+'audition_signal';
+			messnamed(address, drumrack_input_note, 127, duration);
+		}
+	}
+	else{
+		outlet(0, note, velocity, duration);
 	}
 }
 
@@ -325,7 +415,6 @@ function update_background(){
 
 	background_panel.message('bgfillcolor', layerChooser.is_favorite(layerChooser._value) ? [.5, 0, 0] : [.4, .4, .4]);
 }
-
 
 
 function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue, offValue, args){
@@ -674,5 +763,197 @@ RackDevice.prototype.update_controlled_parameters = function(num){
 	mod.Send( 'push_name_display', 'value', 2, 'DeviceName');
 	mod.Send( 'push_value_display', 'value', 2, finder.get('name'));
 }
+
+
+function APIUtility(){
+	var self = this;
+	this.finder = new LiveAPI(function(){}, 'this_device');
+	this.device_id = parseInt(this.finder.id);
+	this.container_id = parseInt(this.container_from_id(this.device_id));
+}
+
+APIUtility.prototype.track_from_id = function(id){
+	this.finder.id = id;
+	var recurse = function(id){
+		if(id == 0){
+			return 0;
+		}
+		this.finder.goto('canonical_parent');
+		if(this.finder.type=='Track'){
+			return parseInt(this.finder.id);
+		}
+		else{
+			return recurse(id);
+		}
+	}
+	return recurse(id);
+}
+
+APIUtility.prototype.container_from_id = function(id){
+	this.finder.id = id;
+	this.finder.goto('canonical_parent');
+	return parseInt(this.finder.id);
+}
+
+APIUtility.prototype.previous_device = function(track, device){
+	var device_id = device;
+	this.finder.id = device;
+	this.finder.goto('canonical_parent');
+	if(!(this.finder.type=='Chain')){
+		//debug('container is track')
+		this.finder.id = track;
+	}
+	var devices = this.finder.get('devices').filter(function(element){return element !== 'id';});
+	var index = devices.indexOf(device_id);
+	if(index > 0){
+		device_id = devices[index-1];
+	}
+	return device_id
+}
+
+APIUtility.prototype.next_device = function(track, device){
+	var device_id = device;
+	this.finder.id = device;
+	this.finder.goto('canonical_parent');
+	if(!(this.finder.type=='Chain')){
+		//debug('container is track')
+		this.finder.id = track;
+	}
+	var devices = this.finder.get('devices').filter(function(element){return element !== 'id';});
+	var index = devices.indexOf(device_id);
+	if(index < (devices.length-1)){
+		device_id = devices[index+1];
+	}
+	return device_id
+}
+
+APIUtility.prototype.device_name_from_id = function(id){
+	var new_name = 'None';
+	this.finder.id = parseInt(id);
+	if(id > 0){
+		new_name = this.finder.get('name').slice(0,40);
+		/*var new_name = [];
+		new_name.unshift(this.finder.get('name'));
+		this.finder.goto('canonical_parent');
+		//this._this.finder.goto('canonical_parent');
+		new_name.unshift(' || ');
+		new_name.unshift(this.finder.get('name'));
+		new_name = new_name.join('');
+		new_name = new_name.slice(0, 40);*/
+	}
+	return new_name;
+}
+
+APIUtility.prototype.container_name_from_id = function(id){
+	var new_name = 'None';
+	this.finder.id = parseInt(id);
+	if(id > 0){
+		var new_name = this.finder.get('name').slice(0, 40);
+	}
+	return new_name;
+}
+
+APIUtility.prototype.name_from_id = function(id){
+	var new_name = 'None';
+	this.finder.id = parseInt(id);
+	if(id > 0){
+		var new_name = this.finder.get('name').slice(0, 40);
+	}
+	return new_name;
+}
+
+APIUtility.prototype.device_input_from_id = function(id){
+	if(id==this_device_id){
+		this.finder.id = parseInt(container_id);
+		var new_name = [':Track Input'];
+		new_name.unshift(this.finder.get('name'));
+		new_name = new_name.join('');
+		new_name = new_name.slice(0, 40);
+		return new_name;
+	}
+	else{
+		return device_name_from_id(id);
+	}
+}
+
+APIUtility.prototype.device_output_from_id = function(id){
+	if(id==this.device_id){
+		this.finder.id = parseInt(this.container_id);
+		var new_name = [':Track Output'];
+		new_name.unshift(this.finder.get('name'));
+		new_name = new_name.join('');
+		new_name = new_name.slice(0, 40);
+		return new_name;
+	}
+	else{
+		return device_name_from_id(id);
+	}
+}
+
+APIUtility.prototype.drum_output_note_from_drumchain = function(id){
+	var note = undefined;
+	this.finder.id = id;
+	if(this.finder.type=='DrumChain'){
+		note = this.finder.get('out_note')
+	}
+	debug('drum_note_from_chain', finder.path, note);
+	return note;
+}
+
+APIUtility.prototype.drum_input_note_from_drumchain = function(id){
+	var note = undefined;
+	var drumchain_id = id;
+	this.finder.id = drumchain_id;
+	if(this.finder.type=='DrumChain'){
+		this.finder.goto('canonical_parent');
+		var drumrack_id = parseInt(this.finder.id);
+		for(var i=0;i<127;i++){
+			this.finder.id = drumrack_id;
+			this.finder.goto('drum_pads', i);
+			var count = this.finder.getcount('chains');
+			//debug('count', count);
+			if(count){
+				var chains = this.finder.get('chains').filter(function(element){return element !== 'id';});
+				//debug('chains', chains, drumrack_id);
+				var index = chains.indexOf(drumchain_id);
+				if((index >-1)||(chains==drumchain_id)){
+					//debug('found chain!');
+					note = this.finder.get('note');
+					break;
+				}
+			}
+		}
+	}
+	//debug('drum_note_from_chain', note);
+	return note;
+}
+
+//draft
+APIUtility.is_container = function(id){
+	finder.id = id;
+	var type = finder.type;
+	return ['Track', 'Chain', 'DrumChain', 'RackDevice', 'DrumPad'].indexOf(type)>-1;
+}
+
+//draft
+APIUtility.chain_ids_from_parent = function(id){
+	var ids = [];
+	finder.id = id;
+	if(finder.get('can_have_chains')){
+		ids = finder.get('chains').filter(function(element){return element !== 'id';});
+	}
+	return ids;
+}
+
+//draft
+APIUtility.device_ids_from_parent = function(id){
+	var ids = [];
+	finder.id = id;
+	ids = finder.get('devices').filter(function(element){return element !== 'id';});
+	return ids;
+}
+
+
+
 
 forceload(this);
