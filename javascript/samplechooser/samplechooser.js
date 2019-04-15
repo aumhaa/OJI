@@ -350,6 +350,7 @@ function set_audition_note(val){
 function _redetect_adjacent_rack(){
 	if(AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE){
 		rackDevice.detect_containing_rack();
+		rackDevice.detect_next_device_for_parameter_control();
 	}
 	else{
 		rackDevice.detect_next_device_in_track();
@@ -643,7 +644,7 @@ function RackDevice(name, args){
 	this._api_device = new LiveAPI(this._device_callback.bind(this), 'this_device');
 	this._api_parameter = new LiveAPI(this._parameter_callback.bind(this), 'this_device');
 	this._layerChooser = undefined;
-	this.add_bound_properties(this, ['detect_containing_rack', 'get_device_in_chain', 'update_controlled_parameters', '_layerChooser', '_device_id', '_api_device', '_api_parameter', 'set_parameter_value', 'set_layerChooser', 'detect_next_device_in_track']);
+	this.add_bound_properties(this, ['detect_next_device_for_parameter_control', 'detect_containing_rack', 'get_device_in_chain', 'update_controlled_parameters', '_layerChooser', '_device_id', '_api_device', '_api_parameter', 'set_parameter_value', 'set_layerChooser', 'detect_next_device_in_track']);
 	RackDevice.super_.call(this, name, args);
 	this._initialize();
 }
@@ -690,6 +691,30 @@ RackDevice.prototype.detect_next_device_in_track = function(){
 	}
 }
 
+RackDevice.prototype.detect_next_device_for_parameter_control = function(){
+	debug('detect_next_device_for_parameter_control...');
+	if((!finder)||(!finder.id)){
+		finder = new LiveAPI('this_device');
+		debug('this set id is', finder.id);
+	}
+	if(finder.id!==0){
+		finder.goto('this_device');
+		this_device_id = Math.floor(finder.id);
+		finder.goto('canonical_parent');
+		debug('devices:', finder.get('devices'));
+		var device_ids = finder.get('devices').filter(function(element){return element !== 'id';})
+		var this_device_index = device_ids.indexOf(this_device_id);
+		if((this_device_index>-1)&&(device_ids[this_device_index+1])){
+			debug('found a device....');
+			finder.goto('devices', this_device_index+1);
+			debug('sending dev id:', parseInt(finder.id));
+			mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  parseInt(finder.id));
+		}
+		else{
+			post('No Adjacent Device found to control.');
+		}
+	}
+}
 RackDevice.prototype.detect_containing_rack = function(){
 	if((!finder)||(!finder.id)){
 		finder = new LiveAPI('this_device');
@@ -706,10 +731,24 @@ RackDevice.prototype.detect_containing_rack = function(){
 			finder.goto('parameters', 1);
 			this._api_parameter.id = Math.floor(finder.id);
 			this._api_parameter.property = 'value';
-			mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  this._api_device.id);
+			debug('finished with container...');
+
+			//mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  this._api_device.id);
 		}
 		else{
 			post('No Containing Rack Device found.');
+		}
+		finder.id = this_device_id;
+		finder.goto('canonical_parent');
+		var device_ids = finder.get('devices').filter(function(element){return element !== 'id';})
+		var this_device_index = device_ids.indexOf(this_device_id);
+		if((this_device_index>-1)&&(device_ids[this_device_index+1])){
+			debug('found a device....', device_ids[this_device_index+1]);
+			//debug('sending dev id:', parseInt(finder.id));
+			mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  device_ids[this_device_index+1]);
+		}
+		else{
+			post('No Adjacent Device found to control.');
 		}
 	}
 }
