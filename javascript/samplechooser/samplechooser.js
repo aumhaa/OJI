@@ -39,8 +39,10 @@ var colors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GR
 var PushColors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 
 var AUDITION_NOTE = 60;
+var AUDITION_VELOCITY = 127;
+var AUDITION_DURATION = 200;
 var AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE = true;
-var USE_RELAY_FOR_AUDITION = true;
+var USE_RELAY_FOR_AUDITION = false;
 
 var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice'];
 var DRUMCHOOSER_BANKS = {};
@@ -359,10 +361,10 @@ function _redetect_adjacent_rack(){
 
 function audition(obj){
 	if(obj){
-		obj._value&&audition_destination(AUDITION_NOTE, 127, '4n');
+		obj._value&&audition_destination(AUDITION_NOTE, AUDITION_VELOCITY, AUDITION_DURATION);
 	}
 	else{
-		audition_destination(AUDITION_NOTE, 127, '4n');
+		audition_destination(AUDITION_NOTE, AUDITION_VELOCITY, AUDITION_DURATION);
 	}
 }
 
@@ -373,7 +375,7 @@ function audition_destination(note, velocity, duration){
 		}
 		for(var i in compatible_relays){
 			var address = compatible_relays[i]+'audition_signal';
-			messnamed(address, drumrack_input_note, 127, duration);
+			messnamed(address, drumrack_input_note, velocity, duration);
 		}
 	}
 	else{
