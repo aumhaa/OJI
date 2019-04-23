@@ -77,6 +77,7 @@ function init(){
 	setup_controls();
 	setup_dict();
 	setup_components();
+	setup_parameter_controls();
 	setup_device();
 	setup_modes();
 	setup_listeners();
@@ -93,7 +94,7 @@ function init(){
 function mod_callback(args){
 	if((args[0]=='value')&&(args[1]!='bang'))
 	{
-		//debug('mod callback:', args);
+		debug('mod callback:', args);
 		if(args[1] in script)
 		{
 			script[args[1]].apply(script, args.slice(2));
@@ -216,9 +217,24 @@ function setup_components(){
 	//debug('drumrack_input_note', drumrack_input_note);
 }
 
+function setup_parameter_controls()
+{
+	//debug('making parameters');
+	var obj = this.patcher.getnamed('parameter_controls');
+	var pcontrol = this.patcher.getnamed('parameter_controls_pcontrol');
+	var thispatcher = obj.subpatcher().getnamed('parameter_controls_thispatcher');
+	var window_position = obj.subpatcher().getnamed('window_position');
+	window_position = window_position.length ? window_position : [0, 0, 200, 200];
+	script['Parameters'] = new ParameterControlModule('ParameterControls', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':500, 'sizeY':250, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
+	script['IN_paramControl'] = Parameters.receive;
+	script['lcd'] = Parameters._lcd;
+	Parameters.lock();
+	Parameters.open();
+}
+
 function setup_device(){
 	mod.Send('receive_device', 'set_mod_device_type', 'DrumChooser');
-	mod.Send( 'receive_device', 'set_number_params', 8);
+	mod.Send( 'receive_device', 'set_number_params', 16);
 	//detect_adjacent_drumrack();
 	for(var dev_type in DRUMCHOOSER_BANKS)
 	{
@@ -488,6 +504,7 @@ inherits(PagedRadioComponent, RadioComponent);
 PagedRadioComponent.prototype.dependent_listener_callback = function(obj){
 		cellblock.message('select', 0, obj._value);
 		textedit.message('set', this._names[obj._value]);
+		rackDevice.update_controlled_parameters(this._value);
 }
 
 PagedRadioComponent.prototype.activeLayer_callback = function(obj){
@@ -522,7 +539,6 @@ PagedRadioComponent.prototype._Callback = function(obj){
 			{
 				this._play_callback(obj);
 			}
-			rackDevice.update_controlled_parameters(this._value);
     }
     else
     {
@@ -875,6 +891,69 @@ RackDevice.prototype.update_controlled_parameters = function(num){
 	mod.Send( 'push_name_display', 'value', 1, num);
 	mod.Send( 'push_name_display', 'value', 2, 'DeviceName');
 	mod.Send( 'push_name_display', 'value', 3, finder.get('name'));
+}
+
+
+
+function ParameterControlModule(name, args){
+	//debug('making parameters');
+	var self = this;
+	this._controlsObjs = [];
+	this._nameObjs = [];
+	this._valueObjs = [];
+	this._defs = [];
+	this.add_bound_properties(this, ['_initialize', 'receive', 'controls', '_lcd']);
+	ParameterControlModule.super_.call(this, name, args);
+	this._initialize();
+}
+
+inherits(ParameterControlModule, FloatingWindowModule);
+
+ParameterControlModule.prototype._initialize = function(){
+	this._window_position = this._obj.subpatcher().getnamed('window_position');
+	this._thispatcher = this._obj.subpatcher().getnamed('parameter_controls_thispatcher');
+	var Encoders = ['Encoder_0', 'Encoder_1', 'Encoder_2', 'Encoder_3', 'Encoder_4', 'Encoder_5', 'Encoder_6', 'Encoder_7', 'Encoder_8', 'Encoder_9', 'Encoder_10', 'Encoder_11', 'Encoder_12', 'Encoder_13', 'Encoder_14', 'Encoder_15'];
+	for(var i=0;i<16;i++){
+		this._controlsObjs[Encoders[i]] = this._obj.subpatcher().getnamed('paramDial['+i+']');
+		this._nameObjs[Encoders[i]] = this._obj.subpatcher().getnamed('name['+i+']');
+		this._valueObjs[Encoders[i]] = this._obj.subpatcher().getnamed('value['+i+']');
+	}
+	this._nameObjs.device_name = this._obj.subpatcher().getnamed('device_name');
+}
+
+ParameterControlModule.prototype.receive = function(num, val){
+	debug(this._name, 'receive:', num, val);
+	if(num=='position'){
+		var args = arrayfromargs(arguments);
+		//debug(this._name, 'setting window position:', args.slice(1));
+		this._window_position.message('set', args.slice(1));
+	}
+	else if(num=='goto'){
+		//Device.hilight_current_device();
+	}
+	else{
+		debug('sending to params:', num, val);
+		mod.Send('receive_device_proxy', 'set_mod_parameter_value', num, val);
+	}
+}
+
+ParameterControlModule.prototype._lcd = function(obj, type, val){
+	debug('lcd', obj, type, val, '\n');
+	if((type=='lcd_name')&&(val!=undefined)){
+		if(this._nameObjs[obj]){
+			this._nameObjs[obj].message('set', val.replace(/_/g, ' '));
+		}
+	}
+	else if((type == 'lcd_value')&&(val!=undefined)){
+		if(this._valueObjs[obj]){
+			this._valueObjs[obj].message('set', val.replace(/_/g, ' '));
+		}
+	}
+	else if((type == 'encoder_value')&&(val!=undefined)){
+		if(this._controlsObjs[obj]){
+			this._controlsObjs[obj].message('set', val);
+		}
+	}
 }
 
 
