@@ -12,6 +12,7 @@ var unique = jsarguments[1];
 aumhaa = require('_base');
 var FORCELOAD = false;
 var DEBUG = false;
+var VIEW_DEVICEDICT = false;
 aumhaa.init(this);
 
 var finder;
@@ -48,6 +49,11 @@ var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDe
 var DRUMCHOOSER_BANKS = {};
 for(var i in DEVICE_TYPES){
 	DRUMCHOOSER_BANKS[DEVICE_TYPES[i]] = [['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']];
+}
+
+var DEFAULT_NAMES = [];
+for(var i=0;i<128;i++){
+	DEFAULT_NAMES.push(i);
 }
 
 function anything(){
@@ -201,12 +207,13 @@ function setup_components(){
 	script['rackDevice'] = new RackDevice('RackDevice');
 	rackDevice.set_layerChooser(layerChooser);
 	layerChooser.set_target(rackDevice.set_parameter_value);
+	//layerChooser.add_listener(update_cellblock_position);
 	script['apiUtil'] = new APIUtility();
 	var drumrack = apiUtil.container_from_id(apiUtil.container_from_id(apiUtil.container_id));
 	drumrack_output_note = apiUtil.drum_output_note_from_drumchain(drumrack);
 	drumrack_input_note = apiUtil.drum_input_note_from_drumchain(drumrack);
-	debug('id:', drumrack, apiUtil.name_from_id(drumrack));
-	debug('drumrack_input_note', drumrack_input_note);
+	//debug('id:', drumrack, apiUtil.name_from_id(drumrack));
+	//debug('drumrack_input_note', drumrack_input_note);
 }
 
 function setup_device(){
@@ -262,7 +269,7 @@ function setup_modes(){
 }
 
 function setup_listeners(){
-	debug('track id:', track_id());
+	//debug('track id:', track_id());
 }
 
 function setup_storage(){}
@@ -420,6 +427,30 @@ function update_background(){
 }
 
 
+function _IN_textedit(){
+	var args = arrayfromargs(arguments);
+	if(args[0]=='text'){
+		var new_name = args.slice(1);
+		debug('_IN_textedit', new_name);
+		//cellblock.message('set', 0, layerChooser._value, new_name);
+		layerChooser.set_current_name(new_name);
+	}
+}
+
+function _IN_cellblock(){
+	var args = arrayfromargs(arguments);
+	debug('_IN_cellblock', args);
+	if(args.length == 3){
+		if(args[1]!=layerChooser._value){
+			layerChooser.set_value(args[1]);
+			audition({'_value':1});
+		}
+	}
+}
+
+
+
+
 
 function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue, offValue, args){
 	this._faveValue = 30;
@@ -437,15 +468,27 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
 	this._rackDevice = undefined;
 	this._detentDialValue = new ParameterClass(this._name + '_detentDial');
 	this._detentDialValue.set_target(this._detent_dial_callback.bind(this));
-	//this._favorites = dict.getkeys().indexof('favorites')>-1 ? dict.get('favorites') : [];
-	this._favorites = [];
-	this.add_bound_properties(this, ['_play_callback', '_detent_dial_callback', 'toggle_favorite_status', 'is_favorite', 'activeLayer', 'activeLayer_callback', 'next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
+	debug('keys:',dict.getkeys());
+	debug('favorites:', dict.contains('favorites'));
+	this._favorites = dict.contains('favorites') ? dict.get('favorites') : [];
+	debug('favorites:', this._favorites);
+	//this._favorites = this._favorites.length ? this._favorites : [];
+	this._names = dict.contains('names') ? dict.get('names') : DEFAULT_NAMES;
+	//this._names = this._names.length == 128 ? this._names : DEFAULT_NAMES;
+	this.add_bound_properties(this, ['dependent_listener_callback', '_names', 'store_names', 'set_current_name', 'update_names_display', '_play_callback', '_detent_dial_callback', 'toggle_favorite_status', 'is_favorite', 'activeLayer', 'activeLayer_callback', 'next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
 
 	PagedRadioComponent.super_.call(this, name, minimum, maximum, initial, callback, onValue, offValue, args);
+	this.add_listener(this.dependent_listener_callback);
+	this.update_names_display();
 
 }
 
 inherits(PagedRadioComponent, RadioComponent);
+
+PagedRadioComponent.prototype.dependent_listener_callback = function(obj){
+		cellblock.message('select', 0, obj._value);
+		textedit.message('set', this._names[obj._value]);
+}
 
 PagedRadioComponent.prototype.activeLayer_callback = function(obj){
 	debug('activeLayer_callback', obj._value ? obj._value : 'no value attr', this._value, this._play_callback);
@@ -456,6 +499,7 @@ PagedRadioComponent.prototype.activeLayer_callback = function(obj){
 			this._play_callback({'_value':1});
 		}
 		//update_background();
+		cellblock.message('select', 0, this._value);
 	}
 }
 
@@ -487,6 +531,30 @@ PagedRadioComponent.prototype._Callback = function(obj){
 	}
 }
 
+PagedRadioComponent.prototype.set_current_name = function(name){
+	debug('PagedRadioComponent.prototype.set_current_name:', name);
+	this._names[this._value] = name.join(' ');
+	this.store_names();
+	this.update_names_display();
+}
+
+PagedRadioComponent.prototype.store_names = function(){
+	dict.replace('names', this._names);
+	VIEW_DEVICEDICT&&dict_obj.message('wclose');
+	VIEW_DEVICEDICT&&dict_obj.message('edit');
+}
+
+PagedRadioComponent.prototype.update_names_display = function(){
+	for(var i=0;i<this._names.length;i++){
+		cellblock.message('set', 0, i, this._names[i]);
+		var fav = this.is_favorite(i);
+		var bgcolor = fav ? [128, 0, 0] : [256, 256, 256];
+		var fgcolor = fav ? [256, 256, 256] : [0, 0, 0];
+		cellblock.message('cell', 0, i, 'brgb', bgcolor);
+		cellblock.message('cell', 0, i, 'frgb', fgcolor);
+	}
+}
+
 PagedRadioComponent.prototype.toggle_favorite_status = function(num){
 	//debug('faves:', this._favorites, this._favorites.indexOf(num));
 	if(this._favorites.indexOf(num)>-1)
@@ -500,6 +568,8 @@ PagedRadioComponent.prototype.toggle_favorite_status = function(num){
 	}
 	dict.replace('favorites', this._favorites);
 	this.update_controls();
+	this.update_names_display();
+
 	//update_background();
 }
 
@@ -717,6 +787,7 @@ RackDevice.prototype.detect_next_device_for_parameter_control = function(){
 		}
 	}
 }
+
 RackDevice.prototype.detect_containing_rack = function(){
 	if((!finder)||(!finder.id)){
 		finder = new LiveAPI('this_device');
