@@ -94,7 +94,7 @@ function init(){
 function mod_callback(args){
 	if((args[0]=='value')&&(args[1]!='bang'))
 	{
-		debug('mod callback:', args);
+		//debug('mod callback:', args);
 		if(args[1] in script)
 		{
 			script[args[1]].apply(script, args.slice(2));
@@ -225,11 +225,11 @@ function setup_parameter_controls()
 	var thispatcher = obj.subpatcher().getnamed('parameter_controls_thispatcher');
 	var window_position = obj.subpatcher().getnamed('window_position');
 	window_position = window_position.length ? window_position : [0, 0, 200, 200];
-	script['Parameters'] = new ParameterControlModule('ParameterControls', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':500, 'sizeY':250, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
-	script['IN_paramControl'] = Parameters.receive;
-	script['lcd'] = Parameters._lcd;
-	Parameters.lock();
-	Parameters.open();
+	script['parameterWindow'] = new ParameterControlModule('ParameterControls', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':500, 'sizeY':250, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
+	script['IN_paramControl'] = parameterWindow.receive;
+	script['lcd'] = parameterWindow._lcd;
+	parameterWindow.lock();
+	//parameterWindow.open();
 }
 
 function setup_device(){
@@ -406,6 +406,10 @@ function audition_destination(note, velocity, duration){
 	}
 }
 
+function _Parameters(val){
+	parameterWindow.open();
+}
+
 function _Audition(val){
 	//debug('Audition', val);
 	if(val){
@@ -503,6 +507,7 @@ inherits(PagedRadioComponent, RadioComponent);
 
 PagedRadioComponent.prototype.dependent_listener_callback = function(obj){
 		cellblock.message('select', 0, obj._value);
+		messnamed(unique+'cellblock_scroll', 'sync', 'click', 1, obj._value, 1, 1);
 		textedit.message('set', this._names[obj._value]);
 		rackDevice.update_controlled_parameters(this._value);
 }
@@ -922,7 +927,28 @@ ParameterControlModule.prototype._initialize = function(){
 }
 
 ParameterControlModule.prototype.receive = function(num, val){
-	debug(this._name, 'receive:', num, val);
+	//debug(this._name, 'receive:', num, val);
+	switch(num){
+		case 'position':
+			var args = arrayfromargs(arguments);
+			//debug(this._name, 'setting window position:', args.slice(1));
+			this._window_position.message('set', args.slice(1));
+			break;
+		case 'goto':
+			//Device.hilight_current_device();
+			break;
+		case 'close':
+			this.close();
+			break;
+		case 'float':
+			//this.float();
+			break;
+		default:
+			//debug('sending to params:', num, val);
+			mod.Send('receive_device_proxy', 'set_mod_parameter_value', num, val);
+			break;
+	}
+	/*
 	if(num=='position'){
 		var args = arrayfromargs(arguments);
 		//debug(this._name, 'setting window position:', args.slice(1));
@@ -934,11 +960,11 @@ ParameterControlModule.prototype.receive = function(num, val){
 	else{
 		debug('sending to params:', num, val);
 		mod.Send('receive_device_proxy', 'set_mod_parameter_value', num, val);
-	}
+	}*/
 }
 
 ParameterControlModule.prototype._lcd = function(obj, type, val){
-	debug('lcd', obj, type, val, '\n');
+	//debug('lcd', obj, type, val, '\n');
 	if((type=='lcd_name')&&(val!=undefined)){
 		if(this._nameObjs[obj]){
 			this._nameObjs[obj].message('set', val.replace(/_/g, ' '));
@@ -955,6 +981,7 @@ ParameterControlModule.prototype._lcd = function(obj, type, val){
 		}
 	}
 }
+
 
 
 function APIUtility(){
