@@ -43,6 +43,8 @@ from aumhaa.v2.control_surface.components.m4l_interface import M4LInterfaceCompo
 
 debug = initialize_debug()
 
+DEVICE_COMPONENTS = ['device_0', 'device_1']
+
 
 """Custom files, overrides, and files from other scripts"""
 from _Generic.Devices import *
@@ -246,6 +248,117 @@ class TwisterButtonElement(MonoButtonElement):
 
 
 
+class TwisterStaticDeviceProvider(EventObject):
+
+
+	device_selection_follows_track_selection = False
+
+	def __init__(self, *a, **k):
+		super(TwisterStaticDeviceProvider, self).__init__(*a, **k)
+		self._device = None
+
+
+	@listenable_property
+	def device(self):
+		#debug('returning:', self._device)
+		return self._device
+
+
+	@device.setter
+	def device(self, device):
+		#debug('provider device_setter:', device)
+		if liveobj_changed(self._device, device):
+			self._device = device
+			self.notify_device()
+
+
+
+class TwisterDeviceComponent(DeviceComponent):
+
+
+	def __init__(self, script, preset_index, *a, **k):
+		self._script = script
+		self._preset_index = str(preset_index)
+		provider = TwisterStaticDeviceProvider()
+		self._dynamic_device_provider = None
+		self._preset_device = None
+		super(TwisterDeviceComponent, self).__init__(device_provider = provider, *a, **k)
+		self.scan_all()
+
+
+	def update(self):
+		super(TwisterDeviceComponent, self).update()
+
+
+	def scan_all(self):
+		debug('scan all device--------------------------------')
+		preset = None
+		tracks = self.song.tracks + self.song.return_tracks + tuple([self.song.master_track])
+		key = str('@d:'+self._preset_index)
+		debug('key is:', key)
+		for track in tracks:
+			for device in enumerate_track_device(track):
+				if device.name.startswith(key+' ') or device.name == key:
+					preset = device
+				elif (device.name.startswith('*' +key+' ') or device.name == ('*' +key))  and device.can_have_chains and len(device.chains) and len(device.chains[0].devices):
+					preset = device.chains[0].devices[0]
+		self._preset_device = preset
+		debug('preset is:', preset)
+		if not preset == None:
+			self._device_provider.device = preset
+
+
+	@listens('device')
+	def _on_dynamic_device_changed(self):
+		if self._preset_device is None:
+			device = self._dynamic_device_provider.device if self._dynamic_device_provider else None
+			#debug('_on_provided_device_changed:', self.name, device)
+			if liveobj_valid(self._device_provider):
+				self._device_provider.device = device
+
+
+	def set_dynamic_device_provider(self, provider):
+		self._dynamic_device_provider = provider
+		self._on_dynamic_device_changed.subject = self._dynamic_device_provider
+		if self._get_device() is None:
+			self._on_dynamic_device_changed()
+
+
+	def display_device(self):
+		track = self.find_track(livedevice(self._get_device()))
+		if (self.song.view.selected_track is not track):
+			self.song.view.selected_track = track
+		self.song.view.select_device(livedevice(self._get_device()))
+		if ((not self.application.view.is_view_visible('Detail')) or (not self.application.view.is_view_visible('Detail/DeviceChain'))):
+			self.application.view.show_view('Detail')
+			self.application.view.show_view('Detail/DeviceChain')
+
+
+	def find_track(self, obj):
+		if obj != None:
+			if(type(obj.canonical_parent)==type(None)) or (type(obj.canonical_parent)==type(self.song)):
+				return None
+			elif(type(obj.canonical_parent) == type(self.song.tracks[0])):
+				return obj.canonical_parent
+			else:
+				return self.find_track(obj.canonical_parent)
+		else:
+			return None
+
+
+	def _on_device_changed(self, device):
+		super(TwisterDeviceComponent, self)._on_device_changed(device)
+
+
+	def _release_parameters(self, controls):
+		if controls != None:
+			for control in controls:
+				if control != None:
+					control.release_parameter()
+					control.reset()
+
+
+
 class Twister(LividControlSurface):
 	__module__ = __name__
 	__doc__ = " Monomodular controller script for Livid CNTRLR "
@@ -270,7 +383,12 @@ class Twister(LividControlSurface):
 			self._setup_background()
 			self._setup_m4l_interface()
 			self._setup_mod()
-			self._setup_device_control()
+			self._setup_mixer_control()
+			self._setup_device_navigator()
+			self._setup_device_controls()
+			#self._setup_special_device_control()
+			self._setup_device_chooser()
+			#self._setup_device_selector()
 			self._setup_modes()
 		self._on_device_changed.subject = self.song
 		self._on_selected_track_changed.subject = self.song.view
@@ -316,25 +434,76 @@ class Twister(LividControlSurface):
 		self._initialize_hardware()
 		self._initialize_script()
 
-	"""
+
 	def _setup_mixer_control(self):
-		self._mixer_session_ring = SessionRingComponent(num_tracks = 4, num_scenes = 4)
-		self._mixer = MonoMixerComponent(name = 'Mixer', tracks_provider = self._mixer_session_ring, track_assigner = simple_track_assigner, invert_mute_feedback = True, auto_name = True, enable_skinning = True)
+		self._mixer_session_ring = SessionRingComponent(num_tracks = 0, num_scenes = 0)
+		self._mixer = MonoMixerComponent(name = 'Mixer', tracks_provider = self._mixer_session_ring)
+		self._mixer.set_enabled(False)
 
-		self._mixer.layer = Layer(priority = 4,
-											solo_buttons = self._dial_button_matrix.submatrix[:,0],
-											stop_clip_buttons = self._dial_button_matrix.submatrix[:,1],
-											track_select_buttons = self._dial_button_matrix.submatrix[:,2])
-		self._mixer.set_enabled(True)
-	"""
+	def _setup_device_navigator(self):
+		self._device_navigator = DeviceNavigator(self._device_provider, self._mixer, self)
+		self._device_navigator._dev1_layer = AddLayerMode(self._device_navigator, Layer(priority = 4, prev_button = self._encoder_button[2], next_button = self._encoder_button[3], prev_chain_button = self._encoder_button[4], next_chain_button = self._encoder_button[5]))
+		self._device_navigator._dev2_layer = AddLayerMode(self._device_navigator, Layer(priority = 4, prev_button = self._encoder_button[9], next_button = self._encoder_button[10], prev_chain_button = self._encoder_button[11], next_chain_button = self._encoder_button[12]))
+		self._device_navigator.set_enabled(False)
 
-	def _setup_device_control(self):
+	def _setup_device_controls(self):
+		self._device = [None for index in range(2)]
+
+		self._device[0] = TwisterDeviceComponent(self, index+1, device_bank_registry = DeviceBankRegistry())
+		self._device[0].name = 'TwisterDevice_Component_0'
+		self._device[0].layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:, :2],
+											on_off_button = self._encoder_button[1],
+											bank_prev_button = self._encoder_button[2],
+											bank_next_button = self._encoder_button[3],
+											)
+		self._device[0].set_enabled(False)
+
+		self._device[1] = TwisterDeviceComponent(self, index+1, device_bank_registry = DeviceBankRegistry())
+		self._device[1].name = 'TwisterDevice_Component_1'
+		self._device[1].layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:, 2:4],
+											on_off_button = self._encoder_button[9],
+											bank_prev_button = self._encoder_button[10],
+											bank_next_button = self._encoder_button[11],
+											)
+		self._device[index].set_enabled(False)
+
+
+
+	def _setup_special_device_control(self):
 		self._device = SpecialDeviceComponent(name = 'Device_Component', device_provider = self._device_provider, device_bank_registry = DeviceBankRegistry(), script = self)
 		self._device.layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:,:],)
 		self._device.bank_layer = AddLayerMode(self._device, Layer(priority = 4,
 												bank_prev_button = self._encoder_button[12],
 												bank_next_button = self._encoder_button[13]))
 		self._device.set_enabled(False)
+
+	def _setup_device_chooser(self):
+		self._selected_device = self._device[0]
+		self._last_selected_device = self._device[0]
+
+		self._selected_device_modes = ModesComponent()
+		self._selected_device_modes.add_mode('disabled', [None])
+		self._selected_device_modes.add_mode('device_0', [self._device_navigator._dev1_layer], behaviour = DefaultedBehaviour())
+		self._selected_device_modes.add_mode('device_1', [self._device_navigator._dev2_layer], behaviour = DefaultedBehaviour())
+		self._selected_device_modes.layer = Layer(priority = 4, device_0_button = self._encoder_button[0], device_1_button = self._encoder_button[8])
+		self._selected_device_modes.selected_mode = 'device_0'
+		self._selected_device_modes.set_enabled(False)
+		self._on_device_selector_mode_changed.subject = self._selected_device_modes
+
+	@listens('selected_mode')
+	def _on_device_selector_mode_changed(self, mode):
+		if mode == 'disabled':
+			for device in self._device:
+				device.set_dynamic_device_provider(None)
+		elif mode in DEVICE_COMPONENTS:
+			active_device = self._device[DEVICE_COMPONENTS.index(self._selected_device_modes.selected_mode)]
+			for device in self._device:
+				if device is active_device:
+					device.set_dynamic_device_provider(self._device_provider)
+				else:
+					device.set_dynamic_device_provider(None)
+			if active_device.find_track(active_device._get_device()) == self.song.view.selected_track:
+				active_device.display_device()
 
 
 	def _setup_mod(self):
@@ -351,7 +520,8 @@ class Twister(LividControlSurface):
 	def _setup_modes(self):
 		self._modswitcher = ModesComponent(name = 'ModSwitcher')
 		self._modswitcher.add_mode('mod', [self.modhandler, self._device])
-		self._modswitcher.add_mode('device', [self._device, self._device.bank_layer])
+		#self._modswitcher.add_mode('device', [self._device, self._device.bank_layer])
+		self._modswitcher.add_mode('device', [self._selected_device_modes, self._device[0], self._device[1]])
 		self._modswitcher.selected_mode = 'device'
 		self._modswitcher.set_enabled(True)
 
