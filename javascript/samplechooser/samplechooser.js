@@ -76,6 +76,7 @@ function init(){
 	setup_patchers();
 	setup_controls();
 	setup_dict();
+	setup_editor();
 	setup_components();
 	setup_parameter_controls();
 	setup_device();
@@ -203,8 +204,23 @@ function setup_dict(){
 	script['dict'] = new Dict(dict_obj.getattr('name'));
 }
 
+function setup_editor(){
+	var obj = this.patcher.getnamed('editor');
+	var pcontrol = this.patcher.getnamed('editor_pcontrol');
+	var thispatcher = obj.subpatcher().getnamed('thispatcher');
+	var window_position = obj.subpatcher().getnamed('window_position');
+	//window_position = window_position.length ? window_position : [100, 100, 200, 400];
+	//window_position = [100, 200, 200, 600];
+	script['editorWindow'] = new EditorModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':205, 'sizeY':420, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
+	script['IN_editor'] = editorWindow.receive;
+	editorWindow.lock();
+	//editorWindow.open();
+}
+
 function setup_components(){
-	script['layerChooser'] = new PagedRadioComponent('LayerChooser', 0, 128, 0, undefined, 1, 11, {'play_callback':audition});
+	var current_layer_value = layer.getvalueof();
+	debug('current_layer_value', current_layer_value);
+	script['layerChooser'] = new PagedRadioComponent('LayerChooser', 0, 128, current_layer_value, undefined, 1, 11, {'play_callback':audition});
 	script['rackDevice'] = new RackDevice('RackDevice');
 	rackDevice.set_layerChooser(layerChooser);
 	layerChooser.set_target(rackDevice.set_parameter_value);
@@ -217,14 +233,12 @@ function setup_components(){
 	//debug('drumrack_input_note', drumrack_input_note);
 }
 
-function setup_parameter_controls()
-{
+function setup_parameter_controls(){
 	//debug('making parameters');
 	var obj = this.patcher.getnamed('parameter_controls');
 	var pcontrol = this.patcher.getnamed('parameter_controls_pcontrol');
 	var thispatcher = obj.subpatcher().getnamed('parameter_controls_thispatcher');
 	var window_position = obj.subpatcher().getnamed('window_position');
-	window_position = window_position.length ? window_position : [0, 0, 200, 200];
 	script['parameterWindow'] = new ParameterControlModule('ParameterControls', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':500, 'sizeY':250, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
 	script['IN_paramControl'] = parameterWindow.receive;
 	script['lcd'] = parameterWindow._lcd;
@@ -406,6 +420,10 @@ function audition_destination(note, velocity, duration){
 	}
 }
 
+function _Editor(val){
+	editorWindow.open();
+}
+
 function _Parameters(val){
 	parameterWindow.open();
 }
@@ -421,17 +439,27 @@ function _Audition(val){
 function _Inc(val){
 	if(val){
 		//layer.message(layer.getvalueof()+1);
-		layerChooser.increase_value();
+		if(layerChooser.fave_skip._value){
+			layerChooser.next_favorite();
+		}
+		else{
+			layerChooser.increase_value();
+		}
 	}
-	inc_button.message('set', 0);
+	editorWindow.objs.inc_button.message('set', 0);
 }
 
 function _Dec(val){
 	if(val){
-		//layer.message(layer.getvalueof()-1);
-		layerChooser.decrease_value();
+		if(layerChooser.fave_skip._value){
+			layerChooser.previous_favorite();
+		}
+		else{
+			//layer.message(layer.getvalueof()-1);
+			layerChooser.decrease_value();
+		}
 	}
-	dec_button.message('set', 0);
+	editorWindow.objs.dec_button.message('set', 0);
 }
 
 function _Favorite(val){
@@ -439,6 +467,10 @@ function _Favorite(val){
 		layerChooser.toggle_favorite_status(layerChooser._value);
 	}
 	favorite_button.message('set', 0);
+}
+
+function _FaveSkip(val){
+	layerChooser.fave_skip.set_value(val);
 }
 
 function update_background(){
@@ -449,6 +481,7 @@ function update_background(){
 
 function _IN_textedit(){
 	var args = arrayfromargs(arguments);
+	debug('_IN_textedit', args);
 	if(args[0]=='text'){
 		var new_name = args.slice(1);
 		debug('_IN_textedit', new_name);
@@ -479,12 +512,14 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
   this._faveOffValue2 = 100;
 	this._onValue2 = 1;
 	this._offValue2 = 23;
-  this._page_offset = new ToggledParameter(this._name + '_PageOffset', {'onValue':50, 'offValue':40, 'value':0})
+  this._page_offset = new ToggledParameter(this._name + '_PageOffset', {'onValue':50, 'offValue':40, 'value':0});
 	this._page_offset.set_target(this._page_offset_callback.bind(this));
 	this._page_length = 64;
+  this.fave_skip = new ToggledParameter(this._name + '_FaveSkip', {'onValue':50, 'offValue':40, 'value':0});
 	this._play_callback = undefined;
 	this.activeLayer = new RangedParameter('activeLayer', 128);
 	this.activeLayer.set_target(this.activeLayer_callback.bind(this));
+	this.activeLayer.set_value()
 	this._rackDevice = undefined;
 	this._detentDialValue = new ParameterClass(this._name + '_detentDial');
 	this._detentDialValue.set_target(this._detent_dial_callback.bind(this));
@@ -506,9 +541,9 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
 inherits(PagedRadioComponent, RadioComponent);
 
 PagedRadioComponent.prototype.dependent_listener_callback = function(obj){
-		cellblock.message('select', 0, obj._value);
+		editorWindow.objs.cellblock.message('select', 0, obj._value);
 		messnamed(unique+'cellblock_scroll', 'sync', 'click', 1, obj._value, 1, 1);
-		textedit.message('set', this._names[obj._value]);
+		editorWindow.objs.textedit.message('set', this._names[obj._value]);
 		rackDevice.update_controlled_parameters(this._value);
 }
 
@@ -521,7 +556,7 @@ PagedRadioComponent.prototype.activeLayer_callback = function(obj){
 			this._play_callback({'_value':1});
 		}
 		//update_background();
-		cellblock.message('select', 0, this._value);
+		editorWindow.objs.cellblock.message('select', 0, this._value);
 	}
 }
 
@@ -567,12 +602,12 @@ PagedRadioComponent.prototype.store_names = function(){
 
 PagedRadioComponent.prototype.update_names_display = function(){
 	for(var i=0;i<this._names.length;i++){
-		cellblock.message('set', 0, i, this._names[i]);
+		editorWindow.objs.cellblock.message('set', 0, i, this._names[i]);
 		var fav = this.is_favorite(i);
 		var bgcolor = fav ? [128, 0, 0] : [256, 256, 256];
 		var fgcolor = fav ? [256, 256, 256] : [0, 0, 0];
-		cellblock.message('cell', 0, i, 'brgb', bgcolor);
-		cellblock.message('cell', 0, i, 'frgb', fgcolor);
+		editorWindow.objs.cellblock.message('cell', 0, i, 'brgb', bgcolor);
+		editorWindow.objs.cellblock.message('cell', 0, i, 'frgb', fgcolor);
 	}
 }
 
@@ -666,7 +701,7 @@ PagedRadioComponent.prototype.next_favorite = function(){
 		var new_val = faves[new_fave_index];
 		debug('new_fave_index:', new_fave_index, 'new_val:', new_val);
 
-		this.receive(new_val);
+		this.set_value(new_val);
 		if(this._apiObj){this._apiObj.set('value', this._value);}
 		if(this._play_callback)
 		{
@@ -697,7 +732,7 @@ PagedRadioComponent.prototype.previous_favorite = function(){
 		var new_val = faves[new_fave_index];
 		debug('new_fave_index:', new_fave_index, 'new_val:', new_val);
 
-		this.receive(new_val);
+		this.set_value(new_val);
 		if(this._apiObj){this._apiObj.set('value', this._value);}
 		if(this._play_callback)
 		{
@@ -982,6 +1017,59 @@ ParameterControlModule.prototype._lcd = function(obj, type, val){
 	}
 }
 
+
+function EditorModule(name, args){
+	//debug('making parameters');
+	var self = this;
+	this.add_bound_properties(this, ['_initialize', 'receive', 'objs']);
+	EditorModule.super_.call(this, name, args);
+	this.objs = {};
+	find_patcher_objects(this.objs, this._obj.subpatcher(), get_patcher_script_names(this._obj.subpatcher()));
+	this._initialize();
+}
+
+inherits(EditorModule, FloatingWindowModule);
+
+EditorModule.prototype._initialize = function(){
+	this._window_position = this._obj.subpatcher().getnamed('window_position');
+	this._thispatcher = this._obj.subpatcher().getnamed('thispatcher');
+}
+
+EditorModule.prototype.receive = function(num, val){
+	//debug(this._name, 'receive:', num, val);
+	switch(num){
+		case 'position':
+			var args = arrayfromargs(arguments);
+			//debug(this._name, 'setting window position:', args.slice(1));
+			this._window_position.message('set', args.slice(1));
+			break;
+		case 'close':
+			this.close();
+			break;
+		case 'float':
+			//this.float();
+			break;
+		case 'IN_cellblock':
+			var args = arrayfromargs(arguments);
+			script._IN_cellblock.apply(script, args.slice(1));
+			break;
+		case 'IN_textedit':
+			var args = arrayfromargs(arguments);
+			script._IN_textedit.apply(script, args.slice(1));
+			break;
+		case 'set_audition_note':
+			script.set_audition_note(val);
+			break;
+		case 'Inc':
+			script._Inc(val);
+			break;
+		case 'Dec':
+			script._Dec(val);
+			break;
+		default:
+			break;
+	}
+}
 
 
 function APIUtility(){
