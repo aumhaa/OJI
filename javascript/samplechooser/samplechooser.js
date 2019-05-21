@@ -34,7 +34,9 @@ var check_relays = false;
 var drumrack_output_note = 0;
 var drumrack_input_note = 0;
 
+
 var Alive = false;
+var ThisDeviceSelected = false;
 
 var colors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 var PushColors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
@@ -229,6 +231,9 @@ function setup_components(){
 	var drumrack = apiUtil.container_from_id(apiUtil.container_from_id(apiUtil.container_id));
 	drumrack_output_note = apiUtil.drum_output_note_from_drumchain(drumrack);
 	drumrack_input_note = apiUtil.drum_input_note_from_drumchain(drumrack);
+
+	script['api_appointed_device'] = new LiveAPI(appointed_device_listener, 'live_set');
+	api_appointed_device.property = 'appointed_device';
 	//debug('id:', drumrack, apiUtil.name_from_id(drumrack));
 	//debug('drumrack_input_note', drumrack_input_note);
 }
@@ -320,6 +325,10 @@ function setup_tests(){
 }
 
 
+function appointed_device_listener(args){
+	debug('appointed_device_listener:', args);
+	//ThisDeviceSelected = args
+}
 
 function detect_compatible_relays(){
 	//debug('detect_compatible_relays');
@@ -460,6 +469,20 @@ function _Dec(val){
 		}
 	}
 	editorWindow.objs.dec_button.message('set', 0);
+}
+
+function _FaveInc(val){
+	if(val){
+		layerChooser.next_favorite();
+	}
+	editorWindow.objs.faveinc_button.message('set', 0);
+}
+
+function _FaveDec(val){
+	if(val){
+		layerChooser.previous_favorite();
+	}
+	editorWindow.objs.favedec_button.message('set', 0);
 }
 
 function _Favorite(val){
