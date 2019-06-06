@@ -21,6 +21,7 @@ var found_mod;
 var mod_finder;
 var Mod = ModComponent.bind(script);
 var ModProxy = ModProxyComponent.bind(script);
+var this_device_id = 0;
 
 var INIT_GLOBAL = false;
 var aumhaaGlobal = new Global('aumhaaGlobal');
@@ -36,7 +37,6 @@ var drumrack_input_note = 0;
 
 
 var Alive = false;
-var ThisDeviceSelected = false;
 
 var colors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
 var PushColors = {OFF : 0, WHITE : 1, YELLOW : 2, CYAN : 3, MAGENTA : 4, RED : 5, GREEN : 6, BLUE : 7};
@@ -232,6 +232,8 @@ function setup_components(){
 	drumrack_output_note = apiUtil.drum_output_note_from_drumchain(drumrack);
 	drumrack_input_note = apiUtil.drum_input_note_from_drumchain(drumrack);
 
+	//messnamed(uid+'init', 'bang');
+	//debug('just banged selected_device_patcher...');
 	script['api_appointed_device'] = new LiveAPI(appointed_device_listener, 'live_set');
 	api_appointed_device.property = 'appointed_device';
 	//debug('id:', drumrack, apiUtil.name_from_id(drumrack));
@@ -316,6 +318,9 @@ function setup_global_link(){
 		glob.chooser_list = {};
 	}
 	glob.chooser_list[unique] = script;
+	if(!glob.last_selected_instance){
+		glob.last_selected_instance = 0;
+	}
 	debug('done with link');
 	detect_compatible_relays();
 }
@@ -327,7 +332,30 @@ function setup_tests(){
 
 function appointed_device_listener(args){
 	debug('appointed_device_listener:', args);
-	//ThisDeviceSelected = args
+	if((args[0]!='bang')&&(args[0]=='appointed_device')){
+		if(args[2]==(this_device_id)){
+			assign_last_selected_instance(args[2]);
+		}
+	}
+}
+
+function reevaluate_global_gate(){
+	debug('gateLogic:', aumhaaGlobal.sampleChooser.last_selected, this_device_id);
+	set_global_gate(aumhaaGlobal.sampleChooser.last_selected == this_device_id ? 1 : 0);
+}
+
+function assign_last_selected_instance(id){
+	debug('assign_last_selected_instance:', id);
+	var glob = aumhaaGlobal.sampleChooser;
+	glob.last_selected=id;
+	for(var i in glob.chooser_list){
+		glob.chooser_list[i].reevaluate_global_gate();
+	}
+}
+
+function set_global_gate(val){
+	debug('set_global_gate:', uid, val);
+	global_gate.message(val);
 }
 
 function detect_compatible_relays(){
@@ -430,11 +458,21 @@ function audition_destination(note, velocity, duration){
 }
 
 function _Editor(val){
-	editorWindow.open();
+	if(val){
+		editorWindow.open();
+	}
+	else{
+		editorWindow.close();
+	}
 }
 
 function _Parameters(val){
-	parameterWindow.open();
+	if(val){
+		parameterWindow.open();
+	}
+	else{
+		parameterWindow.close();
+	}
 }
 
 function _Audition(val){
@@ -524,6 +562,9 @@ function _IN_cellblock(){
 	}
 }
 
+function selected_device(val){
+	//debug('selected_device:', val);
+}
 
 
 
