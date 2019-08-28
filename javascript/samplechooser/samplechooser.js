@@ -339,6 +339,8 @@ function appointed_device_listener(args){
 	}
 }
 
+function appointed_device_listener(){}
+
 function reevaluate_global_gate(){
 	debug('gateLogic:', aumhaaGlobal.sampleChooser.last_selected, this_device_id);
 	set_global_gate(aumhaaGlobal.sampleChooser.last_selected == this_device_id ? 1 : 0);
