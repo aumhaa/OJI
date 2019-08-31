@@ -94,6 +94,14 @@ function init(){
 	Alive = true;
 }
 
+function dissolve(){
+	try{
+		mod.restart.cancel();
+	}
+	catch(error){}
+	dissolve_global_link();
+}
+
 function mod_callback(args){
 	if((args[0]=='value')&&(args[1]!='bang'))
 	{
@@ -325,6 +333,12 @@ function setup_global_link(){
 	detect_compatible_relays();
 }
 
+function dissolve_global_link(){
+	var glob = aumhaaGlobal.sampleChooser;
+	delete glob.chooser_list[unique];
+	debug('chooser instance disolved');
+}
+
 function setup_tests(){
   //introspect_global();
 }
@@ -339,7 +353,7 @@ function appointed_device_listener(args){
 	}
 }
 
-function appointed_device_listener(){}
+//function appointed_device_listener(){}
 
 function reevaluate_global_gate(){
 	debug('gateLogic:', aumhaaGlobal.sampleChooser.last_selected, this_device_id);
@@ -349,9 +363,13 @@ function reevaluate_global_gate(){
 function assign_last_selected_instance(id){
 	debug('assign_last_selected_instance:', id);
 	var glob = aumhaaGlobal.sampleChooser;
-	glob.last_selected=id;
-	for(var i in glob.chooser_list){
-		glob.chooser_list[i].reevaluate_global_gate();
+	if(glob){
+		if(glob.last_selected != id){
+			glob.last_selected = id;
+			for(var i in glob.chooser_list){
+				glob.chooser_list[i].reevaluate_global_gate();
+			}
+		}
 	}
 }
 
