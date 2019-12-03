@@ -23,6 +23,7 @@ var Mod = ModComponent.bind(script);
 var ModProxy = ModProxyComponent.bind(script);
 var this_device_id = 0;
 
+
 var INIT_GLOBAL = false;
 var aumhaaGlobal = new Global('aumhaaGlobal');
 
@@ -30,6 +31,7 @@ if((!aumhaaGlobal.sampleChooser)||(INIT_GLOBAL)){
 	debug('making sampleChooser global');
 	aumhaaGlobal.sampleChooser = {};
 }
+
 var compatible_relays = [];
 var check_relays = false;
 var drumrack_output_note = 0;
@@ -67,10 +69,10 @@ function note_in(){}
 function init(){
 	debug('init', script._name);
 	mod = new ModProxy(script, ['Send', 'SendDirect', 'restart']);
-	found_mod = new Mod(script, 'skin', unique, false);
+	//found_mod = new Mod(script, 'samplechooser', unique, false);
 	//mod.debug = debug;
 	mod_finder = new LiveAPI(mod_callback, 'this_device');
-	found_mod.assign_api(mod_finder);
+	//found_mod.assign_api(mod_finder);
 
 	setup_tasks();
 	setup_translations();
@@ -235,15 +237,18 @@ function setup_components(){
 	rackDevice.set_layerChooser(layerChooser);
 	layerChooser.set_target(rackDevice.set_parameter_value);
 	//layerChooser.add_listener(update_cellblock_position);
-	script['apiUtil'] = new APIUtility();
+	var finder = new LiveAPI(function(){}, 'this_device');
+	script['apiUtil'] = new APIUtility(finder);
 	var drumrack = apiUtil.container_from_id(apiUtil.container_from_id(apiUtil.container_id));
 	drumrack_output_note = apiUtil.drum_output_note_from_drumchain(drumrack);
 	drumrack_input_note = apiUtil.drum_input_note_from_drumchain(drumrack);
 
 	//messnamed(uid+'init', 'bang');
 	//debug('just banged selected_device_patcher...');
+
 	script['api_appointed_device'] = new LiveAPI(appointed_device_listener, 'live_set');
 	api_appointed_device.property = 'appointed_device';
+
 	//debug('id:', drumrack, apiUtil.name_from_id(drumrack));
 	//debug('drumrack_input_note', drumrack_input_note);
 }
@@ -338,6 +343,8 @@ function dissolve_global_link(){
 	delete glob.chooser_list[unique];
 	debug('chooser instance disolved');
 }
+
+//function dissolve_global_link(){}
 
 function setup_tests(){
   //introspect_global();
@@ -1156,9 +1163,9 @@ EditorModule.prototype.receive = function(num, val){
 }
 
 
-function APIUtility(){
+function APIUtility(finder){
 	var self = this;
-	this.finder = new LiveAPI(function(){}, 'this_device');
+	this.finder = finder;
 	this.device_id = parseInt(this.finder.id);
 	this.container_id = parseInt(this.container_from_id(this.device_id));
 }
@@ -1344,6 +1351,10 @@ APIUtility.device_ids_from_parent = function(id){
 	return ids;
 }
 
+
+function Global_Proxy_Object(){
+
+}
 
 
 
