@@ -1,5 +1,5 @@
 # by amounra 0915 : http://www.aumhaa.com
-# written against Live 10.0.5 120418
+# written against Live 10.1 082819
 
 from __future__ import with_statement
 import Live
@@ -15,8 +15,6 @@ from ableton.v2.control_surface.device_chain_utils import find_instrument_device
 from ableton.v2.control_surface.component import Component as ControlSurfaceComponent
 from ableton.v2.control_surface.elements.display_data_source import DisplayDataSource
 from ableton.v2.control_surface.mode import LatchingBehaviour
-#from _Framework.ModesComponent import CompoundMode, AddLayerMode, MultiEntryMode, ModesComponent, SetAttributeMode, ModeButtonBehaviour, CancellableBehaviour, AlternativeBehaviour, ReenterBehaviour, DynamicBehaviourMixin, ExcludingBehaviourMixin, ImmediateBehaviour, LatchingBehaviour, ModeButtonBehaviour
-
 from ableton.v2.control_surface.resource import PrioritizedResource
 from ableton.v2.control_surface import defaults
 from ableton.v2.control_surface.components import MixerComponent, TransportComponent, ClipSlotComponent, SceneComponent, SessionComponent
@@ -28,7 +26,6 @@ from ableton.v2.control_surface.elements import adjust_string, ButtonElement, Bu
 from ableton.v2.control_surface.mode import CompoundMode, AddLayerMode, ModesComponent
 from ableton.v2.control_surface.input_control_element import ParameterSlot
 from ableton.v2.control_surface.elements import ButtonElement
-#from ableton.v2.control_surface.components import DeviceComponent as DeviceComponentBase
 from ableton.v2.control_surface.percussion_instrument_finder import *
 
 from Push.push import Push
@@ -42,12 +39,10 @@ from Push.with_priority import WithPriority
 from Push import sysex
 
 from pushbase.value_component import ValueComponent, ParameterValueComponent, ValueDisplayComponent, ParameterValueDisplayComponent
-#from pushbase.configurable_button_element import ConfigurableButtonElement
 from pushbase.instrument_component import InstrumentComponent
 from pushbase.step_seq_component import StepSeqComponent
 from pushbase.loop_selector_component import LoopSelectorComponent
 from pushbase.clip_control_component import ClipControlComponent
-#from pushbase.device_component import DeviceComponent as ProviderDeviceComponent
 from pushbase.note_repeat_component import NoteRepeatComponent
 from pushbase.matrix_maps import PAD_TRANSLATIONS, FEEDBACK_CHANNELS
 from pushbase.control_element_factory import create_sysex_element
@@ -58,11 +53,8 @@ from pushbase.note_editor_component import NoteEditorComponent
 from pushbase.selection import PushSelection
 from pushbase.velocity_levels_component import VelocityLevelsComponent
 from pushbase.step_seq_component import DrumStepSeqComponent
-#from pushbase.accent_component import AccentComponent
-#from pushbase.auto_arm_component import AutoArmComponent
 from pushbase.matrix_maps import *
 from pushbase.consts import *
-#from pushbase.scrollable_list_component import ScrollableListWithTogglesComponent
 from pushbase.device_parameter_component import DeviceParameterComponent
 from pushbase.skin_default import make_default_skin
 from pushbase.special_session_component import SpecialSessionComponent as SpecialSessionComponentBase, SpecialSceneComponent as SpecialSceneComponentBase, SpecialClipSlotComponent as SpecialClipSlotComponentBase
@@ -76,7 +68,6 @@ from aumhaa.v2.control_surface.mod_devices import *
 from aumhaa.v2.control_surface.components.mono_instrument import *
 from aumhaa.v2.base.debug import *
 from aumhaa.v2.control_surface.mod import *
-#from aumhaa.v2.control_surface.components.m4l_interface import M4LInterfaceComponent
 
 from .Map import *
 
@@ -98,7 +89,6 @@ def drumrack_devices(song):
 					found_drumrack_devices.append(device)
 	#debug('found_drumrack_devices:', found_drumrack_devices)
 	return found_drumrack_devices
-
 
 
 class SpecialClipSlotComponent(SpecialClipSlotComponentBase, Messenger):
@@ -155,7 +145,6 @@ class SpecialSceneComponent(SpecialSceneComponentBase, Messenger):
 			self.song.view.selected_scene = self._scene
 
 
-
 class SpecialSessionComponent(SpecialSessionComponentBase):
 
 	scene_component_type = SpecialSceneComponent
@@ -168,6 +157,7 @@ class SpecialSessionComponent(SpecialSessionComponentBase):
 	def set_shift_button(self, button):
 		for scene in self._scenes:
 			scene.set_shift_button(button)
+
 
 class SpecialPercussionInstrumentFinder(PercussionInstrumentFinder):
 
@@ -213,6 +203,7 @@ class SpecialPercussionInstrumentFinder(PercussionInstrumentFinder):
 			requirement = lambda i: i.can_have_drum_pads
 			drum_device = find_instrument_meeting_requirement(requirement, track_or_chain)
 		return drum_device
+
 
 class AumPushDrumStepSeqComponent(DrumStepSeqComponent):
 
@@ -574,7 +565,6 @@ class AumPush(Push):
 											break
 
 
-
 class ModDispayComponent(ControlSurfaceComponent):
 
 
@@ -615,7 +605,6 @@ class ModDispayComponent(ControlSurfaceComponent):
 		pass
 
 
-
 class ModShiftBehaviour(ModeButtonBehaviour):
 
 
@@ -631,7 +620,6 @@ class ModShiftBehaviour(ModeButtonBehaviour):
 	def release_delayed(self, component, mode):
 		if len(component.active_modes) > 1:
 			component.pop_mode(mode)
-
 
 
 class PushModHandler(ModHandler):
