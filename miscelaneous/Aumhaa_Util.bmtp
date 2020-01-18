@@ -1,0 +1,84 @@
+[Preset.0]
+Name=New Preset
+Active=1
+Comments=
+PresetSwitchIgnore=0
+Name0=Arm Selected Track
+Incoming0=KAM10000KSQ10004012041241212
+Outgoing0=MID3<Outgoing Action="MIDI"><Description>Autoarm Track</Description><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x00"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options0=Actv01Stop00OutO00
+Name1=Mute Selected Track
+Incoming1=KAM10000KSQ1000401204D24D212
+Outgoing1=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x01"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options1=Actv01Stop00OutO00
+Name2=Solo Selected Track
+Incoming2=KAM10000KSQ10004012053253212
+Outgoing2=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x02"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options2=Actv01Stop00OutO00
+Name3=Fire Next Clip
+Incoming3=KAM10000KSQ10004012057257212
+Outgoing3=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x03"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options3=Actv01Stop00OutO00
+Name4=Fire Prev Clip
+Incoming4=KAM10000KSQ10004012051251212
+Outgoing4=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x04"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options4=Actv01Stop00OutO00
+Name5=Stop Selected Clip
+Incoming5=KAM10000KSQ1000401205A25A212
+Outgoing5=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x05"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options5=Actv01Stop00OutO00
+Name6=Stop All Clips
+Incoming6=KAM10000KSQ10004012058258212
+Outgoing6=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x06"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options6=Actv01Stop00OutO00
+Name7=Select Playing Clip
+Incoming7=KAM10000KSQ10004012043243212
+Outgoing7=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x07"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options7=Actv01Stop00OutO00
+Name8=Scene New Scene
+Incoming8=KAM10000KSQ10004012052252212
+Outgoing8=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x08"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options8=Actv01Stop00OutO00
+Name9=Arm Kill
+Incoming9=KAM10000KSQ10004010041241210
+Outgoing9=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x09"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options9=Actv01Stop00OutO00
+Name10=Mute Kill
+Incoming10=KAM10000KSQ1000401004D24D210
+Outgoing10=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x0A"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options10=Actv01Stop00OutO00
+Name11=Solo Kill
+Incoming11=KAM10000KSQ10004010053253210
+Outgoing11=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x0B"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options11=Actv01Stop00OutO00
+Name12=Mute Flip
+Incoming12=KAM10000KSQ10004012047247212
+Outgoing12=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x0C"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options12=Actv01Stop00OutO00
+Name13=Arm Excl
+Incoming13=KAM10000KSQ10004093041241293
+Outgoing13=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x0D"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options13=Actv01Stop00OutO00
+Name14=Mute Excl
+Incoming14=KAM10000KSQ1000409304D24D293
+Outgoing14=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x0E"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options14=Actv01Stop00OutO00
+Name15=Solo Excl
+Incoming15=KAM10000KSQ10004093053253293
+Outgoing15=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x0F"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options15=Actv01Stop00OutO00
+Name16=Autoarm Toggle
+Incoming16=KAM10000KSQ10004012048248212
+Outgoing16=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x10"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options16=Actv01Stop00OutO00
+
+[Project]
+Version=2
+Author=
+AuthorContact=
+Comments=
+AuthorWWW=
+AuthorCopyright=
+DefaultInPorts=MIDA0000
+DefaultOutPorts=MIDA00010022Bome MIDI Translator 1 Virtual Out
+
