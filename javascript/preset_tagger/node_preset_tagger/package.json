@@ -1,0 +1,17 @@
+{
+  "name": "node_preset_tagger",
+  "version": "1.0.0",
+  "description": "file processes for OJI groove matcher",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "amounra",
+  "license": "ISC",
+  "dependencies": {
+    "fs-extra": ">=8.1.0",
+    "fs-xattr": ">=0.3.0",
+    "open": ">=0.5.0",
+    "xml-js": ">=1.6.11"
+  }
+}
