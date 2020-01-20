@@ -28,34 +28,61 @@ const debug = DEBUG&&Debug?Debug:function(){}
 
 const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv'];
 const namespace = 'com.aumhaa.Tag';
-let library_dir = undefined;
-let selected_file = undefined;
-let selected_tag = [];
-let library_data = {};
-let prefFile_path = 'preferences.xml';
+var library_dir = '';
+var selected_file = undefined;
+var selected_tag = [];
+var library_data = {};
+var file_tree = {};
+const prefFile_path = 'preferences.json';
 
 
 const libraryDictId = "library";
 try {
   const libraryDict = maxApi.getDict(libraryDictId);
-	debug('dict init handled');
+	debug('library dict init handled');
 }
 catch (err) {
-	debug('dict init error', err);
+	debug('library dict init error', err);
+}
+
+const filetreeDictId = "filetree";
+try {
+  const filetreeDict = maxApi.getDict(filetreeDictId);
+	debug('filetree dict init handled');
+}
+catch (err) {
+	debug('filetree dict init error', err);
 }
 
 const init_prefs = async () => {
 	try{
 		let newData = fs.readFileSync(prefFile_path, 'utf8');
-		let result = xmljs.xml2json(newData, {compact: true, spaces: 3});
-		let obj = JSON.parse(result);
-		debug('all done here...', obj.preferences.path._text);
+		//let result = xmljs.xml2json(newData, {compact: true, spaces: 3});
+		let obj = JSON.parse(newData);
+		// debug('all done here...', obj.preferences.path);
 		//debug(util.inspect(obj, false, null));
-		set_library(obj.preferences.path._text);
+		set_library(obj.preferences.path);
 	}
 	catch (err){
 		debug('prefFile readstream creation error', err);
 	}
+}
+
+const writeFileTree = async () => {
+	let newData = fs.readFileSync(prefFile_path);
+	//let result = xmljs.xml2json(newData, {compact: true, spaces: 3});
+	let obj = JSON.parse(newData);
+	obj.preferences.fileTree = file_tree;
+	//let newFile = xmljs.js2xml(obj, {compact: true, spaces: 3});
+	let newFile = JSON.stringify(obj, null, 3);
+	fs.writeFile(prefFile_path, newFile, function(err, data) {
+		if (err) {
+			debug(err);
+		}
+		else{
+			debug('FileTree written!');
+		}
+	});
 }
 
 
@@ -90,7 +117,7 @@ maxApi.addHandler('set_tag', async(tag) => {
 	if( (fs.existsSync(selected_file)) && (fs.lstatSync(selected_file).isFile()) && (selected_tag!=undefined)){
 		let attrs = xattr.listSync(selected_file);
 		let tag_buf = selected_tag;
-		debug('set_tag', selected_file, tag_buf);
+		//debug('set_tag', selected_file, tag_buf);
 		if(attrs.indexOf(namespace)==-1){
 			xattr.setSync(selected_file, namespace, tag_buf.join(' '));
 		}
@@ -140,6 +167,79 @@ maxApi.addHandler('clear_tags', async() => {
 	scan_library();
 });
 
+maxApi.addHandler('set_folder_tags', async(dir_name) => {
+	if( (fs.existsSync(dir_name)) && (fs.lstatSync(dir_name).isDirectory()) && (selected_tag!=undefined)){
+		let directoryFiles = fs.readdirSync(dir_name);
+		directoryFiles.forEach(filename => {
+			let file_path = path.join(dir_name, filename).toString();
+			if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
+				let attrs = xattr.listSync(file_path);
+				let tag_buf = selected_tag;
+				//debug('set_folder_tags', file_path, tag_buf);
+				if(attrs.indexOf(namespace)==-1){
+					xattr.setSync(file_path, namespace, tag_buf.join(' '));
+				}
+				else{
+					let tags = xattr.getSync(file_path, namespace).toString();
+					let sep_tags = [].concat(tags.split(' '));
+					let new_tags = [];
+					for(var i in tag_buf){
+						if(sep_tags.indexOf(tag_buf[i])==-1){
+							new_tags.push(tag_buf[i]);
+						}
+					}
+					new_tags = sep_tags.concat(new_tags).join(' ');
+					xattr.setSync(file_path, namespace, new_tags);
+				}
+			}
+		})
+		scan_library();
+	}
+});
+
+maxApi.addHandler('remove_folder_tags', async(dir_name) => {
+	if( (fs.existsSync(dir_name)) && (fs.lstatSync(dir_name).isDirectory()) && (selected_tag!=undefined)){
+		let directoryFiles = fs.readdirSync(dir_name);
+		directoryFiles.forEach(filename => {
+			let file_path = path.join(dir_name, filename).toString();
+			if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
+				let tag_buf = selected_tag;
+				//debug('remove_tag', tag);
+				let attrs = xattr.listSync(file_path);
+				if(attrs.indexOf(namespace)>-1){
+					let tags = xattr.getSync(file_path, namespace).toString();
+					let sep_tags = [].concat(tags.split(' '));
+					let new_tags = [];
+					for(var i in sep_tags){
+						var index = tag_buf.indexOf(sep_tags[i]);
+						if(index==-1){
+							new_tags.push(sep_tags[i]);
+						}
+					}
+					new_tags = new_tags.join(' ');
+					xattr.setSync(file_path, namespace, new_tags);
+				}
+			}
+		})
+		scan_library();
+	}
+});
+
+maxApi.addHandler('clear_folder_tags', async(dir_name) => {
+	//debug('clear_tags');
+
+	if( (fs.existsSync(dir_name)) && (fs.lstatSync(dir_name).isDirectory()) && (selected_tag!=undefined)){
+		let directoryFiles = fs.readdirSync(dir_name);
+		directoryFiles.forEach(filename => {
+			let file_path = path.join(dir_name, filename).toString();
+			if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) && (xattr.listSync(file_path).indexOf(namespace)>-1)){
+				xattr.removeSync(file_path, namespace);
+			}
+		})
+	}
+	scan_library();
+});
+
 maxApi.addHandler('select_library', async(dir) => {
 	debug('select_library', dir);
 	if(dir){
@@ -147,14 +247,6 @@ maxApi.addHandler('select_library', async(dir) => {
 		set_library(dir);
 	}
 });
-
-const set_library = async(dir) => {
-	debug('set_library', dir);
-	if( (fs.existsSync(dir)) && (fs.lstatSync(dir).isDirectory()) ){
-		library_dir = dir;
-		scan_library();
-	}
-}
 
 maxApi.addHandler('scan_library', async() => {
 	debug('scan_library');
@@ -164,12 +256,13 @@ maxApi.addHandler('scan_library', async() => {
 maxApi.addHandler('set_global_path', async() => {
 	debug('set_global_path');
 	if( (fs.existsSync(library_dir)) && (fs.lstatSync(library_dir).isDirectory()) ){
-		let newData = fs.readFileSync(prefFile_path, 'utf8');
-		let result = xmljs.xml2json(newData, {compact: true, spaces: 3});
-		let obj = JSON.parse(result);
-		obj.preferences.path._text = library_dir;
-		let newFile = xmljs.js2xml(obj, {compact: true, spaces: 3});
-		fs.writeFile('preferences.xml', newFile, function(err, data) {
+		let newData = fs.readFileSync(prefFile_path);
+		//let result = xmljs.xml2json(newData, {compact: true, spaces: 3});
+		let obj = JSON.parse(newData);
+		obj.preferences.path = library_dir;
+		//let newFile = xmljs.js2xml(obj, {compact: true, spaces: 3});
+		let newFile = JSON.stringify(obj, null, 3);
+		fs.writeFile(prefFile_path, newFile, function(err, data) {
 			if (err) {
 				debug(err);
 			}
@@ -185,49 +278,73 @@ maxApi.addHandler('open_preset', async(filepath) => {
 	await open(filepath, {wait: true, app:'/Applications/Ableton Live 10 Suite.app'});
 });
 
-function scan_library(){
-	library_data = {};
-	setDict(libraryDictId, library_data);
-	maxApi.outlet('dictSet', 'clear');
-	scan_folder(library_dir);
-	setDict(libraryDictId, library_data);
-	//maxApi.outlet('js', 'nodescript_running');
-	maxApi.outlet('js', 'refresh_chooser');
+const set_library = async(dir) => {
+	debug('set_library', dir);
+	if( (fs.existsSync(dir)) && (fs.lstatSync(dir).isDirectory()) ){
+		library_dir = dir;
+		library_base = dir.split(path.basename(dir))[0];
+		debug('library_base:', library_base);
+		scan_library();
+	}
 }
 
-function scan_folder(dir_name){
-	//debug('scan_folder:', dir_name);
+const scan_library = async () => {
+	if( (fs.existsSync(library_dir)) && (fs.lstatSync(library_dir).isDirectory()) ){
+		library_data = {};
+		setDict(libraryDictId, library_data);
+		maxApi.outlet('dictSet', 'clear');
+		maxApi.outlet('treeSet', 'clear');
+		file_tree = {name:'root',
+							root:path.basename(library_dir),
+							root_path:library_dir,
+							parents:[],
+							parent: library_dir.replace(path.basename(library_dir)+'/', ''),
+							children:{}};
+		scan_folder(library_dir, file_tree);
+		setDict(libraryDictId, library_data);
+		setDict(filetreeDictId, file_tree);
+		maxApi.outlet('js', 'refresh_chooser');
+	}
+}
+
+const scan_folder = async (dir_name, filetree_node) => {
+	// debug('scan_folder:', dir_name, typeof filetree_node);
+	// debug('name:', filetree_node.name);
 	let directoryFiles = fs.readdirSync(dir_name);
-	//debug('dir files:', directoryFiles);
+	let shortname = path.basename(dir_name);
+	filetree_node.children[shortname] = {name: shortname,
+															path: dir_name,
+															type:dir_name == library_dir ? 'root':'folder',
+															parents: dir_name == library_dir ? [] : dir_name.replace(library_base, '').replace(shortname, '').split('/').slice(0, -1),
+															parent:dir_name.split(shortname)[0],
+															children:{}};
 	directoryFiles.forEach(filename => {
 		let file_path = path.join(dir_name, filename).toString();
 		if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isDirectory()) ){
-			scan_folder(file_path);
+			scan_folder(file_path, filetree_node.children[shortname]);
 		}
 		else if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
-			scan_file(file_path, filename);
+			scan_file(file_path, filename, filetree_node.children[shortname]);
 		}
 	})
 }
 
-function scan_file(file_name, shortname){
+const scan_file = async (file_name, shortname, filetree_node) => {
 	//debug('scan_file', file_name);
 	if( (fs.existsSync(file_name)) && (VALID_FILE_TYPES.indexOf(path.extname(file_name))>-1)){
 		let tags = [];
 		let attrs = xattr.listSync(file_name);
 		if(attrs.indexOf(namespace)>-1){
-
-			tags = xattr.getSync(file_name, namespace).toString('utf8');
-			//debug('tags:', tags, shortname);
-			if(tags.indexOf(' ')>-1){
-				tags = tags.split(' ');
-			}
-			else{
-				tags = [tags];
-			}
+			tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' '));
 		}
 		library_data[file_name] = {'tags':tags, 'shortname':shortname};
+		filetree_node.children[shortname] = {name:shortname,
+															path:file_name, type:'file',
+															parent:file_name.split(shortname)[0],
+															parents: file_name.replace(library_base, '').replace(shortname, '').split('/').slice(0, -1),
+															tags: tags};
 	}
+	return filetree_node
 }
 
 const updateDict = async (id, updatePath, updateValue) => {
@@ -243,8 +360,10 @@ const setDict = async(id, value) => {
 };
 
 
+
 init_prefs();
-maxApi.outlet('js', 'nodescript_running');
+
+maxApi.outlet('js', 'nodescript_running', library_dir);
 
 
 
@@ -259,3 +378,25 @@ maxApi.outlet('js', 'nodescript_running');
 //
 // 	return newDict;
 // };
+
+
+// const scan_root = async (dir_name, filetree) => {
+// 	let directoryFiles = fs.readdirSync(dir_name);
+// 	let shortname = path.basename(dir_name);
+// 	filetree.name = shortname;
+// 	filetree.path = dir_name;
+// 	filetree.type = 'root',
+// 	// filetree.parents = dir_name.replace(library_base, '').replace(shortname, '').split('/').slice(0, -1),
+// 	filetree.parents = [];
+// 	filetree.parent = dir_name.split(shortname)[0],
+// 	filetree.children = {};
+// 	directoryFiles.forEach(filename => {
+// 		let file_path = path.join(dir_name, filename).toString();
+// 		if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isDirectory()) ){
+// 			scan_folder(file_path, filetree);
+// 		}
+// 		else if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
+// 			scan_file(file_path, filename, filetree);
+// 		}
+// 	})
+// }
