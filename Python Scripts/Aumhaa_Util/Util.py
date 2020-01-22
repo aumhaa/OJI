@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 #from itertools import izip, izip_longest, product
 from ableton.v2.control_surface.control_surface import ControlSurface
-from ableton.v2.base import inject, listens, listens_group
+from ableton.v2.base import inject, listens, listens_group, liveobj_valid
 from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator
 from ableton.v2.control_surface.elements import ButtonElement, ComboElement
 from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent
@@ -29,6 +29,8 @@ from .Map import *
 from aumhaa.v2.base.debug import initialize_debug
 
 debug = initialize_debug()
+
+
 
 class UtilAutoArmComponent(AutoArmComponent):
 
@@ -212,7 +214,8 @@ class UtilMixerComponent(MixerComponent):
 
 	def arm_kill(self):
 		for t in self.get_tracks():
-			t.arm = False
+			if liveobj_valid(t) and t.can_be_armed:
+				t.arm = False
 
 
 
@@ -277,7 +280,7 @@ class UtilSessionComponent(SessionComponent):
 		self._on_util_fire_next_button_pressed(button)
 
 	def _on_util_fire_next_button_pressed(self, button):
-		self.fire_next_clip_slot()
+		self.fire_next_available_clip_slot()
 
 
 	def set_util_fire_prev_button(self, button):
@@ -288,7 +291,7 @@ class UtilSessionComponent(SessionComponent):
 		self._on_util_fire_prev_button_pressed(button)
 
 	def _on_util_fire_prev_button_pressed(self, button):
-		self.fire_previous_clip_slot()
+		self.fire_previous_available_clip_slot()
 
 
 	def get_clip_slot_by_delta_bool(self, current_clip_slot, track, d_value, bool_callable):
