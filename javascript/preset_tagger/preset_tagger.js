@@ -5,6 +5,7 @@ var util = require('aumhaa_util');
 util.inject(this, util);
 var FORCELOAD = false;
 var DEBUG = true;
+var SHOW_DICTS = false;
 aumhaa.init(this);
 var script = this;
 
@@ -13,13 +14,15 @@ var _name = 'preset_tagger.js';
 var finder;
 var selected_tags = [];
 var tag_buffer = '';
-var selected_file = '';
+var selected_file = null;
 var library_directory = undefined;
 var found_tags = [];
 var hash_list = {};
 var filtered_hash_list = {};
 var last_found_tags = [];
 var filter_mode_value = 0;
+var libraryObj = {};
+var nodeScriptInitialized = false;
 
 function init(){
   debug('init', this._name);
@@ -27,9 +30,9 @@ function init(){
   setup_tasks();
   setup_library();
   setup_patcher();
-  setup_nodescript();
-  setup_editor();
+  setup_browser();
   setup_filetree();
+  setup_nodescript();
   editor.lock();
   editor.open();
   Alive = true;
@@ -45,6 +48,7 @@ function setup_library(){
 
 function setup_patcher(){
   script.node_script = this.patcher.getnamed('node_script');
+  script.ns_running = this.patcher.getnamed('ns_running');
   script.browser_patcher = this.patcher.getnamed('browser');
   script.file_chooser = browser_patcher.subpatcher().getnamed('filechooser');
   script.tag_chooser = browser_patcher.subpatcher().getnamed('tagchooser');
@@ -56,19 +60,31 @@ function setup_patcher(){
   script.parentChooser = browser_patcher.subpatcher().getnamed('parent_chooser');
   script.filesChooser = browser_patcher.subpatcher().getnamed('files_chooser');
   script.filetreeDefer = browser_patcher.subpatcher().getnamed('filetreeDefer');
+
+  if(SHOW_DICTS){
+    this.patcher.getnamed('library').message('edit');
+    this.patcher.getnamed('filetree').message('edit');
+  }
+  //need to zero out all input and feedback windows here so there's no confusion while patching
 }
 
-function setup_nodescript(){
-  //node_script.message('script', 'start');
-  outlet(0, 'script', 'start');
-}
-
-function setup_editor(){
+function setup_browser(){
   var obj = browser_patcher;
 	var pcontrol = this.patcher.getnamed('editor_pcontrol');
 	var thispatcher = obj.subpatcher().getnamed('thispatcher');
 	var window_position = obj.subpatcher().getnamed('window_position');
-  script['editor'] = new FloatingWindowModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':970, 'sizeY':700, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
+  script['editor'] = new FloatingWindowModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':850, 'sizeY':680, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
+  script['browserInput'] = function(){
+    var args = arrayfromargs(arguments);
+    try{
+      editor[args[0]].apply(editor, args.slice(1));
+    }
+    catch(err){
+      debug('editor input error:', err.message);
+      debug('--line:', err.lineNumber);
+      debug('--stack:', err.stack);
+    }
+  }
 }
 
 function setup_filetree(){
@@ -80,32 +96,71 @@ function setup_filetree(){
                                                           Defer:filetreeDefer
                                                         });
   script['toFileTree'] = FileTree.input;
-  FileTree._init;
+  //FileTree._init;
 }
 
+function setup_nodescript(){
+  //node_script.message('script', 'start');
+  debug('setup_nodescript');
+  //var running = pattr_running_value.getvalueof
+  var running = ns_running.getvalueof();
+  debug('node_script is currently running:', running);
+  if(running>0){
+    node_script.message('init_from_js');
+  }
+  else{
+    //node_script.message('script', 'start');
+    outlet(0, 'script', 'start');
+    tasks.addTask(check_running, {}, 20, true, 'check_running');
+  }
 
+}
 
-function nodescript_running(libdir_from_nodescript){
-  //libPath.message('bang');
-  debug('libdir_from_nodescript', libdir_from_nodescript);
-  var internal_libdir = libPath.getvalueof();
-  library_directory =  internal_libdir != 0 ? internal_libdir : libdir_from_nodescript;
-  debug('resolved_libdir:', library_directory);
-  if(library_directory){
-    outlet(0, 'select_library', library_directory);
+function check_running(){
+  var running = ns_running.getvalueof();
+  debug('check running', running);
+  if(running<1){
+    debug('not running');
+    outlet(0, 'script', 'start');
   }
 }
 
+/*Nodescript communication*/
+function nodescript_running(libdir_from_nodescript){
+  node_script.message('init_from_js');
+}
+
+function node_script_initialized(libdir_from_nodescript){
+  debug('node_script_initialized:', libdir_from_nodescript);
+  tasks.removeTask(check_running, {}, 'check_running');
+  //var internal_libdir = libPath.getvalueof();
+  //library_directory =  internal_libdir != 0 ? internal_libdir : libdir_from_nodescript;
+  // debug('resolved_libdir:', library_directory);
+  // if(library_directory){
+  //   outlet(0, 'select_library', library_directory);
+  // }
+  nodeScriptInitialized = true;
+  library_directory = libdir_from_nodescript;
+  library_updated();
+}
+
+function node_script_not_initialized(){
+  var args = arrayfromargs(arguments);
+  debug('node_script_not_initialized:', args, typeof args);
+
+}
+
 function library_updated(){
+  selected_file = null;
   refresh_chooser();
   FileTree.update_files();
 }
 
+
+
 function set_tag_filter(){
   var tags = [].concat(arrayfromargs(arguments));
-  // debug('set_tag_filter:', tags, tags.length);
   selected_tags = tags[0]=='bang'?[]:tags;
-  // debug('selected_tags:', selected_tags);
   refresh_chooser();
 }
 
@@ -124,6 +179,7 @@ function display_tag_buffer(tag){
 }
 
 function refresh_chooser(){
+  libraryObj = dict_to_jsobj(libraryDict);
   display_filtered_files();
   refresh_filtered_chooser_selection();
   refresh_tagchooser();
@@ -131,9 +187,10 @@ function refresh_chooser(){
 }
 
 function refresh_chooser_selection(){
-  //debug(selected_file);
+  debug(selected_file);
   if(selected_file!=''){
-    var selected_shortname = libraryDict.get(selected_file+'::shortname');
+    // var selected_shortname = libraryDict.get(selected_file+'::shortname');
+    var selected_shortname = libraryObj.shortname;
     if(selected_shortname in hash_list){
       var entry = parseInt(hash_list[selected_shortname].entry);
       select_pipe.message(entry);
@@ -145,65 +202,53 @@ function display_filtered_files(){
   //debug('display_filtered_files', selected_tags);
   file_chooser.message('clear');
   filtered_hash_list = {};
-  var filtered_files = [];
-  var file_list = [].concat(libraryDict.getkeys());
-  //or
   if(selected_tags.length){
+    //OR//
     if(!filter_mode_value){
       var entry = 0;
-      for(var i in file_list){
-        var file = file_list[i];
-        var tags = [].concat(libraryDict.get(file+'::tags'));
-        var shortname = libraryDict.get(file+'::shortname');
+      for(var path in libraryObj){
+        var file = libraryObj[path];
+        var tags = [].concat(file.tags);
+        var shortname = file.shortname;
         for(var j in tags){
           if(selected_tags.indexOf(tags[j])>-1){
-            filtered_files.push(shortname);
-            filtered_hash_list[shortname] = {file:file, tags:tags, entry:entry};
+            filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
+            file_chooser.append(shortname);
             entry += 1;
             break;
           }
         }
       }
     }
-    //and
+    //AND//
     else{
-      // debug('anding...')
-      for(var i in file_list){
-        var file = file_list[i];
-        var tags = [].concat(libraryDict.get(file+'::tags'));
-        var shortname = libraryDict.get(file+'::shortname');
+      for(var path in libraryObj){
+        var file = libraryObj[path];
+        var tags = [].concat(file.tags);
+        var shortname = file.shortname;
         var add = true;
         for(var j in selected_tags){
-          // debug('checking tag:', selected_tags[j]);
           if(tags.indexOf(selected_tags[j])==-1){
-            // debug('nixing...', shortname);
             add = false;
             break;
           }
         }
         if(add){
-          // debug('adding...', shortname);
-          filtered_files.push(shortname);
-          filtered_hash_list[shortname] = {file:file, tags:tags, entry:entry};
+          filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
+          file_chooser.append(shortname);
         }
       }
     }
   }
-  for(var i in filtered_files){
-    var file = filtered_files[i];
-    file_chooser.append(file);
-  }
 }
 
 function refresh_filtered_chooser_selection(){
-  //debug(selected_file);
-  if(selected_file!=''){
-    //debug('selected_file:', selected_file);
-    var selected_shortname = libraryDict.get(selected_file+'::shortname');
-    debug('selected_shortname', selected_shortname);
+  debug(selected_file);
+  if(selected_file!=null){
+    var selected_shortname = libraryObj[selected_file].shortname;
+    //debug('selected_shortname', selected_shortname);
     if(selected_shortname in filtered_hash_list){
-      var entry = parseInt(filtered_hash_list[selected_shortname].entry);
-      //debug('entry:', entry, typeof entry);
+      var entry = parseInt(filtered_hash_list[selected_shortname].entry);;
       select_pipe.message(entry);
     }
   }
@@ -231,9 +276,8 @@ function detect_found_tags(){
   last_found_tags = found_tags.slice();
   found_tags = [];
   //debug('last_found_tags:', last_found_tags);
-  var file_list = [].concat(libraryDict.getkeys());
-  for(var i in file_list){
-    var tags = [].concat(libraryDict.get(file_list[i]+'::tags'));
+  for(var i in libraryObj){
+    var tags = [].concat(libraryObj[i].tags);
     for(var t in tags){
       if((found_tags.indexOf(tags[t])==-1)&&(tags[t])){
         found_tags.push(tags[t]);
@@ -243,14 +287,12 @@ function detect_found_tags(){
 }
 
 function chooser_single(index, shortname){
-  //debug('chooser_single:', index, path);
-  //node_script.message('select_file', path);
+  //debug('chooser_single:', index, shortname);
   var path = selected_tags.length ? filtered_hash_list[shortname].file : hash_list[shortname].file;
   selected_file = path;
   outlet(0, 'select_file', path);
   display_selected_file(path);
   display_selected_file_tags(path);
-  //FileTree.refresh();
   FileTree.find_file(path);
 }
 
@@ -259,10 +301,14 @@ function display_selected_file(path){
 }
 
 function display_selected_file_tags(path){
-  // debug("display_selected_file_tags:", path);
-  if(path){
-    var tags = libraryDict.get(path+'::tags');
+  debug("display_selected_file_tags:", path);
+  if(path in libraryObj){
+    //var tags = libraryDict.get(path+'::tags');
+    var tags = libraryObj[path].tags;
     selected_file_tags.message('set', tags ? tags : '');
+  }
+  else{
+    debug('can\'t display tags for path:', path, 'not in libraryObj');
   }
 }
 
@@ -321,44 +367,39 @@ function clear_filter(){
   refresh_chooser();
 }
 
-function AddTag(val){
-  // debug('AddTag', val);
-  set_tag();
-}
-
-function RemoveTag(val){
-  // debug('RemoveTag', val);
-  remove_tag();
-}
-
-function ClearAllTags(val){
-  // debug('ClearAllTags', val);
-  clear_tags();
-}
-
-function Editor(val){
-  // debug('Editor');
-  if(Alive){
-    if(editor){
-      if(val){
-        editor.open();
-      }
-      else{
-        editor.close();
-      }
-    }
-  }
-}
-
-function OpenPreset(){
-  // debug('OpenPreset');
-  outlet(0, 'open_preset', selected_file);
-}
 
 function unlock_editor(){
   editor.unlock();
 }
 
+
+function TaggerComponent(name, args){
+  this.add_bound_properties(this, []);
+  TaggerComponent.super_.call(this, name, args);
+}
+
+util.inherits(TaggerComponent, Bindable);
+
+TaggerComponent.prototype._init = function(args){
+  debug('TaggerComponent._init', this.current_parent_node);
+}
+
+TaggerComponent.prototype.refresh = function(){
+
+}
+
+TaggerComponent.prototype.input = function(){
+  var args = arrayfromargs(arguments);
+  //debug('TaggerComponent.input:', args);
+  try{
+    this[args[0]].apply(this, args.slice(1));
+  }
+  catch(err){
+    debug('input error:', err.message);
+    debug('--line:', err.lineNumber);
+    debug('--stack:', err.stack);
+  }
+}
 
 
 
@@ -367,9 +408,10 @@ function FileTreeComponent(name, args){
    'select_child', 'open_child', '_parentChooser', '_filesChooser', '_treeobj',
    'current_parent_node', 'current_child_node', '_dict', '_treeobj',
    'empty_child_node', 'parent_list', 'child_list', 'selected_parent_name',
-   'selected_child_name', 'Defer']);
+   'selected_child_name', 'Defer', 'find_file']);
 	FileTreeComponent.super_.call(this, name, args);
   this._treeobj = dict_to_jsobj(this._dict);
+  //treeobj = dict_to_jsobj(this._dict);
   this.current_parent_node = this._treeobj;
   this.current_child_node = null;
   this.parent_list = [];
@@ -493,6 +535,7 @@ FileTreeComponent.prototype.select_child = function(index, item){
     }
     else if(entry.type == 'file'){
       this.current_child_node = entry;
+      selected_file = entry.path;
       outlet(0, 'select_file', entry.path);
       display_selected_file(entry.path);
       display_selected_file_tags(entry.path);
@@ -525,9 +568,9 @@ FileTreeComponent.prototype.open_child = function(index, item){
 }
 
 FileTreeComponent.prototype.find_file = function(path){
+  // debug('path:', path);
   var root = this._treeobj.parent;
-  var parents = path.replace(root, '').split('/');
-  //debug('FileTree.find_file:', root, parents);
+  var parents = path.toString().replace(root, '').split('/');
   var ft_obj = retrieve_child(this._treeobj, parents);
   //debug('found obj:', ft_obj.name);
   this.current_parent_node = retrieve_parent(this._treeobj, ft_obj.parents);
@@ -555,7 +598,48 @@ FileTreeComponent.prototype.clear_folder_tags = function(){
 }
 
 
+/*Remote key functions*/
+function AddTag(val){
+  // debug('AddTag', val);
+  set_tag();
+}
+
+function RemoveTag(val){
+  // debug('RemoveTag', val);
+  remove_tag();
+}
+
+function ClearAllTags(val){
+  // debug('ClearAllTags', val);
+  clear_tags();
+}
+
+function Editor(val){
+  // debug('Editor');
+  if(Alive){
+    if(editor){
+      if(val){
+        editor.open();
+      }
+      else{
+        //var pos = editor._obj.subpatcher().wind.location;
+        //debug('pos:', pos);
+        editor.close();
+      }
+    }
+  }
+}
+
+function OpenPreset(){
+  // debug('OpenPreset');
+  outlet(0, 'open_preset', selected_file);
+}
+
+
+
 forceload(this);
+
+
 
 function retrieve_parent(obj, parents){
   //parents = [].concat(parents);
@@ -572,8 +656,10 @@ function retrieve_parent(obj, parents){
 }
 
 function retrieve_child(obj, parents){
+  //debug('retrieve_child', obj, parents);
   //parents = [].concat(parents);
   if((!parents)||(!parents.length)){
+    //debug('returning null');
     return null
   }
   parents = [].concat(parents);
@@ -652,42 +738,8 @@ function fetchFromObject(obj, prop) {
     return obj[prop];
 }
 
-
-
-
-// function browse_file(path){
-//   var file = new File(path);
-//   var root = file.foldername.split('/');
-//   var parent = root[root.length-1];
-//   var parent_folder = root[root.length-2];
-//   debug('browse_file root', parent, parent_folder);
-// }
-
-// function refresh_chooser(){
-//   if(!selected_tags.length){
-//     display_all_files();
-//     refresh_chooser_selection();
-//   }
-//   else{
-//     display_filtered_files();
-//     refresh_filtered_chooser_selection();
-//   }
-//   refresh_tagchooser();
-//   display_selected_file_tags(selected_file);
-//   FileTree.update_files();
-// }
-
-// function display_all_files(){
-//   file_chooser.message('clear');
-//   hash_list = {};
-//   found_tags = [];
-//   selected_file_tags.message('set', '');
-//   var file_list = [].concat(libraryDict.getkeys());
-//   //debug('file_list:', file_list);
-//   for(var i in file_list){
-//     var shortname = libraryDict.get(file_list[i]).get('shortname');
-//     var tags = [].concat(libraryDict.get(file_list[i]).get('tags'));
-//     hash_list[shortname] = {file:file_list[i], tags:tags, entry:i};
-//     file_chooser.append(shortname);
-//   }
-// }
+function report_error(err){
+  debug('--error:', err.message);
+  debug('--line:', err.lineNumber);
+  debug('--stack:', err.stack);
+}

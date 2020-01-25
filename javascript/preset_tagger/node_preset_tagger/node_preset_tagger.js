@@ -36,19 +36,18 @@ var file_tree = {};
 const prefFile_path = 'preferences.json';
 
 
-const libraryDictId = "library";
+let libraryDictId = "library";
 try {
   const libraryDict = maxApi.getDict(libraryDictId);
-	debug('library dict init handled');
+	//debug('library dict init handled');
 }
 catch (err) {
 	debug('library dict init error', err);
 }
 
-const filetreeDictId = "filetree";
+let filetreeDictId = "filetree";
 try {
   const filetreeDict = maxApi.getDict(filetreeDictId);
-	debug('filetree dict init handled');
 }
 catch (err) {
 	debug('filetree dict init error', err);
@@ -89,7 +88,7 @@ const writeFileTree = async () => {
 maxApi.addHandler('select_file', async(file) => {
 	//var new_file = file.split("Tome:").pop();
 	if( (fs.existsSync(file)) && (fs.lstatSync(file).isFile()) ){
-		//debug('select_file', file);
+		debug('select_file', file);
 		selected_file = file;
 	}
 });
@@ -114,6 +113,7 @@ maxApi.addHandler('list_tags', async() => {
 });
 
 maxApi.addHandler('set_tag', async(tag) => {
+	//debug('set_tag');
 	if( (fs.existsSync(selected_file)) && (fs.lstatSync(selected_file).isFile()) && (selected_tag!=undefined)){
 		let attrs = xattr.listSync(selected_file);
 		let tag_buf = selected_tag;
@@ -134,6 +134,7 @@ maxApi.addHandler('set_tag', async(tag) => {
 			xattr.setSync(selected_file, namespace, new_tags);
 		}
 		scan_library();
+		maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -156,6 +157,7 @@ maxApi.addHandler('remove_tag', async(tag) => {
 			xattr.setSync(selected_file, namespace, new_tags);
 		}
 		scan_library();
+		maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -163,8 +165,9 @@ maxApi.addHandler('clear_tags', async() => {
 	//debug('clear_tags');
 	if( (fs.existsSync(selected_file)) && (fs.lstatSync(selected_file).isFile()) && (xattr.listSync(selected_file).indexOf(namespace)>-1)){
 		xattr.removeSync(selected_file, namespace);
+		scan_library();
+	 	maxApi.outlet('js', 'refresh_chooser');
 	}
-	scan_library();
 });
 
 maxApi.addHandler('set_folder_tags', async(dir_name) => {
@@ -194,6 +197,7 @@ maxApi.addHandler('set_folder_tags', async(dir_name) => {
 			}
 		})
 		scan_library();
+	 	maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -222,6 +226,7 @@ maxApi.addHandler('remove_folder_tags', async(dir_name) => {
 			}
 		})
 		scan_library();
+	 	maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -236,8 +241,9 @@ maxApi.addHandler('clear_folder_tags', async(dir_name) => {
 				xattr.removeSync(file_path, namespace);
 			}
 		})
+		scan_library();
+	 	maxApi.outlet('js', 'refresh_chooser');
 	}
-	scan_library();
 });
 
 maxApi.addHandler('select_library', async(dir) => {
@@ -257,10 +263,8 @@ maxApi.addHandler('set_global_path', async() => {
 	debug('set_global_path');
 	if( (fs.existsSync(library_dir)) && (fs.lstatSync(library_dir).isDirectory()) ){
 		let newData = fs.readFileSync(prefFile_path);
-		//let result = xmljs.xml2json(newData, {compact: true, spaces: 3});
 		let obj = JSON.parse(newData);
 		obj.preferences.path = library_dir;
-		//let newFile = xmljs.js2xml(obj, {compact: true, spaces: 3});
 		let newFile = JSON.stringify(obj, null, 3);
 		fs.writeFile(prefFile_path, newFile, function(err, data) {
 			if (err) {
@@ -278,22 +282,67 @@ maxApi.addHandler('open_preset', async(filepath) => {
 	await open(filepath, {wait: true, app:'/Applications/Ableton Live 10 Suite.app'});
 });
 
-const set_library = async(dir) => {
-	debug('set_library', dir);
+maxApi.addHandler('init_from_js', async(filepath) => {
+	debug('init_from_js');
+	var errors = resolve_library_path();
+	if(errors.length){
+		maxApi.outlet('js', 'node_script_not_initialized', errors.toString());
+	}
+	else{
+		maxApi.outlet('js', 'node_script_initialized', library_dir);
+	}
+});
+
+const resolve_library_path = async() => {
+	let errors = [];
+	try {
+	  const libraryDict = maxApi.getDict(libraryDictId);
+	}
+	catch (err) {
+		debug('library dict init error', err);
+		errors.push(err.message.toString());
+	}
+	try {
+	  const filetreeDict = maxApi.getDict(filetreeDictId);
+	}
+	catch (err) {
+		debug('filetree dict init error', err);
+		errors.push(err.message.toString());
+	}
+	try{
+		let newData = fs.readFileSync(prefFile_path, 'utf8');
+		let obj = JSON.parse(newData);
+		set_library_internal(obj.preferences.path);
+	}
+	catch (err){
+		debug('prefFile readstream creation error', err);
+		errors.push(err.message.toString());
+	}
+	return errors;
+}
+
+const set_library_internal = async(dir) => {
+	debug('set_library_internal', dir);
 	if( (fs.existsSync(dir)) && (fs.lstatSync(dir).isDirectory()) ){
 		library_dir = dir;
 		library_base = dir.split(path.basename(dir))[0];
-		debug('library_base:', library_base);
+		//debug('library_base:', library_base);
 		scan_library();
 	}
+}
+
+const set_library = async(dir) => {
+	debug('set_library', dir);
+	set_library_internal(dir);
+	maxApi.outlet('js', 'library_updated');
 }
 
 const scan_library = async () => {
 	if( (fs.existsSync(library_dir)) && (fs.lstatSync(library_dir).isDirectory()) ){
 		library_data = {};
 		setDict(libraryDictId, library_data);
-		maxApi.outlet('dictSet', 'clear');
-		maxApi.outlet('treeSet', 'clear');
+		//maxApi.outlet('dictSet', 'clear');
+		//maxApi.outlet('treeSet', 'clear');
 		file_tree = {name:'root',
 							root:path.basename(library_dir),
 							root_path:library_dir,
@@ -303,7 +352,7 @@ const scan_library = async () => {
 		scan_folder(library_dir, file_tree);
 		setDict(libraryDictId, library_data);
 		setDict(filetreeDictId, file_tree);
-		maxApi.outlet('js', 'refresh_chooser');
+		//maxApi.outlet('js', 'refresh_chooser');
 	}
 }
 
@@ -361,10 +410,10 @@ const setDict = async(id, value) => {
 
 
 
-init_prefs();
-
-maxApi.outlet('js', 'nodescript_running', library_dir);
-
+// init_prefs();
+//
+// maxApi.outlet('js', 'nodescript_running', library_dir);
+maxApi.outlet('js', 'nodescript_running');
 
 
 
