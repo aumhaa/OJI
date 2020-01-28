@@ -13,7 +13,7 @@ from ableton.v2.control_surface.control_surface import ControlSurface
 from ableton.v2.base import inject, listens, listens_group, liveobj_valid
 from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator
 from ableton.v2.control_surface.elements import ButtonElement, ComboElement
-from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent
+from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent, UndoRedoComponent
 from ableton.v2.control_surface.components.mixer import SimpleTrackAssigner
 from ableton.v2.control_surface.control import control_color
 from ableton.v2.control_surface.mode import ModesComponent
@@ -30,6 +30,34 @@ from aumhaa.v2.base.debug import initialize_debug
 
 debug = initialize_debug()
 
+
+class TrackCreatorComponent(Component):
+
+	create_audio_track_button = ButtonControl()
+	create_midi_track_button = ButtonControl()
+
+	def __init__(self, *a, **k):
+		super(TrackCreatorComponent, self).__init__(self, *a, **k)
+
+	@create_audio_track_button.pressed
+	def create_audio_track_button(self, button):
+		self._on_create_audio_track_button_pressed(button)
+
+	def _on_create_audio_track_button_pressed(self, button):
+		self.create_audio_track()
+
+	def create_audio_track(self):
+		self.song.create_audio_track()
+
+	@create_midi_track_button.pressed
+	def create_midi_track_button(self, button):
+		self._on_create_midi_track_button_pressed(button)
+
+	def _on_create_midi_track_button_pressed(self, button):
+		self.create_midi_track()
+
+	def create_midi_track(self):
+		self.song.create_midi_track()
 
 
 class UtilAutoArmComponent(AutoArmComponent):
@@ -139,7 +167,6 @@ class UtilChannelStripComponent(ChannelStripComponent):
 							t.arm = False
 
 
-
 class UtilMixerComponent(MixerComponent):
 
 	util_mute_kill_button = ButtonControl()
@@ -216,8 +243,6 @@ class UtilMixerComponent(MixerComponent):
 		for t in self.get_tracks():
 			if liveobj_valid(t) and t.can_be_armed:
 				t.arm = False
-
-
 
 
 class UtilSessionComponent(SessionComponent):
@@ -379,6 +404,8 @@ class Util(ControlSurface):
 			self._setup_autoarm()
 			self._setup_session_control()
 			self._setup_mixer_control()
+			self._setup_track_creator()
+			self._setup_undo_redo()
 			self._setup_main_modes()
 			self._initialize_script()
 
@@ -393,7 +420,7 @@ class Util(ControlSurface):
 		is_momentary = False
 		optimized = True
 		resource = PrioritizedResource
-		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(17)]
+		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(24)]
 
 
 	def _setup_autoarm(self):
@@ -436,10 +463,19 @@ class Util(ControlSurface):
 		self._mixer.set_enabled(False)
 
 
+	def _setup_track_creator(self):
+		self._track_creator = TrackCreatorComponent()
+		self._track_creator.layer = Layer(create_audio_track_button = self._button[18], create_midi_track_button = self._button[19])
+
+
+	def _setup_undo_redo(self):
+		self._undo_redo = UndoRedoComponent()
+		self._undo_redo.layer = Layer(undo_button = self._button[20], redo_button = self._button[21])
+
 	def _setup_main_modes(self):
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode('Main', [self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
 		self._main_modes.set_enabled(False)
 
