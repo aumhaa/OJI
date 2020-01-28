@@ -240,6 +240,21 @@ function display_filtered_files(){
       }
     }
   }
+  //NONE//
+  else{
+    var entry = 0;
+    for(var path in libraryObj){
+      var file = libraryObj[path];
+      var tags = [].concat(file.tags).filter(isString);
+      var shortname = file.shortname;
+      //debug(shortname, tags.length, tags);
+      if(tags.length==0){
+        filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
+        file_chooser.append(shortname);
+        entry += 1;
+      }
+    }
+  }
 }
 
 function refresh_filtered_chooser_selection(){
@@ -288,7 +303,8 @@ function detect_found_tags(){
 
 function chooser_single(index, shortname){
   //debug('chooser_single:', index, shortname);
-  var path = selected_tags.length ? filtered_hash_list[shortname].file : hash_list[shortname].file;
+  // var path = selected_tags.length ? filtered_hash_list[shortname].file : hash_list[shortname].file;
+  var path = filtered_hash_list[shortname].file;
   selected_file = path;
   outlet(0, 'select_file', path);
   display_selected_file(path);
@@ -742,4 +758,12 @@ function report_error(err){
   debug('--error:', err.message);
   debug('--line:', err.lineNumber);
   debug('--stack:', err.stack);
+}
+
+function isNumber(obj) {
+  return obj !== undefined && typeof(obj) === 'number' && !isNaN(obj)
+}
+
+function isString(obj) {
+  return obj !== undefined && typeof(obj) === 'string' && obj!== ''
 }
