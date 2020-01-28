@@ -33,8 +33,9 @@ var selected_file = undefined;
 var selected_tag = [];
 var library_data = {};
 var file_tree = {};
-const prefFile_path = 'preferences.json';
-
+const prefFile_prefix = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share");
+const prefFile_path = prefFile_prefix + '/com.aumhaa.preset_tagger_preferences.json';
+const default_prefs = {preferences:{path:''}};
 
 let libraryDictId = "library";
 try {
@@ -54,16 +55,26 @@ catch (err) {
 }
 
 const init_prefs = async () => {
+	debug('prefFile_path:', prefFile_path);
 	try{
-		let newData = fs.readFileSync(prefFile_path, 'utf8');
-		//let result = xmljs.xml2json(newData, {compact: true, spaces: 3});
-		let obj = JSON.parse(newData);
-		// debug('all done here...', obj.preferences.path);
-		//debug(util.inspect(obj, false, null));
-		set_library(obj.preferences.path);
+		if( (fs.existsSync(prefFile_path)) && (fs.lstatSync(prefFile_path).isFile()) ){
+			let newData = fs.readFileSync(prefFile_path, 'utf8');
+			let obj = JSON.parse(newData);
+		}
+		else{
+			let newFile = JSON.stringify(default_prefs, null, 3);
+			fs.writeFile(prefFile_path, newFile, function(err, data) {
+				if (err) {debug(err);}
+				else{debug('default preferences written!');}
+			});
+			let obj = default_prefs;
+		}
+		if( (fs.existsSync(obj.preferences.path)) && (fs.lstatSync(obj.preferences.path).isDirectory()) ){
+			set_library_internal(obj.preferences.path);
+		}
 	}
 	catch (err){
-		debug('prefFile readstream creation error', err);
+		debug('prefFile readstream creation error here', err);
 	}
 }
 
@@ -309,13 +320,26 @@ const resolve_library_path = async() => {
 		debug('filetree dict init error', err);
 		errors.push(err.message.toString());
 	}
+	// debug('prefFile_path:', prefFile_path);
 	try{
-		let newData = fs.readFileSync(prefFile_path, 'utf8');
-		let obj = JSON.parse(newData);
-		set_library_internal(obj.preferences.path);
+		if( (fs.existsSync(prefFile_path)) && (fs.lstatSync(prefFile_path).isFile()) ){
+			let newData = fs.readFileSync(prefFile_path, 'utf8');
+			let obj = JSON.parse(newData);
+		}
+		else{
+			let newFile = JSON.stringify(default_prefs, null, 3);
+			fs.writeFile(prefFile_path, newFile, function(err, data) {
+				if (err) {debug(err);}
+				else{debug('default preferences written!');}
+			});
+			let obj = default_prefs;
+		}
+		if( (fs.existsSync(obj.preferences.path)) && (fs.lstatSync(obj.preferences.path).isDirectory()) ){
+			set_library_internal(obj.preferences.path);
+		}
 	}
 	catch (err){
-		debug('prefFile readstream creation error', err);
+		debug('prefFile readstream creation error here', err);
 		errors.push(err.message.toString());
 	}
 	return errors;

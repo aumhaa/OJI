@@ -34,6 +34,11 @@ m4m8 and OJI repositories should be copied to ~/Documents/Max 8/Packages/.
 Add OJI directory to "Places" in user area of Live's browser.  Browse to
 OJI/patchers/preset_tagger/ and add the preset_tagger.amxd.  
 
+You'll need to have XCode command line tools installed for the npm install to work.
+
+http://osxdaily.com/2014/02/12/install-command-line-tools-mac-os-x/
+
+
 Once its instantiated, it's best to open the Max log window by right-clicking or
 cntrl-clicking the devices title bar and selecting the bottom option, "Open Max
 Window".  This will give you an indication of problems.
