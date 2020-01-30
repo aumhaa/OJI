@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Ableton MajorVersion="5" MinorVersion="10.0_377" SchemaChangeCount="3" Creator="Ableton Live 10.1.6" Revision="04cf0aced295425d457145961b4fde60a4334f97">
+	<Groove>
+		<Name Value="Roots Down" />
+		<Clip>
+			<Value>
+				<MidiClip Id="0" Time="0">
+					<LomId Value="0" />
+					<LomIdView Value="0" />
+					<CurrentStart Value="0" />
+					<CurrentEnd Value="8" />
+					<Loop>
+						<LoopStart Value="0" />
+						<LoopEnd Value="8" />
+						<StartRelative Value="0" />
+						<LoopOn Value="true" />
+						<OutMarker Value="4" />
+						<HiddenLoopStart Value="0" />
+						<HiddenLoopEnd Value="4" />
+					</Loop>
+					<Name Value="Roots Down" />
+					<Annotation Value="" />
+					<ColorIndex Value="55" />
+					<LaunchMode Value="0" />
+					<LaunchQuantisation Value="0" />
+					<TimeSignature>
+						<TimeSignatures>
+							<RemoteableTimeSignature Id="0">
+								<Numerator Value="4" />
+								<Denominator Value="4" />
+								<Time Value="0" />
+							</RemoteableTimeSignature>
+						</TimeSignatures>
+					</TimeSignature>
+					<Envelopes>
+						<Envelopes />
+					</Envelopes>
+					<ScrollerTimePreserver>
+						<LeftTime Value="0" />
+						<RightTime Value="8.0084477296726497" />
+					</ScrollerTimePreserver>
+					<TimeSelection>
+						<AnchorTime Value="7.8768687042124546" />
+						<OtherTime Value="0" />
+					</TimeSelection>
+					<Legato Value="false" />
+					<Ram Value="false" />
+					<GrooveSettings>
+						<GrooveId Value="-1" />
+					</GrooveSettings>
+					<Disabled Value="false" />
+					<VelocityAmount Value="0" />
+					<FollowTime Value="4" />
+					<FollowActionA Value="0" />
+					<FollowActionB Value="0" />
+					<FollowChanceA Value="1" />
+					<FollowChanceB Value="0" />
+					<Grid>
+						<FixedNumerator Value="1" />
+						<FixedDenominator Value="16" />
+						<GridIntervalPixel Value="20" />
+						<Ntoles Value="2" />
+						<SnapToGrid Value="true" />
+						<Fixed Value="true" />
+					</Grid>
+					<FreezeStart Value="0" />
+					<FreezeEnd Value="0" />
+					<IsWarped Value="true" />
+					<Notes>
+						<KeyTracks>
+							<KeyTrack Id="0">
+								<Notes>
+									<MidiNoteEvent Time="0" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="1" />
+									<MidiNoteEvent Time="0.364294559607059587" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="2" />
+									<MidiNoteEvent Time="0.469690725940725917" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="3" />
+									<MidiNoteEvent Time="0.864294559607059587" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="4" />
+									<MidiNoteEvent Time="0.984291749916749947" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="5" />
+									<MidiNoteEvent Time="1.3642945596070597" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="6" />
+									<MidiNoteEvent Time="1.5088882471694971" Duration="0.0625" Velocity="75.2783508" OffVelocity="64" IsEnabled="true" NoteId="7" />
+									<MidiNoteEvent Time="1.8642945596070597" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="8" />
+									<MidiNoteEvent Time="2" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="9" />
+									<MidiNoteEvent Time="2.3642945596070595" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="10" />
+									<MidiNoteEvent Time="2.4900721674159176" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="11" />
+									<MidiNoteEvent Time="2.8642945596070595" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="12" />
+									<MidiNoteEvent Time="3.004845415001665" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="13" />
+									<MidiNoteEvent Time="3.3061144584582083" Duration="0.0625" Velocity="97.5560608" OffVelocity="64" IsEnabled="true" NoteId="14" />
+									<MidiNoteEvent Time="3.5012625395437897" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="15" />
+									<MidiNoteEvent Time="3.8642945596070595" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="16" />
+									<MidiNoteEvent Time="4.0020180340492839" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="17" />
+									<MidiNoteEvent Time="4.3642945596070595" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="18" />
+									<MidiNoteEvent Time="4.5037121732434233" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="19" />
+									<MidiNoteEvent Time="4.8392128704628705" Duration="0.0625" Velocity="84.7583923" OffVelocity="64" IsEnabled="true" NoteId="20" />
+									<MidiNoteEvent Time="4.9999677405927407" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="21" />
+									<MidiNoteEvent Time="5.3392128704628705" Duration="0.0625" Velocity="84.7583923" OffVelocity="64" IsEnabled="true" NoteId="22" />
+									<MidiNoteEvent Time="5.5358781843156839" Duration="0.0625" Velocity="84.0297546" OffVelocity="64" IsEnabled="true" NoteId="23" />
+									<MidiNoteEvent Time="5.8392128704628705" Duration="0.0625" Velocity="84.7583923" OffVelocity="64" IsEnabled="true" NoteId="24" />
+									<MidiNoteEvent Time="6.0085453608891113" Duration="0.0625" Velocity="126.996124" OffVelocity="64" IsEnabled="true" NoteId="25" />
+									<MidiNoteEvent Time="6.3642945596070595" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="26" />
+									<MidiNoteEvent Time="6.4900612408424907" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="27" />
+									<MidiNoteEvent Time="6.8642945596070595" Duration="0.0625" Velocity="41.6524963" OffVelocity="64" IsEnabled="true" NoteId="28" />
+									<MidiNoteEvent Time="6.9948382346819846" Duration="0.0625" Velocity="127" OffVelocity="64" IsEnabled="true" NoteId="29" />
+									<MidiNoteEvent Time="7.3392128704628705" Duration="0.0625" Velocity="84.7583923" OffVelocity="64" IsEnabled="true" NoteId="30" />
+									<MidiNoteEvent Time="7.494800251831502" Duration="0.0625" Velocity="119.101257" OffVelocity="64" IsEnabled="true" NoteId="31" />
+									<MidiNoteEvent Time="7.8143687042124546" Duration="0.0625" Velocity="86.0218811" OffVelocity="64" IsEnabled="true" NoteId="32" />
+								</Notes>
+								<MidiKey Value="36" />
+							</KeyTrack>
+						</KeyTracks>
+						<PerNoteEventStore>
+							<EventLists />
+						</PerNoteEventStore>
+						<NoteIdGenerator>
+							<NextId Value="33" />
+						</NoteIdGenerator>
+					</Notes>
+					<BankSelectCoarse Value="-1" />
+					<BankSelectFine Value="-1" />
+					<ProgramChange Value="-1" />
+					<NoteEditorFoldInZoom Value="-1" />
+					<NoteEditorFoldInScroll Value="-1" />
+					<NoteEditorFoldOutZoom Value="3072" />
+					<NoteEditorFoldOutScroll Value="-2184" />
+				</MidiClip>
+			</Value>
+		</Clip>
+		<Grid Value="3" />
+		<QuantizationAmount Value="45" />
+		<TimingAmount Value="42" />
+		<RandomAmount Value="16" />
+		<VelocityAmount Value="13" />
+		<Annotation Value="" />
+		<Selection Value="true" />
+		<SourceContext>
+			<SourceContext Id="1">
+				<OriginalFileRef>
+					<FileRef Id="0">
+						<HasRelativePath Value="true" />
+						<RelativePathType Value="5" />
+						<RelativePath>
+							<RelativePathElement Id="0" Dir="Swing and Groove" />
+							<RelativePathElement Id="1" Dir="Hip Hop" />
+						</RelativePath>
+						<Name Value="Roots Down.agr" />
+						<Type Value="2" />
+						<Data>
+							0000000001CE000200000653797374656D0000000000000000000000000000000000000000000000
+							000042440001FFFFFFFF0E526F6F747320446F776E2E616772000000000000000000000000000000
+							00000000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0000
+							00000000000000000000FFFFFFFF00000A206375000000000000000000000000000748697020486F
+							7000000200742F3A4170706C69636174696F6E733A41626C65746F6E204C69766520313020537569
+							74652E6170703A436F6E74656E74733A4170702D5265736F75726365733A436F7265204C69627261
+							72793A5377696E6720616E642047726F6F76653A48697020486F703A526F6F747320446F776E2E61
+							6772000E001E000E0052006F006F0074007300200044006F0077006E002E006100670072000F000E
+							000600530079007300740065006D001200724170706C69636174696F6E732F41626C65746F6E204C
+							6976652031302053756974652E6170702F436F6E74656E74732F4170702D5265736F75726365732F
+							436F7265204C6962726172792F5377696E6720616E642047726F6F76652F48697020486F702F526F
+							6F747320446F776E2E616772001300012F00FFFF0000
+						</Data>
+						<RefersToFolder Value="false" />
+						<SearchHint>
+							<PathHint />
+							<FileSize Value="0" />
+							<Crc Value="0" />
+							<MaxCrcSize Value="0" />
+							<HasExtendedInfo Value="false" />
+						</SearchHint>
+						<LivePackName Value="Core Library" />
+						<LivePackId Value="www.ableton.com/0" />
+					</FileRef>
+				</OriginalFileRef>
+				<BrowserContentPath Value="query:LivePacks#www.ableton.com/0:Swing%20and%20Groove:Hip%20Hop:Roots%20Down.agr" />
+			</SourceContext>
+		</SourceContext>
+	</Groove>
+</Ableton>

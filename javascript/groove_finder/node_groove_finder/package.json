@@ -1,0 +1,19 @@
+{
+  "name": "node_groove_finder",
+  "version": "1.0.0",
+  "description": "file processes for OJI groove finder",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "amounra",
+  "license": "ISC",
+  "dependencies": {
+    "download-git-repo": ">=2.0.0",
+    "fs-extra": ">=8.1.0",
+    "zlib": ">=1.0.5",
+    "xml-query": ">=1.5.0",
+    "xml2js": ">=0.4.23",
+    "xml-js": ">=1.6.11"
+  }
+}
