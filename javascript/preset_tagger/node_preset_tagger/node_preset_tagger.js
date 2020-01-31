@@ -39,7 +39,7 @@ const default_prefs = {preferences:{path:''}};
 
 let libraryDictId = "library";
 try {
-  const libraryDict = maxApi.getDict(libraryDictId);
+  let libraryDict = maxApi.getDict(libraryDictId);
 	//debug('library dict init handled');
 }
 catch (err) {
@@ -48,7 +48,7 @@ catch (err) {
 
 let filetreeDictId = "filetree";
 try {
-  const filetreeDict = maxApi.getDict(filetreeDictId);
+  let filetreeDict = maxApi.getDict(filetreeDictId);
 }
 catch (err) {
 	debug('filetree dict init error', err);
@@ -56,10 +56,11 @@ catch (err) {
 
 const init_prefs = async () => {
 	debug('prefFile_path:', prefFile_path);
+	let obj = default_prefs;
 	try{
 		if( (fs.existsSync(prefFile_path)) && (fs.lstatSync(prefFile_path).isFile()) ){
 			let newData = fs.readFileSync(prefFile_path, 'utf8');
-			let obj = JSON.parse(newData);
+			obj = JSON.parse(newData);
 		}
 		else{
 			let newFile = JSON.stringify(default_prefs, null, 3);
@@ -67,14 +68,13 @@ const init_prefs = async () => {
 				if (err) {debug(err);}
 				else{debug('default preferences written!');}
 			});
-			let obj = default_prefs;
 		}
 		if( (fs.existsSync(obj.preferences.path)) && (fs.lstatSync(obj.preferences.path).isDirectory()) ){
 			set_library_internal(obj.preferences.path);
 		}
 	}
 	catch (err){
-		debug('prefFile readstream creation error here', err);
+		debug('prefFile readstream creation error', err);
 	}
 }
 
@@ -94,7 +94,6 @@ const writeFileTree = async () => {
 		}
 	});
 }
-
 
 maxApi.addHandler('select_file', async(file) => {
 	//var new_file = file.split("Tome:").pop();
@@ -260,7 +259,7 @@ maxApi.addHandler('clear_folder_tags', async(dir_name) => {
 maxApi.addHandler('select_library', async(dir) => {
 	debug('select_library', dir);
 	if(dir){
-		dir = dir.split(':').pop();
+		//dir = dir.split(':').pop();
 		set_library(dir);
 	}
 });
@@ -304,6 +303,10 @@ maxApi.addHandler('init_from_js', async(filepath) => {
 	}
 });
 
+maxApi.addHandler('restore_snapshot', async(filename) =>{
+	restore_snapshot(filename);
+});
+
 const resolve_library_path = async() => {
 	let errors = [];
 	try {
@@ -322,9 +325,10 @@ const resolve_library_path = async() => {
 	}
 	// debug('prefFile_path:', prefFile_path);
 	try{
+		let obj = default_prefs;
 		if( (fs.existsSync(prefFile_path)) && (fs.lstatSync(prefFile_path).isFile()) ){
 			let newData = fs.readFileSync(prefFile_path, 'utf8');
-			let obj = JSON.parse(newData);
+			obj = JSON.parse(newData);
 		}
 		else{
 			let newFile = JSON.stringify(default_prefs, null, 3);
@@ -332,14 +336,13 @@ const resolve_library_path = async() => {
 				if (err) {debug(err);}
 				else{debug('default preferences written!');}
 			});
-			let obj = default_prefs;
 		}
 		if( (fs.existsSync(obj.preferences.path)) && (fs.lstatSync(obj.preferences.path).isDirectory()) ){
 			set_library_internal(obj.preferences.path);
 		}
 	}
 	catch (err){
-		debug('prefFile readstream creation error here', err);
+		debug('prefFile readstream creation error ', err);
 		errors.push(err.message.toString());
 	}
 	return errors;
@@ -426,17 +429,45 @@ const updateDict = async (id, updatePath, updateValue) => {
 
 	await maxApi.updateDict(id, updatePath, updateValue);
 	//maxApi.outlet('js', 'refresh_chooser');
-};
+}
 
 const setDict = async(id, value) => {
 	await maxApi.setDict(id, value);
-};
+}
+
+const restore_snapshot = async(filename) => {
+	debug('restore_snapshot:', filename);
+	if((filename!=undefined)&&(fs.existsSync(filename))&&(fs.lstatSync(filename).isFile())){
+		debug('here');
+		let libObj = {};
+		try{
+			let snapshotData = fs.readFileSync(filename, 'utf8');
+			libObj = JSON.parse(snapshotData);
+			debug(libObj);
+			for(var i in libObj){
+				debug('item', i);
+			}
+		}
+		catch(err){
+			debug('snapshot load error:', err);
+		}
+		//maxApi.setDict(libraryDictId, libObj);
+		//libraryDict = maxApi.getDict(libraryDictId);
+		for(var item in libObj){
+			let file = item;
+			let tags = libObj[item].tags.join(' ').toString();
+			debug('file:', file, 'tags:', tags);
+			if( (fs.existsSync(file)) && (fs.lstatSync(file).isFile()) ){
+				xattr.setSync(file, namespace, tags);
+			}
+		}
+		scan_library();
+		maxApi.outlet('js', 'refresh_chooser');
+	}
+}
 
 
 
-// init_prefs();
-//
-// maxApi.outlet('js', 'nodescript_running', library_dir);
 maxApi.outlet('js', 'nodescript_running');
 
 

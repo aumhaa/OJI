@@ -103,7 +103,7 @@ function setup_nodescript(){
   //node_script.message('script', 'start');
   debug('setup_nodescript');
   //var running = pattr_running_value.getvalueof
-  var running = ns_running.getvalueof();
+  var running = node_script.getattr('running');
   debug('node_script is currently running:', running);
   if(running>0){
     node_script.message('init_from_js');
@@ -117,7 +117,7 @@ function setup_nodescript(){
 }
 
 function check_running(){
-  var running = ns_running.getvalueof();
+  var running = node_script.getattr('running');
   debug('check running', running);
   if(running<1){
     debug('not running');
@@ -318,7 +318,7 @@ function display_selected_file(path){
 
 function display_selected_file_tags(path){
   debug("display_selected_file_tags:", path);
-  if(path in libraryObj){
+  if((typeof path == 'string')&&(path in libraryObj)){
     //var tags = libraryDict.get(path+'::tags');
     var tags = libraryObj[path].tags;
     selected_file_tags.message('set', tags ? tags : '');
