@@ -23,6 +23,7 @@ var last_found_tags = [];
 var filter_mode_value = 0;
 var libraryObj = {};
 var nodeScriptInitialized = false;
+var statusDict;
 
 function init(){
   debug('init', this._name);
@@ -60,6 +61,11 @@ function setup_patcher(){
   script.parentChooser = browser_patcher.subpatcher().getnamed('parent_chooser');
   script.filesChooser = browser_patcher.subpatcher().getnamed('files_chooser');
   script.filetreeDefer = browser_patcher.subpatcher().getnamed('filetreeDefer');
+  script.statusDictObj = this.patcher.getnamed('statusDict');
+  script.EditorButton = this.patcher.getnamed('Editor');
+  var statusDictName = statusDictObj.getattr('name');
+  statusDict = new Dict(statusDictName);
+  debug('statusDictName:', statusDictName)
 
   if(SHOW_DICTS){
     this.patcher.getnamed('library').message('edit');
@@ -76,6 +82,9 @@ function setup_browser(){
   script['editor'] = new FloatingWindowModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':850, 'sizeY':680, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
   script['browserInput'] = function(){
     var args = arrayfromargs(arguments);
+    if(args[0]=='close'){
+      EditorButton.message('set', 0);
+    }
     try{
       editor[args[0]].apply(editor, args.slice(1));
     }
@@ -99,18 +108,28 @@ function setup_filetree(){
   //FileTree._init;
 }
 
+//collect all dump output from node.script, start node.script when npm install finishes.
+function nodeLog(){
+	var args = arrayfromargs(arguments);
+	var status = dict_to_jsobj(statusDict);
+	if(('args' in status)&&(status.args[0]=='install'))
+	{
+		if(status.status=='completed'){
+			outlet(0, 'script', 'start');
+		}
+	}
+}
+
 function setup_nodescript(){
-  //node_script.message('script', 'start');
   debug('setup_nodescript');
-  //var running = pattr_running_value.getvalueof
   var running = node_script.getattr('running');
-  debug('node_script is currently running:', running);
+  debug('node_script is currently running?:', running);
   if(running>0){
-    node_script.message('init_from_js');
+    outlet(0, 'init_from_js');
   }
   else{
-    //node_script.message('script', 'start');
-    outlet(0, 'script', 'start');
+    //outlet(0, 'script', 'start');
+    outlet(0, 'script', 'npm', 'install');
     tasks.addTask(check_running, {}, 20, true, 'check_running');
   }
 
@@ -127,7 +146,7 @@ function check_running(){
 
 /*Nodescript communication*/
 function nodescript_running(libdir_from_nodescript){
-  node_script.message('init_from_js');
+  outlet(0, 'init_from_js');
 }
 
 function node_script_initialized(libdir_from_nodescript){
@@ -168,7 +187,7 @@ function set_tag_buffer(){
   var tags = arrayfromargs(arguments);
   // debug('set_tag_buffer:', tags);
   tag_buffer = tags[0]=='bang' ? '' : tags;
-  //node_script.message('select_tag', tags[0]);
+  //outlet(0, 'select_tag', tags[0]);
   display_tag_buffer(tag_buffer);
   outlet(0, 'select_tag', tag_buffer);
 }
@@ -335,17 +354,17 @@ function chooser_double(index, shortname){
 }
 
 function set_tag(){
-  //node_script.message('set_tag');
+  //outlet(0, 'set_tag');
   outlet(0, 'set_tag');
 }
 
 function remove_tag(){
-  //node_script.message('remove_tag');
+  //outlet(0, 'remove_tag');
   outlet(0, 'remove_tag');
 }
 
 function clear_tags(){
-  //node_script.message('clear_tags');
+  //outlet(0, 'clear_tags');
   outlet(0, 'clear_tags');
 }
 
