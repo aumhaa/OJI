@@ -71,22 +71,30 @@ Name16=Autoarm Toggle
 Incoming16=KAM10000KSQ10004012048248212
 Outgoing16=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x10"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options16=Actv01Stop00OutO00
-Name17=Add Audio Track
-Incoming17=KAM10000KSQ10004012054254212
-Outgoing17=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x12"/><Value2 num="0x7F"/></Simple></Outgoing>
+Name17=Clip View
+Incoming17=KAM10000KSQ100020C02C0
+Outgoing17=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x11"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options17=Actv01Stop00OutO00
-Name18=Add MIDI Track
-Incoming18=KAM10000KSQ10006010012054254212210
-Outgoing18=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x13"/><Value2 num="0x7F"/></Simple></Outgoing>
+Name18=Add Audio Track
+Incoming18=KAM10000KSQ10004012054254212
+Outgoing18=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x12"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options18=Actv01Stop00OutO00
-Name19=Undo
-Incoming19=KAM10000KSQ1000415B05A25A35B
-Outgoing19=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x14"/><Value2 num="0x7F"/></Simple></Outgoing>
+Name19=Add MIDI Track
+Incoming19=KAM10000KSQ10006010012054254212210
+Outgoing19=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x13"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options19=Actv01Stop00OutO00
-Name20=Redo
-Incoming20=KAM10000KSQ1000415B05825835B
-Outgoing20=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x15"/><Value2 num="0x7F"/></Simple></Outgoing>
+Name20=Undo
+Incoming20=KAM10000KSQ1000415B05A25A35B
+Outgoing20=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x14"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options20=Actv01Stop00OutO00
+Name21=Redo
+Incoming21=KAM10000KSQ1000415B05825835B
+Outgoing21=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x15"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options21=Actv01Stop00OutO00
+Name22=Toggle Detail Clip Loop
+Incoming22=KAM10000KSQ1000401204C24C212
+Outgoing22=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x16"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options22=Actv01Stop00OutO00
 
 [Project]
 Version=2

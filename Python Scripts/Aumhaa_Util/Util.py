@@ -388,6 +388,48 @@ class UtilSessionComponent(SessionComponent):
 				self.song.view.highlighted_clip_slot = clip_slot
 
 
+class UtilViewControlComponent(ViewControlComponent):
+
+	toggle_clip_detail_button = ButtonControl()
+	toggle_detail_clip_loop_button = ButtonControl()
+
+	def __init__(self, *a, **k):
+		super(UtilViewControlComponent, self).__init__(*a, **k)
+
+	def set_toggle_clip_detail_button(self, button):
+		self.toggle_clip_detail_button.set_control_element(button)
+
+	@toggle_clip_detail_button.pressed
+	def toggle_clip_detail_button(self, button):
+		self._on_toggle_clip_detail_button_pressed(button)
+
+	def _on_toggle_clip_detail_button_pressed(self, button):
+		self.toggle_clip_detail()
+
+	def toggle_clip_detail(self):
+		app_view = self.application.view
+		if app_view.is_view_visible(u'Detail/Clip') and app_view.is_view_visible(u'Detail'):
+			app_view.hide_view(u'Detail/Clip')
+			app_view.hide_view(u'Detail')
+		else:
+			self.show_view(u'Detail/Clip')
+
+	def set_toggle_detail_clip_loop_button(self, button):
+		self.toggle_detail_clip_loop_button.set_control_element(button)
+
+	@toggle_detail_clip_loop_button.pressed
+	def toggle_detail_clip_loop_button(self, button):
+		self._on_toggle_detail_clip_loop_button_pressed(button)
+
+	def _on_toggle_detail_clip_loop_button_pressed(self, button):
+		self.toggle_detail_clip_loop()
+
+	def toggle_detail_clip_loop(self):
+		detail_clip = self.song.view.detail_clip
+		if liveobj_valid(detail_clip) and hasattr(detail_clip, 'looping'):
+			detail_clip.looping = not detail_clip.looping
+
+
 class Util(ControlSurface):
 
 
@@ -406,6 +448,7 @@ class Util(ControlSurface):
 			self._setup_mixer_control()
 			self._setup_track_creator()
 			self._setup_undo_redo()
+			self._setup_view_control()
 			self._setup_main_modes()
 			self._initialize_script()
 
@@ -472,10 +515,15 @@ class Util(ControlSurface):
 		self._undo_redo = UndoRedoComponent()
 		self._undo_redo.layer = Layer(undo_button = self._button[20], redo_button = self._button[21])
 
+	def _setup_view_control(self):
+		self._view_control = UtilViewControlComponent()
+		self._view_control.layer = Layer(toggle_clip_detail_button = self._button[17], toggle_detail_clip_loop_button = self._button[22])
+
+
 	def _setup_main_modes(self):
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode('Main', [self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
 		self._main_modes.set_enabled(False)
 
