@@ -1,5 +1,5 @@
-# by amounra 0416 : http://www.aumhaa.com
-# written against Live 9.61 release on 042916
+# by amounra 0320 : http://www.aumhaa.com
+# written against Live 10.1.9 release on 030920
 
 
 from __future__ import absolute_import, print_function
@@ -35,6 +35,7 @@ from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMo
 from aumhaa.v2.livid import LividControlSurface, LividSettings, LividRGB
 from aumhaa.v2.control_surface.components.m4l_interface import M4LInterfaceComponent
 
+from pushbase.automation_component import AutomationComponent
 #from pushbase.auto_arm_component import AutoArmComponent
 #from pushbase.grid_resolution import GridResolution
 #from pushbase.playhead_element import PlayheadElement
@@ -386,7 +387,7 @@ class Twister(LividControlSurface):
 			self._setup_mixer_control()
 			self._setup_device_navigator()
 			self._setup_device_controls()
-			#self._setup_special_device_control()
+			self._setup_special_device_control()
 			self._setup_device_chooser()
 			#self._setup_device_selector()
 			self._setup_modes()
@@ -408,6 +409,8 @@ class Twister(LividControlSurface):
 
 		self._dial_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder[index*4:(index*4)+4] for index in range(4)])
 		self._dial_button_matrix = ButtonMatrixElement(name = 'Dial_Button_Matrix', rows = [self._encoder_button[index*4:(index*4)+4] for index in range(4)])
+
+		self._side_button = [TwisterButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = 3, identifier = TWISTER_SIDE_BUTTONS[index], name = 'Side_Button_' + str(index), script = self, skin = self._skin, color_map = COLOR_MAP, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(3)]
 
 
 	def _setup_background(self):
@@ -440,62 +443,71 @@ class Twister(LividControlSurface):
 		self._mixer = MonoMixerComponent(name = 'Mixer', tracks_provider = self._mixer_session_ring)
 		self._mixer.set_enabled(False)
 
+
 	def _setup_device_navigator(self):
 		self._device_navigator = DeviceNavigator(self._device_provider, self._mixer, self)
 		self._device_navigator._dev1_layer = AddLayerMode(self._device_navigator, Layer(priority = 4, prev_button = self._encoder_button[2], next_button = self._encoder_button[3], prev_chain_button = self._encoder_button[4], next_chain_button = self._encoder_button[5]))
-		self._device_navigator._dev2_layer = AddLayerMode(self._device_navigator, Layer(priority = 4, prev_button = self._encoder_button[9], next_button = self._encoder_button[10], prev_chain_button = self._encoder_button[11], next_chain_button = self._encoder_button[12]))
+		self._device_navigator._dev2_layer = AddLayerMode(self._device_navigator, Layer(priority = 4, prev_button = self._encoder_button[10], next_button = self._encoder_button[11], prev_chain_button = self._encoder_button[12], next_chain_button = self._encoder_button[13]))
 		self._device_navigator.set_enabled(False)
+
 
 	def _setup_device_controls(self):
 		self._device = [None for index in range(2)]
 
 		self._device[0] = TwisterDeviceComponent(self, index+1, device_bank_registry = DeviceBankRegistry())
 		self._device[0].name = 'TwisterDevice_Component_0'
-		self._device[0].layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:, :2],
+		self._device[0].layer = Layer(priority = 4,  parameter_controls = self._dial_matrix.submatrix[:, :2],
 											on_off_button = self._encoder_button[1],
-											bank_prev_button = self._encoder_button[2],
-											bank_next_button = self._encoder_button[3],
+											bank_prev_button = self._encoder_button[6],
+											bank_next_button = self._encoder_button[7],
 											)
 		self._device[0].set_enabled(False)
 
 		self._device[1] = TwisterDeviceComponent(self, index+1, device_bank_registry = DeviceBankRegistry())
 		self._device[1].name = 'TwisterDevice_Component_1'
-		self._device[1].layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:, 2:4],
+		self._device[1].layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:, 2:],
 											on_off_button = self._encoder_button[9],
-											bank_prev_button = self._encoder_button[10],
-											bank_next_button = self._encoder_button[11],
+											bank_prev_button = self._encoder_button[14],
+											bank_next_button = self._encoder_button[15],
 											)
-		self._device[index].set_enabled(False)
+		self._device[1].set_enabled(False)
 
+		# self._automation_component = AutomationComponent(parameter_provider = self._device[0])
+		# self._automation_component.layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:, :2])
 
 
 	def _setup_special_device_control(self):
-		self._device = SpecialDeviceComponent(name = 'Device_Component', device_provider = self._device_provider, device_bank_registry = DeviceBankRegistry(), script = self)
-		self._device.layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:,:],)
-		self._device.bank_layer = AddLayerMode(self._device, Layer(priority = 4,
-												bank_prev_button = self._encoder_button[12],
-												bank_next_button = self._encoder_button[13]))
-		self._device.set_enabled(False)
+		self._special_device = SpecialDeviceComponent(name = 'Device_Component', device_provider = self._device_provider, device_bank_registry = DeviceBankRegistry(), script = self)
+		self._special_device.layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:,:],
+												on_off_button = self._encoder_button[1],
+												bank_prev_button = self._encoder_button[6],
+												bank_next_button = self._encoder_button[7])
+		# self._device.bank_layer = AddLayerMode(self._device, Layer(priority = 4,
+		#
+		# 										bank_prev_button = self._encoder_button[14],
+		# 										bank_next_button = self._encoder_button[15]))
+		self._special_device.set_enabled(False)
+
 
 	def _setup_device_chooser(self):
 		self._selected_device = self._device[0]
 		self._last_selected_device = self._device[0]
 
 		self._selected_device_modes = ModesComponent()
-		self._selected_device_modes.add_mode('disabled', [None])
+		self._selected_device_modes.add_mode('disabled', [])
+		self._selected_device_modes.add_mode('special_device', [self._special_device, self._device_navigator._dev1_layer])
 		self._selected_device_modes.add_mode('device_0', [self._device_navigator._dev1_layer], behaviour = DefaultedBehaviour())
 		self._selected_device_modes.add_mode('device_1', [self._device_navigator._dev2_layer], behaviour = DefaultedBehaviour())
-		self._selected_device_modes.layer = Layer(priority = 4, device_0_button = self._encoder_button[0], device_1_button = self._encoder_button[8])
-		self._selected_device_modes.selected_mode = 'device_0'
+		self._selected_device_modes.layer = Layer(priority = 4, device_0_button = self._encoder_button[0], device_1_button = self._encoder_button[8], special_device_button = self._side_button[0])
+		self._selected_device_modes.selected_mode = 'special_device'
 		self._selected_device_modes.set_enabled(False)
 		self._on_device_selector_mode_changed.subject = self._selected_device_modes
 
+
 	@listens('selected_mode')
 	def _on_device_selector_mode_changed(self, mode):
-		if mode == 'disabled':
-			for device in self._device:
-				device.set_dynamic_device_provider(None)
-		elif mode in DEVICE_COMPONENTS:
+		debug('_on_device_selector_mode_changed:', mode)
+		if mode in DEVICE_COMPONENTS:
 			active_device = self._device[DEVICE_COMPONENTS.index(self._selected_device_modes.selected_mode)]
 			for device in self._device:
 				if device is active_device:
@@ -504,6 +516,10 @@ class Twister(LividControlSurface):
 					device.set_dynamic_device_provider(None)
 			if active_device.find_track(active_device._get_device()) == self.song.view.selected_track:
 				active_device.display_device()
+		else:
+			for device in self._device:
+				device.set_dynamic_device_provider(None)
+		#debug('_on_device_selector_mode_changed finished')
 
 
 	def _setup_mod(self):
@@ -520,8 +536,8 @@ class Twister(LividControlSurface):
 	def _setup_modes(self):
 		self._modswitcher = ModesComponent(name = 'ModSwitcher')
 		self._modswitcher.add_mode('mod', [self.modhandler, self._device])
-		#self._modswitcher.add_mode('device', [self._device, self._device.bank_layer])
-		self._modswitcher.add_mode('device', [self._selected_device_modes, self._device[0], self._device[1]])
+		self._modswitcher.add_mode('device', [self._selected_device_modes, self._device[0]])  #, self._device[1], self._automation_component])
+		#self._modswitcher.add_mode('special_device', [self._device, self._device.bank_layer])
 		self._modswitcher.selected_mode = 'device'
 		self._modswitcher.set_enabled(True)
 

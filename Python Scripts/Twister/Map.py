@@ -1,5 +1,5 @@
-# by amounra 0616 : http://www.aumhaa.com
-# written against Live 9.61 release on 042916
+# by amounra 0320 : http://www.aumhaa.com
+# written against Live 10.1.9 on 030920
 
 
 from ableton.v2.control_surface.elements.color import Color
@@ -12,7 +12,7 @@ Created by amounra on 2010-10-05.
 Copyright (c) 2010 __aumhaa__. All rights reserved.
 http://www.aumhaa.com
 
-This file allows the reassignment of the controls from their default arrangement.  The order is from left to right; 
+This file allows the reassignment of the controls from their default arrangement.  The order is from left to right;
 Buttons are Note #'s and Faders/Rotaries are Controller #'s
 """
 
@@ -21,6 +21,8 @@ CHANNEL = 0
 TWISTER_DIALS = range(16)
 
 TWISTER_DIAL_BUTTONS = range(16)
+
+TWISTER_SIDE_BUTTONS = range(8,11)
 
 #COLOR_MAP = [2, 64, 4, 8, 16, 127, 32]
 COLOR_MAP = [1, 10, 20, 30, 40, 50, 60]
@@ -38,19 +40,19 @@ class TwisterColors:
 		TranslationsDisabled = LividRGB.MAGENTA
 		DeviceSelector = LividRGB.BlinkMedium.YELLOW
 		DeviceSelectorDisabled = LividRGB.YELLOW
-	
+
 
 	class ShiftButtons:
 		SessionOn = LividRGB.YELLOW
 		SessionOff = LividRGB.OFF
-	
+
 
 	class DefaultButton:
 		On = LividRGB.WHITE
 		Off = LividRGB.OFF
 		Disabled = LividRGB.OFF
 		Alert = LividRGB.BlinkFast.WHITE
-	
+
 
 	class Session:
 		StopClipTriggered = LividRGB.BlinkFast.BLUE
@@ -71,14 +73,14 @@ class TwisterColors:
 		PageNavigationButtonOff = LividRGB.OFF
 		ZoomOn = LividRGB.BlinkFast.WHITE
 		ZoomOff = LividRGB.WHITE
-	
+
 
 	class Zooming:
 		Selected = LividRGB.BlinkFast.YELLOW
 		Stopped = LividRGB.WHITE
 		Playing = LividRGB.GREEN
 		Empty = LividRGB.OFF
-	
+
 
 
 	class LoopSelector:
@@ -88,7 +90,7 @@ class TwisterColors:
 		SelectedPage = LividRGB.WHITE
 		InsideLoop = LividRGB.CYAN
 		PlayheadRecord = LividRGB.RED
-	
+
 
 	class Transport:
 		PlayOn = LividRGB.BlinkMedium.GREEN
@@ -104,7 +106,7 @@ class TwisterColors:
 		TapTempoOn = LividRGB.BLUE
 		LoopOn = LividRGB.GREEN
 		LoopOff = LividRGB.OFF
-	
+
 
 	class Mixer:
 		SoloOn = LividRGB.CYAN
@@ -118,13 +120,13 @@ class TwisterColors:
 		StopClip = LividRGB.RED
 		SelectedOn = LividRGB.BLUE
 		SelectedOff = LividRGB.OFF
-	
+
 
 	class Recording:
 		On = LividRGB.RED
 		Off = LividRGB.MAGENTA
 		Transition = LividRGB.BlinkFast.MAGENTA
-	
+
 
 	class Recorder:
 		On = LividRGB.WHITE
@@ -139,12 +141,12 @@ class TwisterColors:
 		AutomationOff = LividRGB.CYAN
 		FixedAssigned = LividRGB.MAGENTA
 		FixedNotAssigned = LividRGB.OFF
-	
+
 
 	class Automation:
 		On = LividRGB.BlinkMedium.CYAN
 		Off = LividRGB.CYAN
-	
+
 
 	class Device:
 		NavOn = LividRGB.MAGENTA
@@ -155,7 +157,7 @@ class TwisterColors:
 		ChainNavOff = LividRGB.OFF
 		ContainNavOn = LividRGB.CYAN
 		ContainNavOff = LividRGB.OFF
-	
+
 
 
 
