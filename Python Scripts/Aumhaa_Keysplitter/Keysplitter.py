@@ -6,7 +6,7 @@ from __future__ import absolute_import, print_function
 import Live
 import math
 
-from ableton.v2.base import inject, listens
+from ableton.v2.base import inject, listens, listenable_property
 from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator, DeviceBankRegistry
 from ableton.v2.control_surface.elements import ButtonMatrixElement, ButtonElement
 from ableton.v2.control_surface.mode import AddLayerMode, ModesComponent, DelayMode, CompoundMode
@@ -36,9 +36,33 @@ class KeysplitterComponent(Component):
 		self._high_split_index = 127
 
 
+	@listenable_property
+	def number_of_splits(self):
+		splits = 1
+		splits += 1 if self._low_split_index != 127 else 0
+		splits += 1 if self._high_split_index != 127 else 0
+		return splits
+
 	@select_matrix.pressed
 	def select_matrix(self, button):
 		self._on_select_matrix_pressed(button)
+
+
+	@low_assign_button.double_clicked
+	def low_assign_button(self, button):
+		debug('low_assign_button.double_clicked')
+		self._high_split_index = 127
+		self._low_split_index = 127
+		self._update_note_translations()
+		self.notify_number_of_splits(self.number_of_splits)
+
+
+	@high_assign_button.double_clicked
+	def high_assign_button(self, button):
+		debug('high_assign_button.double_clicked')
+		self._high_split_index = 127
+		self._update_note_translations()
+		self.notify_number_of_splits(self.number_of_splits)
 
 
 	def _on_select_matrix_pressed(self, button):
@@ -47,9 +71,11 @@ class KeysplitterComponent(Component):
 		if self.low_assign_button.is_pressed:
 			self._low_split_index = identifier
 			self._update_note_translations()
+			self.notify_number_of_splits(self.number_of_splits)
 		elif self.high_assign_button.is_pressed:
 			self._high_split_index = identifier
 			self._update_note_translations()
+			self.notify_number_of_splits(self.number_of_splits)
 
 
 	def set_select_matrix(self, matrix):
@@ -83,8 +109,10 @@ class SpecialAutoArmComponent(AutoArmComponent):
 	util_autoarm_toggle_button = ButtonControl()
 	__autoarm_enabled = False
 
-	# def __init__(self, *a, **k):
-	#     super(SpecialAutoArmComponent, self).__init__(*a, **k)
+	def __init__(self, keysplitter, *a, **k):
+		self._keysplitter = keysplitter
+		super(SpecialAutoArmComponent, self).__init__(*a, **k)
+		self._on_number_of_splits_changed.subject = self._keysplitter
 
 	def set_enabled(self, enable):
 		debug('set_enabled:', self.is_enabled())
@@ -110,6 +138,18 @@ class SpecialAutoArmComponent(AutoArmComponent):
 	# 		self.set_enabled(True)
 	# 		self.update()
 
+
+	@listens('number_of_splits')
+	def _on_number_of_splits_changed(self, splits):
+		self._update_implicit_arm()
+
+	# def _number_of_splits_enabled(self):
+	# 	splits = 1
+	# 	splits += 1 if self._keysplitter._low_split_index != 127 else 0
+	# 	splits += 1 if self._keysplitter._high_split_index != 127 else 0
+	# 	return splits
+
+
 	def _update_implicit_arm(self):
 		self._update_implicit_arm_task.kill()
 		song = self.song
@@ -122,9 +162,9 @@ class SpecialAutoArmComponent(AutoArmComponent):
 				if self.track_can_be_armed(track):
 					if track in tracks:
 						track_index = tracks.index(track)
-						track.implicit_arm = can_auto_arm and track_index in range(selected_index, selected_index + 3) and self.can_auto_arm_track(track)
+						track.implicit_arm = can_auto_arm and track_index in range(selected_index, selected_index + self._keysplitter.number_of_splits) and self.can_auto_arm_track(track)
 						if self.autoarm_enabled:
-							if track_index in range(selected_index, selected_index + 3):
+							if track_index in range(selected_index, (selected_index + self._keysplitter.number_of_splits)):
 								if hasattr(track, u'available_input_routing_channels') and len(track.available_input_routing_channels) > (track_index - selected_index):
 									track.input_routing_channel = track.available_input_routing_channels[(track_index - selected_index)+1]
 							elif hasattr(track, u'available_input_routing_channels') and len(track.available_input_routing_channels) > 0:
@@ -153,7 +193,7 @@ class SpecialAutoArmComponent(AutoArmComponent):
 			for track in tracks:
 				if track in tracks:
 					track_index = tracks.index(track)
-					if track_index in range(selected_index, selected_index + 3):
+					if track_index in range(selected_index, (selected_index + self._keysplitter.number_of_splits)):
 						if track.implicit_arm:
 							track.implicit_arm = False
 						if hasattr(track, u'available_input_routing_channels') and len(track.available_input_routing_channels) > 0:
@@ -177,8 +217,8 @@ class Keysplitter(ControlSurface):
 		with self.component_guard():
 			self._setup_controls()
 			self._setup_background()
-			self._setup_autoarm()
 			self._setup_keysplitter()
+			self._setup_autoarm()
 			self._setup_modes()
 		self._main_modes.selected_mode = 'Keysplitter'
 
@@ -191,7 +231,6 @@ class Keysplitter(ControlSurface):
 		self._key_matrix = ButtonMatrixElement(name = 'KeyMatrix', rows = [self._key])
 		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = BUTTON_CHANNEL, identifier = KEYSPLITTER_ASSIGN_BUTTONS[index], name = 'Buttons_' + str(index)) for index in range(3)]
 
-
 	def _setup_background(self):
 		self._background = BackgroundComponent(name = 'Background')
 		self._background.layer = Layer(matrix = self._key_matrix)
@@ -199,7 +238,7 @@ class Keysplitter(ControlSurface):
 
 
 	def _setup_autoarm(self):
-		self._autoarm = SpecialAutoArmComponent()
+		self._autoarm = SpecialAutoArmComponent(keysplitter = self._keysplitter)
 		self._autoarm.layer = Layer(util_autoarm_toggle_button = self._button[2])
 
 
