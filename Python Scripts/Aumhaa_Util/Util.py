@@ -173,6 +173,7 @@ class UtilMixerComponent(MixerComponent):
 	util_solo_kill_button = ButtonControl()
 	util_arm_kill_button = ButtonControl()
 	util_mute_flip_button = ButtonControl()
+	util_select_first_armed_track_button = ButtonControl()
 
 	def __init__(self, *a, **k):
 		super(UtilMixerComponent, self).__init__(*a, **k)
@@ -182,6 +183,31 @@ class UtilMixerComponent(MixerComponent):
 		for track in self.song.return_tracks:
 			tracks.append(track)
 		return tracks
+
+	def armed_tracks(self):
+		tracks = []
+		for t in self.get_tracks():
+			if liveobj_valid(t) and t.can_be_armed:
+				if t.arm:
+					tracks.append(t)
+		return tracks
+
+
+	def set_util_select_first_armed_track_button(self, button):
+		self.util_select_first_armed_track_button.set_control_element(button)
+
+	@util_select_first_armed_track_button.pressed
+	def util_select_first_armed_track_button(self, button):
+		self._on_util_select_first_armed_track_button_pressed(button)
+
+	def _on_util_select_first_armed_track_button_pressed(self, button):
+		self.select_first_armed_track()
+
+	def select_first_armed_track(self):
+		debug('select_first_armed_track')
+		armed_tracks = self.armed_tracks()
+		if len(armed_tracks):
+			self.song.view.selected_track = armed_tracks[0]
 
 
 	def set_util_mute_kill_button(self, button):
@@ -250,12 +276,20 @@ class UtilSessionComponent(SessionComponent):
 	util_capture_new_scene_button = ButtonControl()
 	util_fire_next_button = ButtonControl()
 	util_fire_prev_button = ButtonControl()
+	util_fire_next_absolute_button = ButtonControl()
+	util_fire_prev_absolute_button = ButtonControl()
+	util_fire_next_on_single_armed_button = ButtonControl()
+	util_fire_next_on_all_armed_button = ButtonControl()
 	util_select_playing_clipslot_button = ButtonControl()
 	util_stop_clip_button = ButtonControl()
 	util_new_scene_button = ButtonControl()
 
+
 	def __init__(self, *a, **k):
 		super(UtilSessionComponent, self).__init__(*a, **k)
+
+	def get_tracks(self):
+		return [track for track in self.song.tracks]
 
 	def set_util_capture_new_scene_button(self, button):
 		self.util_capture_new_scene_button.set_control_element(button)
@@ -319,6 +353,50 @@ class UtilSessionComponent(SessionComponent):
 		self.fire_previous_available_clip_slot()
 
 
+	def set_util_fire_next_absolute_button(self, button):
+		self.util_fire_next_absolute_button.set_control_element(button)
+
+	@util_fire_next_absolute_button.pressed
+	def util_fire_next_absolute_button(self, button):
+		self._on_util_fire_next_absolute_button_pressed(button)
+
+	def _on_util_fire_next_absolute_button_pressed(self, button):
+		self.fire_next_clip_slot()
+
+
+	def set_util_fire_prev_absolute_button(self, button):
+		self.util_fire_prev_absolute_button.set_control_element(button)
+
+	@util_fire_prev_absolute_button.pressed
+	def util_fire_prev_absolute_button(self, button):
+		self._on_util_fire_prev_absolute_button_pressed(button)
+
+	def _on_util_fire_prev_absolute_button_pressed(self, button):
+		self.fire_previous_clip_slot()
+
+
+	def set_util_fire_next_on_single_armed_button(self, button):
+		self.util_fire_next_on_single_armed_button.set_control_element(button)
+
+	@util_fire_next_on_single_armed_button.pressed
+	def util_fire_next_on_single_armed_button(self, button):
+		self._on_util_fire_next_on_single_armed_button_pressed(button)
+
+	def _on_util_fire_next_on_single_armed_button_pressed(self, button):
+		self.fire_next_available_clip_slot_on_single_armed_track()
+
+
+	def set_util_fire_next_on_all_armed_button(self, button):
+		self.util_fire_next_on_all_armed_button.set_control_element(button)
+
+	@util_fire_next_on_all_armed_button.pressed
+	def util_fire_next_on_all_armed_button(self, button):
+		self._on_util_fire_next_on_all_armed_button_pressed(button)
+
+	def _on_util_fire_next_on_all_armed_button_pressed(self, button):
+		self.fire_next_available_clip_slot_on_all_armed_tracks()
+
+
 	def get_clip_slot_by_delta_bool(self, current_clip_slot, track, d_value, bool_callable):
 		clip_slots = track.clip_slots
 		max_clip_slots = len(clip_slots)
@@ -337,6 +415,7 @@ class UtilSessionComponent(SessionComponent):
 			if clip_slot == current_clip_slot:
 				found = True
 
+
 	def fire_clip_slot_by_delta(self, d_value, available):
 		current_clip_slot = self.song.view.highlighted_clip_slot
 		track = self.song.view.selected_track
@@ -353,22 +432,67 @@ class UtilSessionComponent(SessionComponent):
 			clip_slot.fire()
 			self.song.view.highlighted_clip_slot = clip_slot
 
+
+	def fire_clip_slot_by_delta_with_explicit_track(self, d_value, available, track):
+		current_scene = self.song.view.selected_scene
+		scenes = list(self.song.scenes)
+		current_scene_index = scenes.index(current_scene)
+		current_clip_slot = track.clip_slots[current_scene_index]
+
+		#debug('fire_clip_slot_by_delta_with_explicit_track:', track)
+
+		if available:
+			if track.arm:
+				clip_slot = self.get_clip_slot_by_delta_bool(current_clip_slot, track, d_value, lambda x: x.has_stop_button and not x.has_clip)
+			else:
+				clip_slot = self.get_clip_slot_by_delta_bool(current_clip_slot, track, d_value, lambda x: x.has_clip)
+		else:
+			clip_slot = self.get_clip_slot_by_delta_bool(current_clip_slot, track, d_value, lambda x: True)
+
+		#debug('clipslot:', clip_slot)
+		if clip_slot:
+			clip_slot.fire()
+
+
 	def fire_next_clip_slot(self):
-		debug('fire_next_clip_slot')
+		# debug('fire_next_clip_slot')
 		self.fire_clip_slot_by_delta(1, False)
 
 	def fire_next_available_clip_slot(self):
-		debug('fire_next_available_clip_slot')
+		# debug('fire_next_available_clip_slot')
 		self.fire_clip_slot_by_delta(1, True)
 
 	def fire_previous_clip_slot(self):
-		debug('fire_previous_clip_slot')
+		# debug('fire_previous_clip_slot')
 		self.fire_clip_slot_by_delta(-1, False)
 
 	def fire_previous_available_clip_slot(self):
-		debug('fire_previous_available_clip_slot')
+		# debug('fire_previous_available_clip_slot')
 		self.fire_clip_slot_by_delta(-1, True)
 
+	def fire_next_available_clip_slot_on_single_armed_track(self):
+		# debug('fire_next_available_clip_slot_on_single_armed_track')
+		tracks = self.get_tracks()
+		armed_tracks = self.armed_tracks()
+		selected_track = self.song.view.selected_track
+		if selected_track in armed_tracks:
+			self.fire_next_available_clip_slot()
+		else:
+			selected_index = tracks.index(selected_track) if selected_track in tracks else 0
+			# debug('selected_index:', selected_index)
+			if len(tracks) > selected_index:
+				for track in tracks[selected_index:]:
+					if track.can_be_armed and track.arm is True:
+						self.fire_clip_slot_by_delta_with_explicit_track(1, True, track)
+						break
+
+
+	def fire_next_available_clip_slot_on_all_armed_tracks(self):
+		# debug('fire_next_available_clip_slot_on_all_armed_tracks')
+		armed_tracks = self.armed_tracks()
+		# debug('armed_tracks:', len(armed_tracks))
+		for track in armed_tracks:
+			self.fire_clip_slot_by_delta_with_explicit_track(1, True, track)
 
 
 	def set_util_select_playing_clipslot_button(self, button):
@@ -382,10 +506,18 @@ class UtilSessionComponent(SessionComponent):
 		self.select_playing_clip()
 
 	def select_playing_clip(self):
-		debug('select_playing_clip')
+		# debug('select_playing_clip')
 		for clip_slot in self.song.view.selected_track.clip_slots:
 			if clip_slot.has_clip and clip_slot.clip.is_playing:
 				self.song.view.highlighted_clip_slot = clip_slot
+
+	def armed_tracks(self):
+		tracks = []
+		for t in self.get_tracks():
+			if liveobj_valid(t) and t.can_be_armed:
+				if t.arm is True:
+					tracks.append(t)
+		return tracks
 
 
 class UtilViewControlComponent(ViewControlComponent):
@@ -463,7 +595,7 @@ class Util(ControlSurface):
 		is_momentary = False
 		optimized = True
 		resource = PrioritizedResource
-		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(24)]
+		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(30)]
 
 
 	def _setup_autoarm(self):
@@ -494,14 +626,18 @@ class Util(ControlSurface):
 			util_stop_clip_button = self._button[5],
 			stop_all_clips_button = self._button[6],
 			util_select_playing_clipslot_button = self._button[7],
-			util_capture_new_scene_button = self._button[8])
+			util_capture_new_scene_button = self._button[8],
+			util_fire_next_absolute_button = self._button[24],
+			util_fire_prev_absolute_button = self._button[25],
+			util_fire_next_on_single_armed_button = self._button[26],
+			util_fire_next_on_all_armed_button = self._button[27])
 
 		self._session.set_enabled(False)
 
 
 	def _setup_mixer_control(self):
 		self._mixer = UtilMixerComponent(name = 'Mixer', tracks_provider = self._session_ring, track_assigner = SimpleTrackAssigner(), auto_name = True, channel_strip_component_type = UtilChannelStripComponent)
-		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12])
+		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23])
 		self._mixer._selected_strip.layer = Layer(arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
 		self._mixer.set_enabled(False)
 

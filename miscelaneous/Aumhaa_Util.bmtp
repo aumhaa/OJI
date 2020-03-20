@@ -95,6 +95,26 @@ Name22=Toggle Detail Clip Loop
 Incoming22=KAM10000KSQ1000401204C24C212
 Outgoing22=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x16"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options22=Actv01Stop00OutO00
+Name23=Select First Armed Track
+Incoming23=KAM10000KSQ10002031231
+Outgoing23=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x17"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options23=Actv01Stop00OutO00
+Name24=Fire Next Clip Abs
+Incoming24=KAM10000KSQ10002032232
+Outgoing24=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x18"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options24=Actv01Stop00OutO00
+Name25=Fire Prev Clip Abs
+Incoming25=KAM10000KSQ10002033233
+Outgoing25=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x19"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options25=Actv01Stop00OutO00
+Name26=Fire Next Clip On Armed
+Incoming26=KAM10000KSQ10002034234
+Outgoing26=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x1A"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options26=Actv01Stop00OutO00
+Name27=Fire Next Clip On All Armed
+Incoming27=KAM10000KSQ10002035235
+Outgoing27=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x1B"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options27=Actv01Stop00OutO00
 
 [Project]
 Version=2
