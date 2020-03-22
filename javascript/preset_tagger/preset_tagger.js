@@ -63,6 +63,8 @@ function setup_patcher(){
   script.filetreeDefer = browser_patcher.subpatcher().getnamed('filetreeDefer');
   script.statusDictObj = this.patcher.getnamed('statusDict');
   script.EditorButton = this.patcher.getnamed('Editor');
+  script.ParentBackButton = browser_patcher.subpatcher().getnamed('parent_back_button');
+  script.ChildrenBackButton = browser_patcher.subpatcher().getnamed('children_back_button');
   var statusDictName = statusDictObj.getattr('name');
   statusDict = new Dict(statusDictName);
   debug('statusDictName:', statusDictName)
@@ -487,6 +489,7 @@ FileTreeComponent.prototype.refresh = function(){
   if(current_root.type!='root'){
     this.parent_list.push({name:'<==back', type:'back_command', parents:[current_root]});
   }
+  ParentBackButton.message('active', current_root.type!='root');
   this._parentChooser.message('clear');
   for(var i in this.parent_list){
     this._parentChooser.message('append', this.parent_list[i].name);
@@ -540,9 +543,53 @@ FileTreeComponent.prototype.select_parent = function(index, item){
     }
     else if(entry.type == 'file'){
       var parent_node = retrieve_parent(this._treeobj, entry.parents);
-      this.current_child_node = entry;
-      this.current_parent_node = parent_node;
+      if(this.current_parent_node.type == 'root'){
+        this.current_child_node = entry;
+        selected_file = entry.path;
+        outlet(0, 'select_file', entry.path);
+        display_selected_file(entry.path);
+        display_selected_file_tags(entry.path);
+      }
+      else{
+        this.current_child_node = entry;
+        this.current_parent_node = parent_node;
+        this.refresh();
+      }
+    }
+    else if(entry.type == 'back_command'){
+      this.current_child_node = null;
+      this.current_parent_node = entry.parents[0];
       this.refresh();
+    }
+  }
+  else{
+    this.refresh();
+  }
+}
+
+FileTreeComponent.prototype.open_parent = function(index, item){
+  debug('FileTree.open_parent:', index, item);
+  if(this.parent_list.length){
+    var entry = this.parent_list[index];
+    if(entry.type == 'folder'){
+      this.current_parent_node = this.parent_list[index];
+      this.refresh();
+    }
+    else if(entry.type == 'file'){
+      var parent_node = retrieve_parent(this._treeobj, entry.parents);
+      if(this.current_parent_node.type == 'root'){
+        this.current_child_node = entry;
+        selected_file = entry.path;
+        outlet(0, 'select_file', entry.path);
+        display_selected_file(entry.path);
+        display_selected_file_tags(entry.path);
+        outlet(0, 'open_preset', entry.path);
+      }
+      else{
+        this.current_child_node = entry;
+        this.current_parent_node = parent_node;
+        this.refresh();
+      }
     }
     else if(entry.type == 'back_command'){
       this.current_child_node = null;
@@ -666,7 +713,7 @@ function Editor(val){
 }
 
 function OpenPreset(){
-  // debug('OpenPreset');
+  debug('OpenPreset');
   outlet(0, 'open_preset', selected_file);
 }
 
