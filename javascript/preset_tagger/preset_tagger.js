@@ -65,6 +65,18 @@ function setup_patcher(){
   script.EditorButton = this.patcher.getnamed('Editor');
   script.ParentBackButton = browser_patcher.subpatcher().getnamed('parent_back_button');
   script.ChildrenBackButton = browser_patcher.subpatcher().getnamed('children_back_button');
+  script.mira_patcher = this.patcher.getnamed('mira_window');
+  script.mira_file_chooser = mira_patcher.subpatcher().getnamed('filechooser');
+  script.mira_tag_chooser = mira_patcher.subpatcher().getnamed('tagchooser');
+  script.mira_current_selected_file = mira_patcher.subpatcher().getnamed('current_selected_file');
+  script.mira_selected_file_tags = mira_patcher.subpatcher().getnamed('selected_file_tags');
+  script.mira_select_pipe = mira_patcher.subpatcher().getnamed('select_pipe');
+  script.mira_tag_buffer_display = mira_patcher.subpatcher().getnamed('tag_buffer_display');
+  script.mira_parentChooser = mira_patcher.subpatcher().getnamed('parent_chooser');
+  script.mira_filesChooser = mira_patcher.subpatcher().getnamed('files_chooser');
+  script.mira_filetreeDefer = mira_patcher.subpatcher().getnamed('filetreeDefer');
+  script.mira_ParentBackButton = browser_patcher.subpatcher().getnamed('parent_back_button');
+  script.mira_gate = this.patcher.getnamed('mira_gate');
   var statusDictName = statusDictObj.getattr('name');
   statusDict = new Dict(statusDictName);
   debug('statusDictName:', statusDictName)
@@ -104,7 +116,10 @@ function setup_filetree(){
                                                           dict:filetreeDict,
                                                           parentChooser:parentChooser,
                                                           filesChooser:filesChooser,
-                                                          Defer:filetreeDefer
+                                                          miraParentChooser:mira_parentChooser,
+                                                          miraFilesChooser:mira_filesChooser,
+                                                          Defer:filetreeDefer,
+                                                          miraDefer:mira_filetreeDefer
                                                         });
   script['toFileTree'] = FileTree.input;
   //FileTree._init;
@@ -197,6 +212,7 @@ function set_tag_buffer(){
 function display_tag_buffer(tag){
   // debug('display_tag_buffer', tag);
   tag_buffer_display.message('set', tag ? tag : '');
+  mira_tag_buffer_display.message('set', tag ? tag : '');
 }
 
 function refresh_chooser(){
@@ -215,13 +231,16 @@ function refresh_chooser_selection(){
     if(selected_shortname in hash_list){
       var entry = parseInt(hash_list[selected_shortname].entry);
       select_pipe.message(entry);
+      mira_select_pipe.message(entry);
     }
   }
 }
 
 function display_filtered_files(){
   //debug('display_filtered_files', selected_tags);
+  mira_gate.message(0);
   file_chooser.message('clear');
+  mira_file_chooser.message('clear');
   filtered_hash_list = {};
   if(selected_tags.length){
     //OR//
@@ -235,6 +254,7 @@ function display_filtered_files(){
           if(selected_tags.indexOf(tags[j])>-1){
             filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
             file_chooser.append(shortname);
+            mira_file_chooser.append(shortname);
             entry += 1;
             break;
           }
@@ -257,6 +277,7 @@ function display_filtered_files(){
         if(add){
           filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
           file_chooser.append(shortname);
+          mira_file_chooser.append(shortname);
         }
       }
     }
@@ -272,10 +293,12 @@ function display_filtered_files(){
       if(tags.length==0){
         filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
         file_chooser.append(shortname);
+        mira_file_chooser.append(shortname);
         entry += 1;
       }
     }
   }
+  mira_gate.message(1);
 }
 
 function refresh_filtered_chooser_selection(){
@@ -286,6 +309,7 @@ function refresh_filtered_chooser_selection(){
     if(selected_shortname in filtered_hash_list){
       var entry = parseInt(filtered_hash_list[selected_shortname].entry);;
       select_pipe.message(entry);
+      mira_select_pipe.message(entry);
     }
   }
 }
@@ -294,18 +318,26 @@ function refresh_tagchooser(){
   //debug('refresh_tagchooser:', found_tags);
   detect_found_tags();
   if(!last_found_tags.equals(found_tags)){
+    mira_gate.message(0);
     tag_chooser.message('clear');
+    mira_tag_chooser.message('clear');
     for(var i in found_tags){
       tag_chooser.append(found_tags[i]);
+      mira_tag_chooser.append(found_tags[i]);
     }
+    mira_gate.message(1);
   }
 }
 
 function redraw_tagchooser(){
+  mira_gate.message(0);
   tag_chooser.message('clear');
+  mira_tag_chooser.message('clear');
   for(var i in found_tags){
     tag_chooser.append(found_tags[i]);
+    mira_tag_chooser.append(found_tags[i]);
   }
+  mira_gate.message(0);
 }
 
 function detect_found_tags(){
@@ -335,6 +367,7 @@ function chooser_single(index, shortname){
 
 function display_selected_file(path){
   current_selected_file.message('set', path ? path : '');
+  mira_current_selected_file.message('set', path ? path : '');
 }
 
 function display_selected_file_tags(path){
@@ -343,6 +376,7 @@ function display_selected_file_tags(path){
     //var tags = libraryDict.get(path+'::tags');
     var tags = libraryObj[path].tags;
     selected_file_tags.message('set', tags ? tags : '');
+    mira_selected_file_tags.message('set', tags ? tags : '');
   }
   else{
     debug('can\'t display tags for path:', path, 'not in libraryObj');
@@ -445,7 +479,8 @@ function FileTreeComponent(name, args){
    'select_child', 'open_child', '_parentChooser', '_filesChooser', '_treeobj',
    'current_parent_node', 'current_child_node', '_dict', '_treeobj',
    'empty_child_node', 'parent_list', 'child_list', 'selected_parent_name',
-   'selected_child_name', 'Defer', 'find_file']);
+   'selected_child_name', 'Defer', 'miraDefer', 'find_file', '_miraParentChooser',
+   '_miraFilesChooser']);
 	FileTreeComponent.super_.call(this, name, args);
   this._treeobj = dict_to_jsobj(this._dict);
   //treeobj = dict_to_jsobj(this._dict);
@@ -480,6 +515,7 @@ FileTreeComponent.prototype.update_files = function(){
 FileTreeComponent.prototype.refresh = function(){
   //debug('REFRESH!!!');
   // debug('current_root', this.current_parent_node.name);
+  mira_gate.message(0);
   var current_root = retrieve_parent(this._treeobj, this.current_parent_node.parents);
   //debug('FileTree parent_node:', current_root.name);
   this.parent_list = [];
@@ -490,19 +526,24 @@ FileTreeComponent.prototype.refresh = function(){
     this.parent_list.push({name:'<==back', type:'back_command', parents:[current_root]});
   }
   ParentBackButton.message('active', current_root.type!='root');
+  mira_ParentBackButton.message('active', current_root.type!='root');
   this._parentChooser.message('clear');
+  this._miraParentChooser.message('clear');
   for(var i in this.parent_list){
     this._parentChooser.message('append', this.parent_list[i].name);
+    this._miraParentChooser.message('append', this.parent_list[i].name);
   }
   var selected_index = this.parent_list.indexOf(this.current_parent_node);
   if(selected_index>-1){
     //debug('found selected parent');
     this._Defer.message('parent', 'set', selected_index);
+    this._miraDefer.message('parent', 'set', selected_index);
   }
 
   var current_dir = this.current_parent_node ? this.current_parent_node : {name:'none', children:[], type:root};
   //debug('FileTree child_node:', current_dir.name);
   this._filesChooser.message('clear');
+  this._miraFilesChooser.message('clear');
   if(current_dir.type != 'root'){
     this.child_list = [];
 
@@ -511,13 +552,16 @@ FileTreeComponent.prototype.refresh = function(){
     }
     for(var i in this.child_list){
       this._filesChooser.message('append', this.child_list[i].name);
+      this._miraFilesChooser.message('append', this.child_list[i].name);
     }
     var selected_index = this.child_list.indexOf(this.current_child_node);
     if(selected_index>-1){
       //debug('found selected child');
       this._Defer.message('files', 'set', selected_index);
+      this._miraDefer.message('files', 'set', selected_index);
     }
   }
+  mira_gate.message(1);
 }
 
 FileTreeComponent.prototype.input = function(){
