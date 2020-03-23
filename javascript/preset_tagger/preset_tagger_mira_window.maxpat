@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 257.0, 259.0, 677.0, 894.0 ],
+		"rect" : [ 398.0, 272.0, 677.0, 894.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -39,24 +39,43 @@
 		"subpatcher_template" : "",
 		"boxes" : [ 			{
 				"box" : 				{
-					"id" : "obj-29",
-					"maxclass" : "message",
-					"numinlets" : 2,
+					"id" : "obj-34",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 114.0, 221.0, 50.0, 22.0 ]
+					"patching_rect" : [ 551.0, 103.0, 175.0, 22.0 ],
+					"text" : "prepend toFileTree select_child"
 				}
 
 			}
 , 			{
 				"box" : 				{
-					"id" : "obj-28",
-					"maxclass" : "message",
-					"numinlets" : 2,
-					"numoutlets" : 1,
-					"outlettype" : [ "" ],
-					"patching_rect" : [ 445.0, 191.0, 107.0, 22.0 ],
-					"text" : "append something"
+					"id" : "obj-7",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"parameter_mappable" : 0,
+					"patching_rect" : [ 291.5, 370.0, 44.0, 15.0 ],
+					"presentation" : 1,
+					"presentation_rect" : [ 26.0, 196.0, 462.0, 23.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_type" : 2,
+							"parameter_longname" : "live.text[9]",
+							"parameter_invisible" : 2,
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
+						}
+
+					}
+,
+					"text" : "OpenPreset",
+					"varname" : "live.text[9]"
 				}
 
 			}
@@ -79,7 +98,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 363.0, 111.0, 175.0, 22.0 ],
+					"patching_rect" : [ 363.0, 103.0, 175.0, 22.0 ],
 					"text" : "prepend toFileTree select_child"
 				}
 
@@ -183,16 +202,14 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 461.0, 146.0, 271.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 261.5, 80.0, 225.0, 20.0 ],
+					"presentation_rect" : [ 261.5, 102.0, 225.0, 20.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "tagchooser",
 							"parameter_enum" : [ "#sometag", "#sleepy", "#happy", "#m4l", "#mainSet" ],
-							"parameter_defer" : 1,
-							"parameter_type" : 3,
+							"parameter_type" : 2,
 							"parameter_longname" : "tagchooser",
-							"parameter_invisible" : 2,
-							"parameter_mmax" : 4.0
+							"parameter_mmax" : 4,
+							"parameter_shortname" : "tagchooser"
 						}
 
 					}
@@ -214,16 +231,14 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 178.0, 146.0, 271.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 26.0, 80.0, 225.0, 20.0 ],
+					"presentation_rect" : [ 26.0, 102.0, 225.0, 20.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "filechooser",
 							"parameter_enum" : [ "0", "1" ],
-							"parameter_defer" : 1,
-							"parameter_type" : 3,
+							"parameter_type" : 2,
 							"parameter_longname" : "filechooser",
-							"parameter_invisible" : 2,
-							"parameter_mmax" : 0.0
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "filechooser"
 						}
 
 					}
@@ -255,16 +270,16 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 461.999908000000005, 466.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 261.5, 63.0, 225.0, 15.0 ],
+					"presentation_rect" : [ 261.5, 85.0, 225.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "and_or",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_linknames" : 1,
 							"parameter_longname" : "and_or",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "and_or"
 						}
 
 					}
@@ -290,12 +305,12 @@
 					"presentation_rect" : [ 387.0, 328.0, 100.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[8]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -320,12 +335,12 @@
 					"presentation_rect" : [ 206.75, 328.0, 100.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[5]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -350,12 +365,12 @@
 					"presentation_rect" : [ 26.5, 328.0, 100.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[4]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -436,7 +451,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 60.0, 283.0, 216.0, 18.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 26.5, 178.0, 462.0, 18.0 ],
+					"presentation_rect" : [ 26.0, 140.0, 462.0, 18.0 ],
 					"suppressinlet" : 1,
 					"text" : "Currently selected file",
 					"textcolor" : [ 1.0, 0.999974370002747, 0.999991297721863, 1.0 ],
@@ -467,7 +482,7 @@
 					"patching_rect" : [ 60.0, 305.0, 275.0, 31.0 ],
 					"presentation" : 1,
 					"presentation_linecount" : 2,
-					"presentation_rect" : [ 26.5, 198.0, 462.0, 31.0 ],
+					"presentation_rect" : [ 26.0, 160.0, 462.0, 31.0 ],
 					"text" : "\"/Users/amounra/Music/Ableton/User Library/Presets/Audio Effects/Audio Effect Rack/@d_4 Loopers.adg\"",
 					"varname" : "current_selected_file"
 				}
@@ -496,15 +511,15 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 343.0, 466.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 26.0, 63.0, 225.0, 15.0 ],
+					"presentation_rect" : [ 26.0, 85.0, 225.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[2]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -565,12 +580,12 @@
 					"presentation_rect" : [ 387.0, 306.0, 100.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[7]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -595,12 +610,12 @@
 					"presentation_rect" : [ 206.75, 306.0, 100.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[6]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -625,12 +640,12 @@
 					"presentation_rect" : [ 26.5, 306.0, 100.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[3]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -757,12 +772,12 @@
 					"presentation_rect" : [ 26.0, 19.0, 225.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -996,12 +1011,12 @@
 					"presentation_rect" : [ 261.5, 19.0, 225.0, 15.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "live.text",
 							"parameter_enum" : [ "val1", "val2" ],
 							"parameter_type" : 2,
 							"parameter_longname" : "live.text[1]",
 							"parameter_invisible" : 2,
-							"parameter_mmax" : 1
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "live.text"
 						}
 
 					}
@@ -1064,13 +1079,11 @@
 					"presentation_rect" : [ 261.5, 36.0, 225.0, 20.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "files_chooser",
 							"parameter_enum" : [ "@d_4 Loopers.adg", "MeshInput.adg", "p10 Send B 111909.adg", "p9 Verb 111909.adg" ],
-							"parameter_defer" : 1,
-							"parameter_type" : 3,
+							"parameter_type" : 2,
 							"parameter_longname" : "files_chooser",
-							"parameter_invisible" : 2,
-							"parameter_mmax" : 3.0
+							"parameter_mmax" : 3,
+							"parameter_shortname" : "files_chooser"
 						}
 
 					}
@@ -1097,13 +1110,11 @@
 					"presentation_rect" : [ 26.0, 36.0, 225.0, 20.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
-							"parameter_shortname" : "parent_chooser",
-							"parameter_enum" : [ "Audio Effect Rack", "Max Audio Effect", "<==back", "something", "something", "something", "something", "something", "something", "something" ],
-							"parameter_defer" : 1,
-							"parameter_type" : 3,
+							"parameter_enum" : [ "Audio Effect Rack", "Max Audio Effect", "<==back", "something", "something", "something", "something", "something", "something", "something", "something", "something", "something", "something", "something", "something" ],
+							"parameter_type" : 2,
 							"parameter_longname" : "parent_chooser",
-							"parameter_invisible" : 2,
-							"parameter_mmax" : 2.0
+							"parameter_mmax" : 15,
+							"parameter_shortname" : "parent_chooser"
 						}
 
 					}
@@ -1266,13 +1277,6 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-2", 0 ],
-					"source" : [ "obj-28", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
 					"destination" : [ "obj-23", 1 ],
 					"source" : [ "obj-3", 1 ]
 				}
@@ -1397,16 +1401,7 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-29", 1 ],
-					"order" : 0,
-					"source" : [ "obj-5", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
 					"destination" : [ "obj-4", 0 ],
-					"order" : 1,
 					"source" : [ "obj-5", 0 ]
 				}
 
@@ -1442,6 +1437,13 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-6", 0 ],
+					"source" : [ "obj-7", 1 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "obj-2", 0 ],
 					"source" : [ "obj-8", 1 ]
 				}
@@ -1449,20 +1451,21 @@
 			}
  ],
 		"parameters" : 		{
-			"obj-8" : [ "live.text", "live.text", 0 ],
-			"obj-44" : [ "live.text[5]", "live.text", 0 ],
-			"obj-14" : [ "filechooser", "filechooser", 0 ],
-			"obj-51" : [ "live.text[7]", "live.text", 0 ],
 			"obj-37" : [ "live.text[1]", "live.text", 0 ],
+			"obj-44" : [ "live.text[5]", "live.text", 0 ],
+			"obj-46" : [ "and_or", "and_or", 0 ],
+			"obj-45" : [ "live.text[4]", "live.text", 0 ],
+			"obj-49" : [ "live.text[3]", "live.text", 0 ],
 			"obj-3" : [ "files_chooser", "files_chooser", 0 ],
 			"obj-2" : [ "parent_chooser", "parent_chooser", 0 ],
-			"obj-45" : [ "live.text[4]", "live.text", 0 ],
+			"obj-8" : [ "live.text", "live.text", 0 ],
 			"obj-50" : [ "live.text[6]", "live.text", 0 ],
-			"obj-46" : [ "and_or", "and_or", 0 ],
-			"obj-49" : [ "live.text[3]", "live.text", 0 ],
-			"obj-55" : [ "live.text[2]", "live.text", 0 ],
-			"obj-43" : [ "live.text[8]", "live.text", 0 ],
 			"obj-16" : [ "tagchooser", "tagchooser", 0 ],
+			"obj-51" : [ "live.text[7]", "live.text", 0 ],
+			"obj-43" : [ "live.text[8]", "live.text", 0 ],
+			"obj-55" : [ "live.text[2]", "live.text", 0 ],
+			"obj-14" : [ "filechooser", "filechooser", 0 ],
+			"obj-7" : [ "live.text[9]", "live.text", 0 ],
 			"parameterbanks" : 			{
 
 			}
