@@ -651,9 +651,10 @@ class Util(ControlSurface):
 		self._undo_redo = UndoRedoComponent()
 		self._undo_redo.layer = Layer(undo_button = self._button[20], redo_button = self._button[21])
 
+
 	def _setup_view_control(self):
 		self._view_control = UtilViewControlComponent()
-		self._view_control.layer = Layer(toggle_clip_detail_button = self._button[17], toggle_detail_clip_loop_button = self._button[22])
+		self._view_control.layer = Layer(toggle_clip_detail_button = self._button[17], toggle_detail_clip_loop_button = self._button[22], prev_track_button = self._button[28], next_track_button = self._button[29])
 
 
 	def _setup_main_modes(self):
@@ -668,6 +669,11 @@ class Util(ControlSurface):
 		routing = track.current_input_routing
 		#return routing == 'Ext: All Ins' or routing == 'All Ins'
 		return False
+
+
+	def receive_note(self, num, val):
+		debug('receive_note', num, val)
+		self.receive_midi(tuple([144, num, val]))
 
 
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
