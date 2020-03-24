@@ -7,7 +7,7 @@ from aumhaa.v2.livid.colors import *
 
 CHANNEL = 0
 
-UTIL_BUTTONS = range(30)
+UTIL_BUTTONS = range(40)
 
 class UtilColors:
 

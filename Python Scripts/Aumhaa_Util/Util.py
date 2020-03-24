@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 from ableton.v2.control_surface.control_surface import ControlSurface
 from ableton.v2.base import inject, listens, listens_group, liveobj_valid
 from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator
-from ableton.v2.control_surface.elements import ButtonElement, ComboElement
-from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent, UndoRedoComponent
+from ableton.v2.control_surface.elements import ButtonElement, ComboElement, EncoderElement
+from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent, UndoRedoComponent, TransportComponent
 from ableton.v2.control_surface.components.mixer import SimpleTrackAssigner
 from ableton.v2.control_surface.control import control_color
 from ableton.v2.control_surface.mode import ModesComponent
@@ -581,6 +581,7 @@ class Util(ControlSurface):
 			self._setup_track_creator()
 			self._setup_undo_redo()
 			self._setup_view_control()
+			self._setup_transport()
 			self._setup_main_modes()
 			self._initialize_script()
 
@@ -595,8 +596,8 @@ class Util(ControlSurface):
 		is_momentary = False
 		optimized = True
 		resource = PrioritizedResource
-		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(30)]
-
+		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(40)]
+		self._fader = EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 
 	def _setup_autoarm(self):
 		self._autoarm = UtilAutoArmComponent(name='Auto_Arm')
@@ -638,7 +639,7 @@ class Util(ControlSurface):
 	def _setup_mixer_control(self):
 		self._mixer = UtilMixerComponent(name = 'Mixer', tracks_provider = self._session_ring, track_assigner = SimpleTrackAssigner(), auto_name = True, channel_strip_component_type = UtilChannelStripComponent)
 		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23])
-		self._mixer._selected_strip.layer = Layer(arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
+		self._mixer._selected_strip.layer = Layer(volume_control = self._fader, arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
 		self._mixer.set_enabled(False)
 
 
@@ -656,11 +657,14 @@ class Util(ControlSurface):
 		self._view_control = UtilViewControlComponent()
 		self._view_control.layer = Layer(toggle_clip_detail_button = self._button[17], toggle_detail_clip_loop_button = self._button[22], prev_track_button = self._button[28], next_track_button = self._button[29])
 
+	def _setup_transport(self):
+		self._transport = TransportComponent()
+		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31])
 
 	def _setup_main_modes(self):
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode('Main', [self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
 		self._main_modes.set_enabled(False)
 
@@ -675,6 +679,9 @@ class Util(ControlSurface):
 		debug('receive_note', num, val)
 		self.receive_midi(tuple([144, num, val]))
 
+	def receive_cc(self, num, val):
+		debug('receive_note', num, val)
+		self.receive_midi(tuple([176, num, val]))
 
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
 		debug('load_preset()', target, folder, directory)
