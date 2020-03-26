@@ -2,12 +2,12 @@
 
 const maxApi = require('max-api');
 const fs = require('fs');
-const zlib = require('zlib');
+const util = require('util');
 const path = require('path');
 const stream = require('stream');
-const util = require('util');
-const xml2js = require('xml2js');
-const xmljs = require('xml-js');
+const xml2js = require('../node_dependencies/node_modules/xml2js');
+const xmljs = require('../node_dependencies/node_modules/xml-js');
+const zlib = require('zlib');
 
 function arrayfromargs(){
 	return Array.prototype.slice.call(arguments, 0);

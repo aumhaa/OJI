@@ -4,10 +4,9 @@ const maxApi = require('max-api');
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
-const xattr = require('fs-xattr');
-const open = require('open');
-const xmljs = require('xml-js');
-
+const xattr = require('../node_dependencies/node_modules/fs-xattr');
+const open = require('../node_dependencies/node_modules/open');
+const xmljs = require('../node_dependencies/node_modules/xml-js');
 
 function arrayfromargs(){
 	return Array.prototype.slice.call(arguments, 0);
@@ -94,6 +93,7 @@ const writeFileTree = async () => {
 		}
 	});
 }
+
 
 maxApi.addHandler('select_file', async(file) => {
 	//var new_file = file.split("Tome:").pop();
