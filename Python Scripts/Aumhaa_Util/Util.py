@@ -22,6 +22,10 @@ from ableton.v2.control_surface.input_control_element import InputControlElement
 
 from ableton.v2.control_surface.control import ButtonControl
 
+from aumhaa.v2.control_surface.mod_devices import *
+from aumhaa.v2.control_surface.mod import *
+from aumhaa.v2.control_surface.elements import MonoEncoderElement, MonoBridgeElement, generate_strip_string, CodecEncoderElement
+from aumhaa.v2.control_surface.elements.mono_button import *
 from aumhaa.v2.base import initialize_debug
 
 from .Map import *
@@ -177,6 +181,21 @@ class UtilMixerComponent(MixerComponent):
 
 	def __init__(self, *a, **k):
 		super(UtilMixerComponent, self).__init__(*a, **k)
+
+	def _reassign_tracks(self):
+		super(UtilMixerComponent, self)._reassign_tracks()
+		names = self.track_names
+		self.notify_track_names(*names)
+
+	@listenable_property
+	def track_names(self):
+		names = []
+		for strip in self._channel_strips:
+			if liveobj_valid(strip._track) and hasattr(strip._track, 'name'):
+				names.append(strip._track.name)
+			else:
+				names.append('')
+		return names
 
 	def get_tracks(self):
 		tracks = [track for track in self.song.tracks]
@@ -520,6 +539,21 @@ class UtilSessionComponent(SessionComponent):
 		return tracks
 
 
+class UtilSessionRingComponent(SessionRingComponent):
+
+	def __init__(self, *a, **k):
+		super(UtilSessionRingComponent, self).__init__(*a, **k)
+		self._on_offsets_changed.subject = self
+
+	@listens('offset')
+	def _on_offsets_changed(self, track_offset, scene_offset):
+		self.notify_offsets(self.track_offset, self.scene_offset)
+
+	@listenable_property
+	def offsets(self):
+		return (self.track_offset, self.scene_offset)
+
+
 class UtilViewControlComponent(ViewControlComponent):
 
 	toggle_clip_detail_button = ButtonControl()
@@ -574,6 +608,7 @@ class Util(ControlSurface):
 		self._skin = Skin(UtilColors)
 		with self.component_guard():
 		#	self._setup_m4l_interface()
+			self._setup_monobridge()
 			self._setup_controls()
 			self._setup_autoarm()
 			self._setup_session_control()
@@ -585,6 +620,13 @@ class Util(ControlSurface):
 			self._setup_main_modes()
 			self._initialize_script()
 
+	@listenable_property
+	def pipe(self):
+		return None
+
+	def _send(self, **a):
+		notify_pipe(a)
+
 
 	def _initialize_script(self):
 		self._main_modes.set_enabled(True)
@@ -592,12 +634,18 @@ class Util(ControlSurface):
 		#debug('_selected_strip.is_enabled:', self._mixer._selected_strip.is_enabled())
 
 
+	def _setup_monobridge(self):
+		self._monobridge = MonoBridgeElement(self)
+		self._monobridge.name = 'MonoBridge'
+
+
 	def _setup_controls(self):
 		is_momentary = False
 		optimized = True
 		resource = PrioritizedResource
-		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(40)]
+		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(50)]
 		self._fader = EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
+		self._track_select_matrix = ButtonMatrixElement(name = 'TrackSelectMatrix', rows = [self._button[34:42]])
 
 	def _setup_autoarm(self):
 		self._autoarm = UtilAutoArmComponent(name='Auto_Arm')
@@ -611,10 +659,11 @@ class Util(ControlSurface):
 
 
 	def _setup_session_control(self):
-		self._session_ring = SessionRingComponent(num_tracks = 1, num_scenes = 1, tracks_to_use = self._tracks_to_use)
+		self._session_ring = UtilSessionRingComponent(num_tracks = 8, num_scenes = 1, tracks_to_use = self._tracks_to_use)
 		self._session_ring.set_enabled(False)
 
 		self._session_navigation = SessionNavigationComponent(name = 'SessionNavigation', session_ring = self._session_ring)
+		self._session_navigation.layer = Layer(left_button = self._button[32], right_button = self._button[33])
 		self._session_navigation.set_enabled(False)
 
 		# self._session_recording = SessionRecordingComponent(name = 'SessionRecording')
@@ -638,7 +687,7 @@ class Util(ControlSurface):
 
 	def _setup_mixer_control(self):
 		self._mixer = UtilMixerComponent(name = 'Mixer', tracks_provider = self._session_ring, track_assigner = SimpleTrackAssigner(), auto_name = True, channel_strip_component_type = UtilChannelStripComponent)
-		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23])
+		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], track_select_buttons = self._track_select_matrix)
 		self._mixer._selected_strip.layer = Layer(volume_control = self._fader, arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
 		self._mixer.set_enabled(False)
 
@@ -664,7 +713,7 @@ class Util(ControlSurface):
 	def _setup_main_modes(self):
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode('Main', [self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
 		self._main_modes.set_enabled(False)
 
@@ -674,6 +723,10 @@ class Util(ControlSurface):
 		#return routing == 'Ext: All Ins' or routing == 'All Ins'
 		return False
 
+	def _do_send_midi(self, midi_event_bytes):
+		super(Util, self)._do_send_midi(midi_event_bytes)
+		bytes = list(midi_event_bytes)
+		self.notify_pipe('midi', *bytes)
 
 	def receive_note(self, num, val):
 		debug('receive_note', num, val)
