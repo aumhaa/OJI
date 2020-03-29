@@ -18,7 +18,7 @@ var controls = {};
 var EXCLUDED = ['control', 'control_names', 'done'];
 var control_surface_type = jsarguments[1]||'None';
 
-var FORCELOAD = true;
+var FORCELOAD = false;
 var DEBUG = true;
 var SHOW_DICTS = false;
 aumhaa.init(this);
@@ -93,6 +93,7 @@ function init(){
 	setup_apiUtil();
   init_m4l_component();
   Alive = true;
+	messnamed('from_commander', 'update_remote_display');
 }
 
 function continue_init(){
@@ -108,11 +109,11 @@ function setup_tasks(){
 function setup_patcher(){
 	script.controls = {};
 	find_patcher_objects(controls, this.patcher, get_patcher_script_names(this.patcher));
-	outlet(1, 'clear');
-	for(var i in controls){
-		debug('control:', i, controls[i]);
-		// outlet(1, 'append', i);
-	}
+	// outlet(1, 'clear');
+	// for(var i in controls){
+	// 	debug('control:', i, controls[i]);
+	// 	// outlet(1, 'append', i);
+	// }
 	script.track_select_buttons = []
 	for(var i=0;i<8;i++){
 		track_select_buttons.push(controls['track_select['+i+']']);

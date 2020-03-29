@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 398.0, 272.0, 677.0, 894.0 ],
+		"rect" : [ 145.0, 263.0, 677.0, 894.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -37,7 +37,32 @@
 		"tags" : "",
 		"style" : "",
 		"subpatcher_template" : "",
+		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
+				"box" : 				{
+					"id" : "obj-29",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 105.5, 687.0, 150.0, 22.0 ],
+					"text" : "prepend from_commander"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-28",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 105.5, 657.0, 110.0, 22.0 ],
+					"text" : "r from_commander"
+				}
+
+			}
+, 			{
 				"box" : 				{
 					"id" : "obj-34",
 					"maxclass" : "newobj",
@@ -832,6 +857,7 @@
 						"tags" : "",
 						"style" : "",
 						"subpatcher_template" : "",
+						"assistshowspatchername" : 0,
 						"boxes" : [ 							{
 								"box" : 								{
 									"comment" : "",
@@ -1123,20 +1149,6 @@
 				}
 
 			}
-, 			{
-				"box" : 				{
-					"background" : 1,
-					"id" : "obj-1",
-					"ignoreclick" : 1,
-					"maxclass" : "mira.frame",
-					"numinlets" : 0,
-					"numoutlets" : 0,
-					"patching_rect" : [ 357.0, 712.0, 256.000006437301636, 182.0 ],
-					"presentation" : 1,
-					"presentation_rect" : [ 15.510982096195221, 6.5, 481.054957151412964, 342.0 ]
-				}
-
-			}
  ],
 		"lines" : [ 			{
 				"patchline" : 				{
@@ -1272,6 +1284,20 @@
 				"patchline" : 				{
 					"destination" : [ "obj-6", 0 ],
 					"source" : [ "obj-27", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-29", 0 ],
+					"source" : [ "obj-28", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-6", 0 ],
+					"source" : [ "obj-29", 0 ]
 				}
 
 			}
@@ -1451,21 +1477,21 @@
 			}
  ],
 		"parameters" : 		{
-			"obj-37" : [ "live.text[1]", "live.text", 0 ],
-			"obj-44" : [ "live.text[5]", "live.text", 0 ],
-			"obj-46" : [ "and_or", "and_or", 0 ],
-			"obj-45" : [ "live.text[4]", "live.text", 0 ],
-			"obj-49" : [ "live.text[3]", "live.text", 0 ],
-			"obj-3" : [ "files_chooser", "files_chooser", 0 ],
-			"obj-2" : [ "parent_chooser", "parent_chooser", 0 ],
-			"obj-8" : [ "live.text", "live.text", 0 ],
-			"obj-50" : [ "live.text[6]", "live.text", 0 ],
-			"obj-16" : [ "tagchooser", "tagchooser", 0 ],
-			"obj-51" : [ "live.text[7]", "live.text", 0 ],
 			"obj-43" : [ "live.text[8]", "live.text", 0 ],
-			"obj-55" : [ "live.text[2]", "live.text", 0 ],
-			"obj-14" : [ "filechooser", "filechooser", 0 ],
+			"obj-44" : [ "live.text[5]", "live.text", 0 ],
+			"obj-45" : [ "live.text[4]", "live.text", 0 ],
+			"obj-3" : [ "files_chooser", "files_chooser", 0 ],
 			"obj-7" : [ "live.text[9]", "live.text", 0 ],
+			"obj-16" : [ "tagchooser", "tagchooser", 0 ],
+			"obj-50" : [ "live.text[6]", "live.text", 0 ],
+			"obj-37" : [ "live.text[1]", "live.text", 0 ],
+			"obj-2" : [ "parent_chooser", "parent_chooser", 0 ],
+			"obj-14" : [ "filechooser", "filechooser", 0 ],
+			"obj-46" : [ "and_or", "and_or", 0 ],
+			"obj-8" : [ "live.text", "live.text", 0 ],
+			"obj-51" : [ "live.text[7]", "live.text", 0 ],
+			"obj-55" : [ "live.text[2]", "live.text", 0 ],
+			"obj-49" : [ "live.text[3]", "live.text", 0 ],
 			"parameterbanks" : 			{
 
 			}

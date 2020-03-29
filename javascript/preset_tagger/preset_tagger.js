@@ -23,6 +23,7 @@ var last_found_tags = [];
 var filter_mode_value = 0;
 var libraryObj = {};
 var nodeScriptInitialized = false;
+var selection_mode_value = false;
 var statusDict;
 
 function init(){
@@ -154,10 +155,13 @@ function setup_nodescript(){
 
 function check_running(){
   var running = node_script.getattr('running');
-  debug('check running', running);
+  //debug('check running', running);
   if(running<1){
     debug('not running');
     outlet(0, 'script', 'start');
+  }
+  else{
+    tasks.removeTask(check_running, {}, 'check_running');
   }
 }
 
@@ -191,8 +195,6 @@ function library_updated(){
   refresh_chooser();
   FileTree.update_files();
 }
-
-
 
 function set_tag_filter(){
   var tags = [].concat(arrayfromargs(arguments));
@@ -232,6 +234,9 @@ function refresh_chooser_selection(){
       var entry = parseInt(hash_list[selected_shortname].entry);
       select_pipe.message(entry);
       mira_select_pipe.message(entry);
+      if(selected_tags.length){
+        messnamed('from_preset_tagger_deferred', 'files', 'entry');
+      }
     }
   }
 }
@@ -241,10 +246,13 @@ function display_filtered_files(){
   mira_gate.message(0);
   file_chooser.message('clear');
   mira_file_chooser.message('clear');
+  if(selected_tags.length>0){
+    messnamed('from_preset_tagger', 'files', 'clear');
+  }
   filtered_hash_list = {};
   if(selected_tags.length){
     //OR//
-    if(!filter_mode_value){
+    if(filter_mode_value){
       var entry = 0;
       for(var path in libraryObj){
         var file = libraryObj[path];
@@ -255,6 +263,9 @@ function display_filtered_files(){
             filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
             file_chooser.append(shortname);
             mira_file_chooser.append(shortname);
+            if(selected_tags.length>0){
+              messnamed('from_preset_tagger', 'files', 'append', shortname);
+            }
             entry += 1;
             break;
           }
@@ -278,6 +289,9 @@ function display_filtered_files(){
           filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
           file_chooser.append(shortname);
           mira_file_chooser.append(shortname);
+          if(selected_tags.length>0){
+            messnamed('from_preset_tagger', 'files', 'append', shortname);
+          }
         }
       }
     }
@@ -294,6 +308,9 @@ function display_filtered_files(){
         filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
         file_chooser.append(shortname);
         mira_file_chooser.append(shortname);
+        // if(selected_tags){
+        //   messnamed('from_preset_tagger', 'files', 'append', shortname);
+        // }
         entry += 1;
       }
     }
@@ -310,6 +327,9 @@ function refresh_filtered_chooser_selection(){
       var entry = parseInt(filtered_hash_list[selected_shortname].entry);;
       select_pipe.message(entry);
       mira_select_pipe.message(entry);
+      if(selected_tags.length>0){
+        messnamed('from_preset_tagger_deferred', 'files', 'set', entry);
+      }
     }
   }
 }
@@ -321,9 +341,11 @@ function refresh_tagchooser(){
     mira_gate.message(0);
     tag_chooser.message('clear');
     mira_tag_chooser.message('clear');
+    messnamed('from_preset_tagger', 'filters', 'clear');
     for(var i in found_tags){
       tag_chooser.append(found_tags[i]);
       mira_tag_chooser.append(found_tags[i]);
+      messnamed('from_preset_tagger', 'filters', 'append', found_tags[i]);
     }
     mira_gate.message(1);
   }
@@ -333,9 +355,12 @@ function redraw_tagchooser(){
   mira_gate.message(0);
   tag_chooser.message('clear');
   mira_tag_chooser.message('clear');
+  messnamed('from_preset_tagger', 'filters', 'clear');
   for(var i in found_tags){
     tag_chooser.append(found_tags[i]);
     mira_tag_chooser.append(found_tags[i]);
+    messnamed('from_preset_tagger', 'filters', 'append', found_tags[i]);
+    debug('sending:', 'from_preset_tagger', 'filters', 'append', found_tags[i]);
   }
   mira_gate.message(0);
 }
@@ -384,6 +409,7 @@ function display_selected_file_tags(path){
 }
 
 function chooser_double(index, shortname){
+  debug('chooser_double', index, shortname);
   var path = selected_tags.length ? filtered_hash_list[shortname].file : hash_list[shortname].file;
   // debug('chooser_double:', index, path);
   outlet(0, 'open_preset', path);
@@ -432,10 +458,84 @@ function tag_selection(){
   refresh_chooser();
 }
 
+function tag_selection_from_commander(){
+  var tags = arrayfromargs(arguments);
+  debug('tag_selection_from_commander:', tags, tags.length);
+  selected_tags = tags[0]=='bang'?[]: tags[0] == 'selecteditems' ? tags.slice(1) : tags.slice(1);
+  debug('selected_tags:', selected_tags, selected_tags.length);
+  if(!selected_tags.length){
+    clear_filter();
+  }
+  else{
+    refresh_chooser();
+  }
+}
+
 function clear_filter(){
   selected_tags = [];
   redraw_tagchooser();
   refresh_chooser();
+  FileTree.refresh();
+}
+
+function selection_mode(val){
+  debug('val', val, Boolean(val));
+  selection_mode_value = Boolean(val);
+}
+
+function from_commander(){
+  var args = arrayfromargs(arguments);
+  debug('from_commander:', args);
+  switch(args[0]){
+    case 'toFileTree':
+      if(args[1]=='select_parent'){
+        FileTree.input.apply(FileTree, args.slice(1));
+      }
+      else if(args[1]=='chooser'){
+        if(selected_tags.length){
+          if(selection_mode_value==false){
+            chooser_single.apply(script, args.slice(2));
+          }
+          else{
+            chooser_double.apply(script, args.slice(2));
+          }
+        }
+        else{
+          if(selection_mode_value==false){
+            FileTree.select_child.apply(FileTree, args.slice(2));
+          }
+          else{
+            FileTree.open_child.apply(FileTree, args.slice(2));
+          }
+        }
+      }
+      break;
+    case 'tag_selection':
+      debug('tag_selection:', args.slice());
+      tag_selection_from_commander.apply(script, args.slice());
+      break;
+    case 'filter_mode':
+      filter_mode(args[1]);
+      break;
+    case 'clear_filter':
+      clear_filter();
+      break;
+    case 'selection_mode':
+      selection_mode(args[1]);
+      break;
+    case 'update_remote_display':
+      debug('sending command....');
+      update_remote_display();
+      break;
+  }
+}
+
+function update_remote_display(){
+  debug()
+  FileTree.refresh();
+  // refresh_tagchooser();
+  redraw_tagchooser();
+  messnamed('from_preset_tagger', 'and_or', 'set', filter_mode_value);
 }
 
 
@@ -527,23 +627,30 @@ FileTreeComponent.prototype.refresh = function(){
   }
   ParentBackButton.message('active', current_root.type!='root');
   mira_ParentBackButton.message('active', current_root.type!='root');
+  messnamed('from_preset_tagger', 'back', 'set', current_root.type!='root');
   this._parentChooser.message('clear');
   this._miraParentChooser.message('clear');
+  messnamed('from_preset_tagger', 'parent', 'clear');
   for(var i in this.parent_list){
     this._parentChooser.message('append', this.parent_list[i].name);
     this._miraParentChooser.message('append', this.parent_list[i].name);
+    messnamed('from_preset_tagger', 'parent', 'append', this.parent_list[i].name);
   }
   var selected_index = this.parent_list.indexOf(this.current_parent_node);
   if(selected_index>-1){
     //debug('found selected parent');
     this._Defer.message('parent', 'set', selected_index);
     this._miraDefer.message('parent', 'set', selected_index);
+    messnamed('from_preset_tagger_deferred', 'parent', 'set', selected_index);
   }
 
   var current_dir = this.current_parent_node ? this.current_parent_node : {name:'none', children:[], type:root};
   //debug('FileTree child_node:', current_dir.name);
   this._filesChooser.message('clear');
   this._miraFilesChooser.message('clear');
+  if(!selected_tags.length>0){
+    messnamed('from_preset_tagger', 'files', 'clear');
+  }
   if(current_dir.type != 'root'){
     this.child_list = [];
 
@@ -553,12 +660,18 @@ FileTreeComponent.prototype.refresh = function(){
     for(var i in this.child_list){
       this._filesChooser.message('append', this.child_list[i].name);
       this._miraFilesChooser.message('append', this.child_list[i].name);
+      if(!selected_tags.length>0){
+        messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
+      }
     }
     var selected_index = this.child_list.indexOf(this.current_child_node);
     if(selected_index>-1){
       //debug('found selected child');
       this._Defer.message('files', 'set', selected_index);
       this._miraDefer.message('files', 'set', selected_index);
+      if(!selected_tags.length>0){
+        messnamed('from_preset_tagger_deferred', 'files', 'set', selected_index);
+      }
     }
   }
   mira_gate.message(1);
