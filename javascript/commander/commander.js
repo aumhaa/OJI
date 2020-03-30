@@ -18,7 +18,7 @@ var controls = {};
 var EXCLUDED = ['control', 'control_names', 'done'];
 var control_surface_type = jsarguments[1]||'None';
 
-var FORCELOAD = false;
+var FORCELOAD = true;
 var DEBUG = true;
 var SHOW_DICTS = false;
 aumhaa.init(this);
