@@ -83,7 +83,7 @@ class UtilColors:
 		MuteOff = LividRGB.WHITE
 		ArmSelected = LividRGB.RED
 		ArmUnselected = LividRGB.RED
-		ArmOff = LividRGB.GREEN
+		ArmOff = LividRGB.WHITE
 		StopClip = LividRGB.BLUE
 		SelectedOn = LividRGB.BLUE
 		SelectedOff = LividRGB.MAGENTA

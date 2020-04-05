@@ -18,7 +18,7 @@ var controls = {};
 var EXCLUDED = ['control', 'control_names', 'done'];
 var control_surface_type = jsarguments[1]||'None';
 
-var FORCELOAD = true;
+var FORCELOAD = false;
 var DEBUG = true;
 var SHOW_DICTS = false;
 aumhaa.init(this);
@@ -99,6 +99,7 @@ function init(){
 function continue_init(){
   setup_session_ring();
 	setup_mixer();
+	setup_device_controls();
 	control_surface.call('refresh_state');
 }
 
@@ -109,15 +110,20 @@ function setup_tasks(){
 function setup_patcher(){
 	script.controls = {};
 	find_patcher_objects(controls, this.patcher, get_patcher_script_names(this.patcher));
-	// outlet(1, 'clear');
-	// for(var i in controls){
-	// 	debug('control:', i, controls[i]);
-	// 	// outlet(1, 'append', i);
-	// }
 	script.track_select_buttons = []
 	for(var i=0;i<8;i++){
 		track_select_buttons.push(controls['track_select['+i+']']);
 	}
+	script.paramDial = [];
+	script.paramName = [];
+	script.paramValue = [];
+	var sub = this.patcher.getnamed('commander_parameter_controls').subpatcher();
+	for(var i = 0;i<16;i++){
+		paramName[i] = sub.getnamed('name['+i+']');
+		paramValue[i] = sub.getnamed('value['+i+']');
+		paramDial[i] = sub.getnamed('paramDial['+i+']');
+	}
+	sub.front();
 }
 
 function setup_apiUtil(){
@@ -127,8 +133,10 @@ function setup_apiUtil(){
 function setup_session_ring(){
   var path = control_surface.path;
   var session_ring_callback = function(args){
-    outlet(0, 'session_offset', args);
-		debug('session_ring_callback:', args);
+		if((args[0]=='offsets')&&(args[1]!='id')){
+	    outlet(0, 'session_offset', args);
+			// debug('session_ring_callback:', args);
+		}
   }
   // debug('path:', path);
   script.session_ring = new LiveAPI(session_ring_callback, path);
@@ -143,19 +151,76 @@ function setup_session_ring(){
 function setup_mixer(){
 	var path = control_surface.path;
 	var track_names_callback = function(args){
-		 outlet(0, 'track_names', args);
-		 debug('track_names_callback:', args.length, args);
-		 for(var i=0;i<8;i++){
-			 track_select_buttons[i].message('text', args[i+1] ? args[i+1] : '');
+			// debug('track_names_callback:', args.length, args);
+		 if((args[0]=='track_names')&&(args[1]!='id')){
+			 outlet(0, 'track_names', args);
+			 // debug('track_names_callback2:', args.length, args);
+			 for(var i=0;i<8;i++){
+				 track_select_buttons[i].message('text', args[i+1] ? args[i+1] : '');
+			 }
 		 }
 	}
 	script.track_names = new LiveAPI(track_names_callback, path);
-	//mixer.goto('components', )
 	apiUtil.set_component_by_type(track_names, 'UtilMixerComponent');
 	if(track_names.id != 0){
 		track_names.property = 'track_names';
 	}
-	debug('new comp:', track_names.id);
+	debug('track_names:', track_names.id);
+}
+
+function setup_device_controls(){
+	var path = control_surface.path;
+	var parameter_names_callback = function(args){
+		if(args[0]=='current_parameter_names'){
+		 	// debug('parameter_names_callback:', args.length, args);
+			for(var i=0;i<16;i++){
+				paramName[i].message('set', args[i+1]);
+			}
+		}
+	}
+	script.parameter_names = new LiveAPI(parameter_names_callback, path);
+	apiUtil.set_component_by_type(parameter_names, 'UtilDeviceParameterComponent');
+	if(parameter_names.id != 0){
+		parameter_names.property = 'current_parameter_names';
+		// debug('get names:', parameter_names.get('current_parameter_names'));
+	}
+
+	var parameter_values_callback = function(args){
+		 if(args[0]=='current_parameters'){
+		 	// debug('parameter_values_callback:', args.length, args);
+			for(var i=0;i<16;i++){
+				paramValue[i].message('set', args[i+1]);
+			}
+		}
+	}
+	script.parameter_values = new LiveAPI(parameter_values_callback, path);
+	apiUtil.set_component_by_type(parameter_values, 'UtilDeviceParameterComponent');
+	if(parameter_values.id != 0){
+		parameter_values.property = 'current_parameters';
+		// debug('get values:', parameter_names.get('current_parameters'));
+	}
+
+	var make_parameter_value_callback = function(i){
+		var parameter_proxy_callback = function(args){
+			if((args[0]=='normalized_value')&&(args[1]!='id')){
+				// debug('parameter_proxy_callback', i, args[1]);
+				if(paramDial[i]){
+					paramDial[i].message('set', args[1]);
+				}
+			}
+		}
+		return parameter_proxy_callback;
+	}
+	script.parameter_proxy = [];
+	for(var i = 0;i < 16; i ++){
+		var parameter_proxy_callback = make_parameter_value_callback(i);
+		parameter_proxy[i] = new LiveAPI(parameter_proxy_callback, path);
+		apiUtil.set_component_by_name(parameter_proxy[i], 'ParameterProxy_'+i);
+		if(parameter_proxy[i].id != 0){
+			parameter_proxy[i].property = 'normalized_value';
+			//debug('get value:', parameter_proxy.get('parameter_value'));
+		}
+	}
 }
 
 var COLORS = {white:[.7, .7, .7],
@@ -174,7 +239,7 @@ for(var i=0;i<127;i++){
 }
 
 function pipe_callback(args){
-	debug('args', args);
+	//debug('args', args);
 	if(args[1]=='midi'){
 		//outlet(0, args.slice(1));
 		if(args[2]==144){
@@ -204,7 +269,7 @@ function init_m4l_component(){
 			//debug('names:', names);
 			for (var i in names)
 			{
-				debug(i, 'name:', names[i]);
+				// debug(i, 'name:', names[i]);
 				var name = names[i];
 				try
 				{
@@ -301,7 +366,7 @@ function _send_value(){
 function _call_function(){
 	var args = arrayfromargs(arguments);
 	func = args[0] ? args[0] : undefined;
-	debug('call_function:', func, 'args:', args);
+	// debug('call_function:', func, 'args:', args);
 	try
 	{
 		control_surface.call.apply(control_surface, args);
@@ -315,5 +380,11 @@ function _call_function(){
 function callback(args){}
 
 function anything(){}
+
+function _from_parameter_controls(num, val){
+	// debug('from_parameter_controls', num, val);
+	parameter_proxy[num].call('set_value', val);
+}
+
 
 forceload(this);

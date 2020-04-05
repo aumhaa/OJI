@@ -50,7 +50,7 @@ function setup_library(){
 
 function setup_patcher(){
   script.node_script = this.patcher.getnamed('node_script');
-  script.ns_running = this.patcher.getnamed('ns_running');
+  //script.ns_running = this.patcher.getnamed('ns_running');
   script.browser_patcher = this.patcher.getnamed('browser');
   script.file_chooser = browser_patcher.subpatcher().getnamed('filechooser');
   script.tag_chooser = browser_patcher.subpatcher().getnamed('tagchooser');
@@ -537,7 +537,6 @@ function update_remote_display(){
   redraw_tagchooser();
   messnamed('from_preset_tagger', 'and_or', 'set', filter_mode_value);
 }
-
 
 function unlock_editor(){
   editor.unlock();

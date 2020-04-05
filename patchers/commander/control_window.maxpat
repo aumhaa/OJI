@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 395.0, 273.0, 684.0, 503.0 ],
+		"rect" : [ 324.0, 168.0, 684.0, 503.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 1,
 		"default_fontsize" : 12.0,
@@ -39,6 +39,19 @@
 		"subpatcher_template" : "",
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
+				"box" : 				{
+					"id" : "obj-38",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"patching_rect" : [ 284.0, 788.566058218479156, 182.0, 22.0 ],
+					"text" : "commander_parameter_controls",
+					"varname" : "commander_parameter_controls"
+				}
+
+			}
+, 			{
 				"box" : 				{
 					"id" : "obj-68",
 					"maxclass" : "newobj",
@@ -1200,42 +1213,6 @@
 					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
 					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
 					"varname" : "track_select[0]"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-54",
-					"maxclass" : "newobj",
-					"numinlets" : 1,
-					"numoutlets" : 1,
-					"outlettype" : [ "" ],
-					"patching_rect" : [ 24.0, 941.0, 25.0, 22.0 ],
-					"text" : "iter"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-53",
-					"maxclass" : "newobj",
-					"numinlets" : 1,
-					"numoutlets" : 8,
-					"outlettype" : [ "", "", "", "int", "int", "", "int", "" ],
-					"patching_rect" : [ 24.0, 969.0, 92.5, 22.0 ],
-					"text" : "midiparse"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-52",
-					"maxclass" : "newobj",
-					"numinlets" : 2,
-					"numoutlets" : 2,
-					"outlettype" : [ "", "" ],
-					"patching_rect" : [ 24.0, 913.0, 61.0, 22.0 ],
-					"text" : "route midi"
 				}
 
 			}
@@ -3574,6 +3551,13 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-43", 0 ],
+					"source" : [ "obj-38", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "obj-5", 27 ],
 					"source" : [ "obj-4", 0 ]
 				}
@@ -3597,13 +3581,6 @@
 				"patchline" : 				{
 					"destination" : [ "obj-64", 1 ],
 					"source" : [ "obj-42", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-52", 0 ],
-					"source" : [ "obj-43", 0 ]
 				}
 
 			}
@@ -3667,20 +3644,6 @@
 				"patchline" : 				{
 					"destination" : [ "obj-55", 4 ],
 					"source" : [ "obj-51", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-54", 0 ],
-					"source" : [ "obj-52", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-53", 0 ],
-					"source" : [ "obj-54", 0 ]
 				}
 
 			}
@@ -4022,66 +3985,85 @@
 			"obj-36" : [ "stop", "stop", 0 ],
 			"obj-103" : [ "tag_button_bank_down", "tag_button_bank_down", 0 ],
 			"obj-51" : [ "button[36]", "button", 0 ],
+			"obj-38::obj-64" : [ "paramDial[15]", "paramDial[15]", 0 ],
 			"obj-63" : [ "live.text[2]", "live.text", 0 ],
-			"obj-48" : [ "button[35]", "button", 0 ],
+			"obj-38::obj-8" : [ "paramDial[4]", "paramDial[4]", 0 ],
 			"obj-56" : [ "and_or", "and_or", 0 ],
+			"obj-48" : [ "button[35]", "button", 0 ],
+			"obj-38::obj-62" : [ "paramDial[13]", "paramDial[13]", 0 ],
 			"obj-46" : [ "button[34]", "button", 0 ],
 			"obj-93" : [ "tag_button[0]", "tag_button[0]", 0 ],
 			"obj-70" : [ "parent_chooser", "parent_chooser", 0 ],
 			"obj-44" : [ "button[33]", "button", 0 ],
-			"obj-25" : [ "toggle_autoarm", "toggle_autoarm", 0 ],
+			"obj-38::obj-57" : [ "paramDial[8]", "paramDial[8]", 0 ],
 			"obj-16" : [ "select_playing_clip", "select_playing_clip", 0 ],
+			"obj-25" : [ "toggle_autoarm", "toggle_autoarm", 0 ],
 			"obj-27" : [ "create_midi_track", "create_midi_track", 0 ],
 			"obj-24" : [ "solo_excl", "solo_excl", 0 ],
 			"obj-17" : [ "stop_all_clips", "stop_all_clips", 0 ],
-			"obj-26" : [ "create_audio_track", "create_audio_track", 0 ],
 			"obj-97" : [ "tag_button[3]", "tag_button[3]", 0 ],
-			"obj-12" : [ "stop_clip", "stop_clip", 0 ],
+			"obj-26" : [ "create_audio_track", "create_audio_track", 0 ],
+			"obj-38::obj-9" : [ "paramDial[5]", "paramDial[5]", 0 ],
 			"obj-23" : [ "mute_excl", "mute_excl", 0 ],
+			"obj-12" : [ "stop_clip", "stop_clip", 0 ],
+			"obj-38::obj-63" : [ "paramDial[14]", "paramDial[14]", 0 ],
 			"obj-10" : [ "toggle_clip_detail", "toggle_clip_detail", 0 ],
 			"obj-22" : [ "arm_excl", "arm_excl", 0 ],
 			"obj-13" : [ "fire_prev_clip", "fire_prev_clip", 0 ],
 			"obj-8" : [ "fire_next_armed", "fire_next_armed", 0 ],
 			"obj-69" : [ "files_chooser", "files_chooser", 0 ],
+			"obj-38::obj-2" : [ "paramDial[0]", "paramDial[0]", 0 ],
 			"obj-21" : [ "mute_flip", "mute_flip", 0 ],
 			"obj-14" : [ "fire_next_clip", "fire_next_clip", 0 ],
-			"obj-42" : [ "bank_track_right", "bank_track_right", 0 ],
+			"obj-38::obj-58" : [ "paramDial[9]", "paramDial[9]", 0 ],
 			"obj-4" : [ "fire_all_armed", "fire_all_armed", 0 ],
-			"obj-7" : [ "solo_selected", "solo_selected", 0 ],
+			"obj-42" : [ "bank_track_right", "bank_track_right", 0 ],
 			"obj-20" : [ "solo_kill", "solo_kill", 0 ],
+			"obj-7" : [ "solo_selected", "solo_selected", 0 ],
 			"obj-100" : [ "tag_button[6]", "tag_button[6]", 0 ],
-			"obj-62" : [ "track_select[7]", "track_select[7]", 0 ],
 			"obj-41" : [ "bank_track_left", "bank_track_left", 0 ],
+			"obj-62" : [ "track_select[7]", "track_select[7]", 0 ],
+			"obj-38::obj-81" : [ "bank_down", "bank_down", 0 ],
 			"obj-6" : [ "mute_selected", "mute_selected", 0 ],
 			"obj-19" : [ "mute_kill", "mute_kill", 0 ],
 			"obj-61" : [ "track_select[6]", "track_select[6]", 0 ],
 			"obj-18" : [ "arm_kill", "arm_kill", 0 ],
 			"obj-1" : [ "arm_selected", "arm_selected", 0 ],
-			"obj-60" : [ "track_select[5]", "track_select[5]", 0 ],
+			"obj-38::obj-10" : [ "paramDial[6]", "paramDial[6]", 0 ],
 			"obj-9" : [ "play", "play", 0 ],
+			"obj-60" : [ "track_select[5]", "track_select[5]", 0 ],
 			"obj-15" : [ "new_scene", "new_scene", 0 ],
+			"obj-38::obj-54" : [ "goto", "goto", 0 ],
 			"obj-59" : [ "track_select[4]", "track_select[4]", 0 ],
 			"obj-95" : [ "tag_button[1]", "tag_button[1]", 0 ],
+			"obj-38::obj-5" : [ "paramDial[1]", "paramDial[1]", 0 ],
 			"obj-58" : [ "track_select[3]", "track_select[3]", 0 ],
+			"obj-38::obj-59" : [ "paramDial[10]", "paramDial[10]", 0 ],
 			"obj-57" : [ "track_select[2]", "track_select[2]", 0 ],
-			"obj-85" : [ "selection_mode", "selection_mode", 0 ],
 			"obj-35" : [ "next_track", "next_track", 0 ],
+			"obj-85" : [ "selection_mode", "selection_mode", 0 ],
 			"obj-50" : [ "track_select[1]", "track_select[1]", 0 ],
 			"obj-34" : [ "prev_track", "prev_track", 0 ],
 			"obj-49" : [ "track_select[0]", "track_select[0]", 0 ],
 			"obj-98" : [ "tag_button[4]", "tag_button[4]", 0 ],
+			"obj-38::obj-11" : [ "paramDial[7]", "paramDial[7]", 0 ],
 			"obj-102" : [ "tag_button_bank_up", "tag_button_bank_up", 0 ],
 			"obj-33" : [ "fire_prev_clip_abs", "fire_prev_clip_abs", 0 ],
 			"obj-32" : [ "fire_next_clip_abs", "fire_next_clip_abs", 0 ],
 			"obj-29" : [ "redo", "redo", 0 ],
 			"obj-37" : [ "volume_slider", "volume_slider", 0 ],
+			"obj-38::obj-6" : [ "paramDial[2]", "paramDial[2]", 0 ],
 			"obj-31" : [ "select_first_armed_track", "select_first_armed_track", 0 ],
+			"obj-38::obj-60" : [ "paramDial[11]", "paramDial[11]", 0 ],
 			"obj-101" : [ "tag_button[7]", "tag_button[7]", 0 ],
 			"obj-30" : [ "toggle_detail_clip_loop", "toggle_detail_clip_loop", 0 ],
 			"obj-40" : [ "button[32]", "button", 0 ],
 			"obj-11" : [ "tagchooser", "tagchooser", 0 ],
 			"obj-67" : [ "live.text", "live.text", 0 ],
+			"obj-38::obj-82" : [ "bank_up", "bank_up", 0 ],
 			"obj-96" : [ "tag_button[2]", "tag_button[2]", 0 ],
+			"obj-38::obj-7" : [ "paramDial[3]", "paramDial[3]", 0 ],
+			"obj-38::obj-61" : [ "paramDial[12]", "paramDial[12]", 0 ],
 			"obj-28" : [ "undo", "undo", 0 ],
 			"parameterbanks" : 			{
 
@@ -4101,6 +4083,13 @@
 				"bootpath" : "~/Documents/Max 8/Packages/OJI/javascript/commander",
 				"patcherrelativepath" : "../../javascript/commander",
 				"type" : "TEXT",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "commander_parameter_controls.maxpat",
+				"bootpath" : "~/Documents/Max 8/Packages/OJI/javascript/commander",
+				"patcherrelativepath" : "../../javascript/commander",
+				"type" : "JSON",
 				"implicit" : 1
 			}
 , 			{

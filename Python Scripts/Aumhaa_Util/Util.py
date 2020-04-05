@@ -9,30 +9,203 @@ import logging
 logger = logging.getLogger(__name__)
 
 #from itertools import izip, izip_longest, product
-from ableton.v2.control_surface.control_surface import ControlSurface
+from ableton.v2.control_surface.control_surface import ControlSurface, DeviceBankRegistry
+from ableton.v2.control_surface.device_decorator_factory import DeviceDecoratorFactory
+
+from ableton.v2.control_surface.default_bank_definitions import BANK_DEFINITIONS
 from ableton.v2.base import inject, listens, listens_group, liveobj_valid
-from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator
-from ableton.v2.control_surface.elements import ButtonElement, ComboElement, EncoderElement
+from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator, BANK_MAIN_KEY, BANK_PARAMETERS_KEY, use
+from ableton.v2.control_surface.elements import ButtonElement, ComboElement, EncoderElement, DisplayDataSource
 from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent, UndoRedoComponent, TransportComponent
 from ableton.v2.control_surface.components.mixer import SimpleTrackAssigner
 from ableton.v2.control_surface.control import control_color
-from ableton.v2.control_surface.mode import ModesComponent
+from ableton.v2.control_surface.mode import ModesComponent, AddLayerMode, DelayMode, CompoundMode
 from ableton.v2.control_surface.components.auto_arm import AutoArmComponent
 from ableton.v2.control_surface.input_control_element import InputControlElement, MIDI_CC_TYPE, MIDI_NOTE_TYPE, MIDI_PB_TYPE, MIDI_SYSEX_TYPE
-
+from ableton.v2.control_surface.components import DisplayingDeviceParameterComponent, DeviceComponent
 from ableton.v2.control_surface.control import ButtonControl
+from ableton.v2.control_surface import ParameterInfo
+from ableton.v2.control_surface.device_parameter_bank import *
+from ableton.v2.control_surface.control import ControlList, MappedSensitivitySettingControl
+from ableton.v2.control_surface.banking_util import *
+from ableton.v2.control_surface.device_parameter_bank import DeviceParameterBank
 
 from aumhaa.v2.control_surface.mod_devices import *
 from aumhaa.v2.control_surface.mod import *
 from aumhaa.v2.control_surface.elements import MonoEncoderElement, MonoBridgeElement, generate_strip_string, CodecEncoderElement
+from aumhaa.v2.control_surface.components import DeviceNavigator, DeviceSelectorComponent  #, DeviceComponent
 from aumhaa.v2.control_surface.elements.mono_button import *
+from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMode, CancellableBehaviourWithRelease, ColoredCancellableBehaviourWithRelease, MomentaryBehaviour, BicoloredMomentaryBehaviour, DefaultedBehaviour
 from aumhaa.v2.base import initialize_debug
-
+from .parameter_mapping_sensitivities import parameter_mapping_sensitivity, fine_grain_parameter_mapping_sensitivity
 from .Map import *
 
 from aumhaa.v2.base.debug import initialize_debug
 
 debug = initialize_debug()
+
+DEVICE_COMPONENTS = ['device_0', 'device_1']
+
+
+"""Custom files, overrides, and files from other scripts"""
+from _Generic.Devices import *
+from .Map import *
+
+
+def xstr(s):
+	if s is None:
+		return ''
+	else:
+		return str(s)
+
+def create_device_bank(device, banking_info):
+	bank = None
+	if liveobj_valid(device):
+		if banking_info.has_bank_count(device):
+			bank_class = MaxDeviceParameterBank
+		elif banking_info.device_bank_definition(device) is not None:
+			# bank_class = DescribedDeviceParameterBank
+			bank_class = LargeDescribedDeviceParameterBank
+		else:
+			bank_class = DeviceParameterBank
+		bank = bank_class(device=device, size=16, banking_info=banking_info)
+	return bank
+
+
+class LargeDescribedDeviceParameterBank(DescribedDeviceParameterBank):
+
+	def _current_parameter_slots(self):
+		if self.bank_count() > self.index+1:
+			return self._definition.value_by_index(self.index).get(BANK_PARAMETERS_KEY)+self._definition.value_by_index(self.index+1).get(BANK_PARAMETERS_KEY) or tuple()
+		else:
+			return self._definition.value_by_index(self.index).get(BANK_PARAMETERS_KEY) or tuple()
+
+
+class MaxParameterProxy(Component):
+
+	def __init__(self, *a, **k):
+		self._parameter = None
+		super(MaxParameterProxy, self).__init__(*a, **k)
+
+	def set_parameter(self, parameter):
+		if parameter != self._parameter:
+			if not self._parameter == None and self._parameter.value_has_listener(self._on_parameter_value_changed):
+				self._parameter.remove_value_listener(self._on_parameter_value_changed)
+			self._parameter = parameter
+			if not self._parameter == None:
+				self._parameter.add_value_listener(self._on_parameter_value_changed)
+			self._on_parameter_value_changed()
+
+	def _on_parameter_value_changed(self, *a):
+		parameter = self._parameter
+		# debug('parameter_value_changed:', parameter)
+		if liveobj_valid(parameter):
+			# value = int(parameter.value * 127)
+			value = int(self.normalized_value)
+			self.notify_parameter_value(parameter)
+			self.notify_normalized_value(value)
+
+	def set_value(self, value):
+		parameter = self._parameter
+		if liveobj_valid(parameter):
+			parameter.value = float(float(float(value)/127) * float(parameter.max - parameter.min)) + parameter.min
+
+	@listenable_property
+	def parameter_value(self):
+		parameter = self._parameter
+		if liveobj_valid(parameter):
+			value = parameter
+			return value
+
+	@listenable_property
+	def normalized_value(self):
+		parameter = self._parameter
+		if liveobj_valid(parameter):
+			value = ((parameter.value - parameter.min) / (parameter.max - parameter.min))  * 127
+			return value
+
+
+class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
+	controls = ControlList(MappedSensitivitySettingControl, 16)
+
+	def __init__(self, *a, **k):
+		self.parameter_proxies = [MaxParameterProxy(name = 'ParameterProxy_'+str(index)) for index in range(16)]
+		super(UtilDeviceParameterComponent, self).__init__(*a, **k)
+		self._parameter_name_data_sources = map(DisplayDataSource, (u'', u'', u'', u'', u'', u'', u'', u'',u'', u'', u'', u'', u'', u'', u'', u''))
+		self._parameter_value_data_sources = map(DisplayDataSource, (u'', u'', u'', u'', u'', u'', u'', u'',u'', u'', u'', u'', u'', u'', u'', u''))
+
+	def get_parameter_proxy(self, index):
+		return self.parameter_proxies[index] if index < len(self.parameter_proxies) else None
+
+	@listenable_property
+	def current_parameters(self):
+		return map(lambda p: p and hasattr(p.parameter, 'str_for_value') and str(p.parameter.str_for_value(p.parameter.value)).replace(' ', '_') or u'---', self._parameter_provider.parameters)
+
+	@listenable_property
+	def current_parameter_names(self):
+		return map(lambda p: p and p.name.replace(' ', '_') or u'---', self.parameters)
+
+	def _update_parameter_names(self):
+		#debug('_update_parameter_names')
+		super(UtilDeviceParameterComponent, self)._update_parameter_names()
+		if self.is_enabled():
+			names = self.current_parameter_names
+			self.notify_current_parameter_names(*names)
+
+	def _update_parameter_values(self):
+		#debug('_update_parameter_values')
+		super(UtilDeviceParameterComponent, self)._update_parameter_values()
+		if self.is_enabled():
+			values = self.current_parameters
+			self.notify_current_parameters(*values)
+
+	def _connect_parameters(self):
+		super(UtilDeviceParameterComponent, self)._connect_parameters()
+		parameters = self._parameter_provider.parameters[:16]
+		for proxy, parameter_info in map(None, self.parameter_proxies, parameters):
+			parameter = parameter_info.parameter if parameter_info else None
+			# debug('proxy:', proxy, 'parameter:', parameter)
+			proxy.set_parameter(parameter)
+
+
+class UtilDeviceComponent(DeviceComponent):
+
+	bank_up_button = ButtonControl()
+	bank_down_button = ButtonControl()
+
+	@bank_up_button.pressed
+	def bank_up_button(self, button):
+		self._on_bank_up_button_pressed(button)
+
+	def _on_bank_up_button_pressed(self, button):
+		self.bank_up()
+
+	def bank_up(self):
+		#debug('bank_up')
+		self._device_bank_registry.set_device_bank(self._bank._device, min(self._bank.index + 1, self._bank.bank_count()))
+
+	@bank_down_button.pressed
+	def bank_down_button(self, button):
+		self._on_bank_down_button_pressed(button)
+
+	def _on_bank_down_button_pressed(self, button):
+		self.bank_down()
+
+	def bank_down(self):
+		#debug('bank_down')
+		self._device_bank_registry.set_device_bank(self._bank._device, max(0, self._bank.index - 1))
+
+	def _create_parameter_info(self, parameter, name):
+		device_class_name = self.device().class_name
+		return ParameterInfo(parameter=parameter, name=name, default_encoder_sensitivity=parameter_mapping_sensitivity(parameter, device_class_name), fine_grain_encoder_sensitivity=fine_grain_parameter_mapping_sensitivity(parameter, device_class_name))
+
+
+	def _setup_bank(self, device, bank_factory = create_device_bank):
+		if self._bank is not None:
+			self.disconnect_disconnectable(self._bank)
+			self._bank = None
+		if liveobj_valid(device):
+			self._bank = self.register_disconnectable(bank_factory(device, self._banking_info))
 
 
 class TrackCreatorComponent(Component):
@@ -41,7 +214,7 @@ class TrackCreatorComponent(Component):
 	create_midi_track_button = ButtonControl()
 
 	def __init__(self, *a, **k):
-		super(TrackCreatorComponent, self).__init__(self, *a, **k)
+		super(TrackCreatorComponent, self).__init__(*a, **k)
 
 	@create_audio_track_button.pressed
 	def create_audio_track_button(self, button):
@@ -598,6 +771,7 @@ class UtilViewControlComponent(ViewControlComponent):
 
 class Util(ControlSurface):
 
+	bank_definitions = BANK_DEFINITIONS
 
 	def __init__(self, c_instance, *a, **k):
 		super(Util, self).__init__(c_instance, *a, **k)
@@ -617,6 +791,7 @@ class Util(ControlSurface):
 			self._setup_undo_redo()
 			self._setup_view_control()
 			self._setup_transport()
+			self._setup_device_controls()
 			self._setup_main_modes()
 			self._initialize_script()
 
@@ -646,6 +821,9 @@ class Util(ControlSurface):
 		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(50)]
 		self._fader = EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 		self._track_select_matrix = ButtonMatrixElement(name = 'TrackSelectMatrix', rows = [self._button[34:42]])
+		self._encoder = [EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
+		self._encoder_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder]) #, self._encoder[8:]])
+
 
 	def _setup_autoarm(self):
 		self._autoarm = UtilAutoArmComponent(name='Auto_Arm')
@@ -710,13 +888,26 @@ class Util(ControlSurface):
 		self._transport = TransportComponent()
 		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31])
 
+	def _setup_device_controls(self):
+		self._device_bank_registry = DeviceBankRegistry()
+		self._device_decorator = DeviceDecoratorFactory()
+		self._banking_info = BankingInfo(self.bank_definitions)
+		self._parameter_provider  = UtilDeviceComponent(device_provider = self._device_provider,
+													device_decorator_factory = self._device_decorator,
+													device_bank_registry = self._device_bank_registry,
+													banking_info = self._banking_info,
+													name = u"DeviceComponent")
+		self._parameter_provider.layer = Layer(bank_up_button = self._button[44], bank_down_button = self._button[43])
+		self._device = UtilDeviceParameterComponent(parameter_provider = self._parameter_provider)
+		self._device.layer = Layer(parameter_controls = self._encoder_matrix)
+		self._device.set_enabled(False)
+
 	def _setup_main_modes(self):
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode('Main', [self._device, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
 		self._main_modes.set_enabled(False)
-
 
 	def _can_auto_arm_track(self, track):
 		routing = track.current_input_routing
@@ -729,11 +920,11 @@ class Util(ControlSurface):
 		self.notify_pipe('midi', *bytes)
 
 	def receive_note(self, num, val):
-		debug('receive_note', num, val)
+		# debug('receive_note', num, val)
 		self.receive_midi(tuple([144, num, val]))
 
 	def receive_cc(self, num, val):
-		debug('receive_note', num, val)
+		debug('receive_cc', num, val)
 		self.receive_midi(tuple([176, num, val]))
 
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
