@@ -1,5 +1,5 @@
-# by amounra 0417 : http://www.aumhaa.com
-# written against Live 10.1.7 release on 011720
+# by amounra 0420 : http://www.aumhaa.com
+# written against Live 10.1.9 release on 040520
 
 from __future__ import with_statement
 import Live
@@ -16,7 +16,7 @@ from ableton.v2.control_surface.default_bank_definitions import BANK_DEFINITIONS
 from ableton.v2.base import inject, listens, listens_group, liveobj_valid
 from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator, BANK_MAIN_KEY, BANK_PARAMETERS_KEY, use
 from ableton.v2.control_surface.elements import ButtonElement, ComboElement, EncoderElement, DisplayDataSource
-from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent, UndoRedoComponent, TransportComponent
+from ableton.v2.control_surface.components import ClipSlotComponent, SessionComponent, ViewControlComponent, SessionRingComponent, SessionNavigationComponent, MixerComponent, ChannelStripComponent, UndoRedoComponent, TransportComponent, DeviceNavigationComponent
 from ableton.v2.control_surface.components.mixer import SimpleTrackAssigner
 from ableton.v2.control_surface.control import control_color
 from ableton.v2.control_surface.mode import ModesComponent, AddLayerMode, DelayMode, CompoundMode
@@ -30,6 +30,12 @@ from ableton.v2.control_surface.control import ControlList, MappedSensitivitySet
 from ableton.v2.control_surface.banking_util import *
 from ableton.v2.control_surface.device_parameter_bank import DeviceParameterBank
 
+
+# from Push2.device_navigation import DeviceNavigationComponent
+# from Push2.track_list import TrackListComponent
+from Push2.track_selection import SessionRingTrackProvider
+from Push2.device_parameter_bank_with_options import DescribedDeviceParameterBankWithOptions
+
 from aumhaa.v2.control_surface.mod_devices import *
 from aumhaa.v2.control_surface.mod import *
 from aumhaa.v2.control_surface.elements import MonoEncoderElement, MonoBridgeElement, generate_strip_string, CodecEncoderElement
@@ -38,6 +44,8 @@ from aumhaa.v2.control_surface.elements.mono_button import *
 from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMode, CancellableBehaviourWithRelease, ColoredCancellableBehaviourWithRelease, MomentaryBehaviour, BicoloredMomentaryBehaviour, DefaultedBehaviour
 from aumhaa.v2.base import initialize_debug
 from .parameter_mapping_sensitivities import parameter_mapping_sensitivity, fine_grain_parameter_mapping_sensitivity
+from .track_list import TrackListComponent
+from .device_navigation import DeviceNavigationComponent as UtilDeviceNavigationComponent
 from .Map import *
 
 from aumhaa.v2.base.debug import initialize_debug
@@ -72,7 +80,20 @@ def create_device_bank(device, banking_info):
 	return bank
 
 
-class LargeDescribedDeviceParameterBank(DescribedDeviceParameterBank):
+# class UtilDeviceNavigationComponent(DeviceNavigationComponent):
+#
+# 	@listenable_property
+# 	def item_names(self):
+# 		items = [str(item.name).replace(' ', '_') if hasattr(item, 'name') else '---' for item in self.items]
+# 		return items
+#
+# 	def update_items(self):
+# 		super(UtilDeviceNavigationComponent, self).update_items()
+# 		names = self.item_names
+# 		self.notify_item_names(*names)
+#
+
+class LargeDescribedDeviceParameterBank(DescribedDeviceParameterBankWithOptions):
 
 	def _current_parameter_slots(self):
 		if self.bank_count() > self.index+1:
@@ -206,6 +227,14 @@ class UtilDeviceComponent(DeviceComponent):
 			self._bank = None
 		if liveobj_valid(device):
 			self._bank = self.register_disconnectable(bank_factory(device, self._banking_info))
+
+	@listenable_property
+	def options(self):
+		return getattr(self._bank, u'options', [None] * 7)
+
+	@property
+	def bank_view_description(self):
+		return getattr(self._bank, u'bank_view_description', u'')
 
 
 class TrackCreatorComponent(Component):
@@ -365,9 +394,9 @@ class UtilMixerComponent(MixerComponent):
 		names = []
 		for strip in self._channel_strips:
 			if liveobj_valid(strip._track) and hasattr(strip._track, 'name'):
-				names.append(strip._track.name)
+				names.append(str(strip._track.name).replace(' ', '_'))
 			else:
-				names.append('')
+				names.append('-')
 		return names
 
 	def get_tracks(self):
@@ -712,7 +741,7 @@ class UtilSessionComponent(SessionComponent):
 		return tracks
 
 
-class UtilSessionRingComponent(SessionRingComponent):
+class UtilSessionRingComponent(SessionRingTrackProvider):
 
 	def __init__(self, *a, **k):
 		super(UtilSessionRingComponent, self).__init__(*a, **k)
@@ -780,6 +809,7 @@ class Util(ControlSurface):
 		self.show_message('Util Control Surface Loaded')
 		#self._controls = []
 		self._skin = Skin(UtilColors)
+		#self._real_time_mapper = c_instance.real_time_mapper
 		with self.component_guard():
 		#	self._setup_m4l_interface()
 			self._setup_monobridge()
@@ -818,9 +848,11 @@ class Util(ControlSurface):
 		is_momentary = False
 		optimized = True
 		resource = PrioritizedResource
-		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(50)]
+		self._button = [ButtonElement(is_momentary = is_momentary if not index in range(47,63) else True, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
 		self._fader = EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 		self._track_select_matrix = ButtonMatrixElement(name = 'TrackSelectMatrix', rows = [self._button[34:42]])
+		self._device_select_matrix = ButtonMatrixElement(name = 'DeviceSelectMatrix', rows = [self._button[47:55]])
+		self._chain_select_matrix = ButtonMatrixElement(name = 'ChainSelectMatrix', rows = [self._button[55:63]])
 		self._encoder = [EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
 		self._encoder_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder]) #, self._encoder[8:]])
 
@@ -837,7 +869,7 @@ class Util(ControlSurface):
 
 
 	def _setup_session_control(self):
-		self._session_ring = UtilSessionRingComponent(num_tracks = 8, num_scenes = 1, tracks_to_use = self._tracks_to_use)
+		self._session_ring = UtilSessionRingComponent(num_tracks = 8, num_scenes = 1) #, tracks_to_use = self._tracks_to_use)
 		self._session_ring.set_enabled(False)
 
 		self._session_navigation = SessionNavigationComponent(name = 'SessionNavigation', session_ring = self._session_ring)
@@ -902,10 +934,27 @@ class Util(ControlSurface):
 		self._device.layer = Layer(parameter_controls = self._encoder_matrix)
 		self._device.set_enabled(False)
 
+		self._track_list_component = TrackListComponent(tracks_provider = self._session_ring)
+		self._device_navigation = UtilDeviceNavigationComponent(device_bank_registry = self._device_bank_registry,
+																banking_info = self._banking_info,
+																device_component = self._parameter_provider,
+																track_list_component = self._track_list_component)
+		self._device_navigation.layer = Layer(select_buttons = self._device_select_matrix)
+		self._device_navigation.scroll_left_layer = Layer(button = self._button[47], priority = 5)
+		self._device_navigation.scroll_right_layer = Layer(button = self._button[54], priority = 5)
+		self._device_navigation.chain_selection.layer = Layer(select_buttons = self._chain_select_matrix, priority = 5)
+		self._device_navigation.chain_selection.scroll_left_layer = Layer(button = self._button[55], priority = 5)
+		self._device_navigation.chain_selection.scroll_right_layer = Layer(button = self._button[62], priority = 5)
+		self._device_navigation.bank_selection.layer = Layer(option_buttons = self._device_select_matrix, select_buttons = self._chain_select_matrix, priority = 5)
+		self._device_navigation.bank_selection.scroll_left_layer = Layer(button = self._button[55], priority = 5)
+		self._device_navigation.bank_selection.scroll_right_layer = Layer(button = self._button[62], priority = 5)
+		#self._device_navigation._modes.layer = Layer(chain_selection_button = self._button[45], bank_selection_button = self._button[46])
+		self._device_navigation.set_enabled(False)
+
 	def _setup_main_modes(self):
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self._device, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode('Main', [self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
 		self._main_modes.set_enabled(False)
 

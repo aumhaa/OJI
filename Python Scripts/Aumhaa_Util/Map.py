@@ -7,9 +7,33 @@ from aumhaa.v2.livid.colors import *
 
 CHANNEL = 0
 
-UTIL_BUTTONS = range(50)
+UTIL_BUTTONS = range(128)
 
 class UtilColors:
+
+	class Option:
+		Selected = LividRGB.WHITE
+		Unselected = LividRGB.CYAN
+		On = LividRGB.WHITE
+		Off = LividRGB.BLUE
+		Unused = LividRGB.OFF
+
+	class ItemNavigation:
+		ItemNotSelected = LividRGB.BLUE
+		ItemSelected = LividRGB.YELLOW
+		NoItem = LividRGB.OFF
+
+
+	class EditModeOptions:
+		ItemNotSelected = LividRGB.BLUE
+		ItemSelected = LividRGB.YELLOW
+		NoItem = LividRGB.OFF
+
+
+	class BankSelection:
+		ItemNotSelected = LividRGB.BLUE
+		ItemSelected = LividRGB.YELLOW
+		NoItem = LividRGB.OFF
 
 
 	class ModeButtons:
@@ -22,8 +46,12 @@ class UtilColors:
 		On = LividRGB.WHITE
 		Off = LividRGB.OFF
 		Disabled = LividRGB.OFF
-		Alert = LividRGB.BlinkFast.WHITE
+		Alert = LividRGB.RED
+		Transparent = LividRGB.WHITE
 
+	class List:
+		ScrollerOn = LividRGB.GREEN
+		ScrollerOff = LividRGB.MAGENTA
 
 	class Session:
 		StopClipDisabled = LividRGB.OFF

@@ -1,3 +1,7 @@
+[MIDI.routes]
+In0=IAC Bus Bus 1
+Out0=Bome MIDI Translator 1 Virtual Out
+
 [Preset.0]
 Name=New Preset
 Active=1

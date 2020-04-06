@@ -21,6 +21,7 @@ var control_surface_type = jsarguments[1]||'None';
 var FORCELOAD = false;
 var DEBUG = true;
 var SHOW_DICTS = false;
+var VIEW_DEVICE = false;
 aumhaa.init(this);
 var script = this;
 
@@ -75,7 +76,28 @@ control_names = [
 								"track_select[4]",
 								"track_select[5]",
 								"track_select[6]",
-								"track_select[7]"];
+								"track_select[7]",
+								"bank_down",
+								"bank_up",
+								"bank_device_left",
+								"bank_device_right",
+								"place_holder",
+								"device_select[0]",
+								"device_select[1]",
+								"device_select[2]",
+								"device_select[3]",
+								"device_select[4]",
+								"device_select[5]",
+								"device_select[6]",
+								"device_select[7]",
+								"track[0]",
+								"track[1]",
+								"track[2]",
+								"track[3]",
+								"track[4]",
+								"track[5]",
+								"track[6]",
+								"track[7]"];
 
 // "volume_slider",
 // "enter",
@@ -100,6 +122,7 @@ function continue_init(){
   setup_session_ring();
 	setup_mixer();
 	setup_device_controls();
+	setup_device_navigation();
 	control_surface.call('refresh_state');
 }
 
@@ -108,22 +131,29 @@ function setup_tasks(){
 }
 
 function setup_patcher(){
+	var sub = this.patcher.getnamed('commander_parameter_controls').subpatcher();
 	script.controls = {};
 	find_patcher_objects(controls, this.patcher, get_patcher_script_names(this.patcher));
-	script.track_select_buttons = []
+	find_patcher_objects(controls, sub, control_names.slice(46));
+	script.track_select_buttons = [];
+	script.device_select_buttons = [];
 	for(var i=0;i<8;i++){
 		track_select_buttons.push(controls['track_select['+i+']']);
+		device_select_buttons.push(controls['device_select['+i+']']);
 	}
+	for(var i=0;i<8;i++){
+		device_select_buttons.push(controls['track['+i+']']);
+	}
+	debug('device_select_buttons:', device_select_buttons.length);
 	script.paramDial = [];
 	script.paramName = [];
 	script.paramValue = [];
-	var sub = this.patcher.getnamed('commander_parameter_controls').subpatcher();
 	for(var i = 0;i<16;i++){
 		paramName[i] = sub.getnamed('name['+i+']');
 		paramValue[i] = sub.getnamed('value['+i+']');
 		paramDial[i] = sub.getnamed('paramDial['+i+']');
 	}
-	sub.front();
+	VIEW_DEVICE&&sub.front();
 }
 
 function setup_apiUtil(){
@@ -223,6 +253,25 @@ function setup_device_controls(){
 	}
 }
 
+function setup_device_navigation(){
+	var path = control_surface.path;
+	var device_names_callback = function(args){
+		if((args[0]=='item_names')&&(args[1]!='id')){
+			debug('device_names_callback:', args.length, args);
+			for(var i=0;i<16;i++){
+				device_select_buttons[i].message('text', args[i+1] ? args[i+1] : '');
+			}
+		}
+	}
+	script.device_names = new LiveAPI(device_names_callback, path);
+	apiUtil.set_component_by_type(device_names, 'DeviceNavigationComponent');
+	if(device_names.id != 0){
+		device_names.property = 'item_names';
+		debug('get item_names:', device_names.get('item_names'));
+	}
+	debug('device_names:', device_names.id);
+}
+
 var COLORS = {white:[.7, .7, .7],
 							off:[0, 0, 0],
 							red:[.7, 0, 0],
@@ -243,8 +292,10 @@ function pipe_callback(args){
 	if(args[1]=='midi'){
 		//outlet(0, args.slice(1));
 		if(args[2]==144){
-			if(args[3] < 42){
-				controls[control_names[args[3]]].message('activebgcolor', colors[args[4]]);
+			if(args[3] < 64){
+				if(controls[control_names[args[3]]]){
+					controls[control_names[args[3]]].message('activebgcolor', colors[args[4]]);
+				}
 			}
 		}
 	}
@@ -386,5 +437,9 @@ function _from_parameter_controls(num, val){
 	parameter_proxy[num].call('set_value', val);
 }
 
+function from_commander(){
+	var args = arrayfromargs(arguments);
+	//debug('from_commander:', args);
+}
 
 forceload(this);
