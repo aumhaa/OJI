@@ -131,10 +131,11 @@ function setup_tasks(){
 }
 
 function setup_patcher(){
-	var sub = this.patcher.getnamed('commander_parameter_controls').subpatcher();
+	// var sub = this.patcher.getnamed('commander_parameter_controls').subpatcher();
+	var sub = this.patcher;
 	script.controls = {};
 	find_patcher_objects(controls, this.patcher, get_patcher_script_names(this.patcher));
-	find_patcher_objects(controls, sub, control_names.slice(46));
+	//find_patcher_objects(controls, sub, control_names.slice(46));
 	script.track_select_buttons = [];
 	script.device_select_buttons = [];
 	for(var i=0;i<8;i++){
@@ -149,9 +150,9 @@ function setup_patcher(){
 	script.paramName = [];
 	script.paramValue = [];
 	for(var i = 0;i<16;i++){
-		paramName[i] = sub.getnamed('name['+i+']');
-		paramValue[i] = sub.getnamed('value['+i+']');
-		paramDial[i] = sub.getnamed('paramDial['+i+']');
+		paramName[i] = this.patcher.getnamed('name['+i+']');
+		paramValue[i] = this.patcher.getnamed('value['+i+']');
+		paramDial[i] = this.patcher.getnamed('paramDial['+i+']');
 	}
 	VIEW_DEVICE&&sub.front();
 }
