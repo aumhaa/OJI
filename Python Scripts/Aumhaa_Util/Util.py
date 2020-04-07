@@ -220,7 +220,6 @@ class UtilDeviceComponent(DeviceComponent):
 		device_class_name = self.device().class_name
 		return ParameterInfo(parameter=parameter, name=name, default_encoder_sensitivity=parameter_mapping_sensitivity(parameter, device_class_name), fine_grain_encoder_sensitivity=fine_grain_parameter_mapping_sensitivity(parameter, device_class_name))
 
-
 	def _setup_bank(self, device, bank_factory = create_device_bank):
 		if self._bank is not None:
 			self.disconnect_disconnectable(self._bank)
@@ -235,6 +234,16 @@ class UtilDeviceComponent(DeviceComponent):
 	@property
 	def bank_view_description(self):
 		return getattr(self._bank, u'bank_view_description', u'')
+
+	@listenable_property
+	def device_name(self):
+		device = self.device()
+		name = str(device.name).replace(' ', '_') if liveobj_valid(device) and hasattr(device, 'name') else '-'
+		return name
+
+	def _on_device_changed(self, device):
+		super(UtilDeviceComponent, self)._on_device_changed(device)
+		self.notify_device_name(self.device_name)
 
 
 class TrackCreatorComponent(Component):
@@ -918,7 +927,7 @@ class Util(ControlSurface):
 
 	def _setup_transport(self):
 		self._transport = TransportComponent()
-		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[43])
+		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[43], record_button = self._button[44])
 
 	def _setup_device_controls(self):
 		self._device_bank_registry = DeviceBankRegistry()
@@ -977,7 +986,7 @@ class Util(ControlSurface):
 		self.receive_midi(tuple([176, num, val]))
 
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
-		debug('load_preset()', target, folder, directory)
+		debug('load_preset()', 'target:', target, 'folder:', folder, 'directory:', directory)
 		if not target is None:
 			browser = Live.Application.get_application().browser ##if not self.application.view.browse_mode else self.application.browser.hotswap_target
 			user_folders = browser.user_folders

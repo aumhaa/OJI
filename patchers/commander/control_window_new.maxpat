@@ -40,6 +40,41 @@
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
 				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"id" : "obj-2",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 573.487072518578316, 305.0, 44.0, 15.0 ],
+					"presentation" : 1,
+					"presentation_rect" : [ 65.5, 543.0, 57.0, 31.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_type" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "record",
+							"parameter_invisible" : 2,
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "record"
+						}
+
+					}
+,
+					"text" : "Record",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "record"
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"id" : "obj-258",
 					"maxclass" : "newobj",
 					"numinlets" : 2,
@@ -304,7 +339,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 1353.0, 943.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 736.5, 212.0, 59.0, 33.0 ],
+					"presentation_rect" : [ 736.5, 159.0, 59.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -1708,7 +1743,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 339.0, 667.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 358.5, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 508.0, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -1744,7 +1779,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 265.5, 531.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 543.0, 60.0, 33.0 ],
+					"presentation_rect" : [ 736.5, 250.5, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -1780,7 +1815,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 297.0, 586.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 471.5, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 357.0, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -1888,7 +1923,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 97.5, 196.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 434.5, 60.0, 33.0 ],
+					"presentation_rect" : [ 736.5, 215.5, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -1924,7 +1959,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 87.0, 170.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 506.5, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 471.5, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -1960,7 +1995,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 76.5, 146.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 396.5, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 415.0, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -6902,6 +6937,13 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-122", 1 ],
+					"source" : [ "obj-2", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "obj-5", 11 ],
 					"source" : [ "obj-20", 0 ]
 				}
@@ -7756,48 +7798,48 @@
 			}
  ],
 		"parameters" : 		{
-			"obj-123" : [ "bank_up[1]", "bank_up", 0 ],
 			"obj-48" : [ "button[35]", "button", 0 ],
 			"obj-111" : [ "device_select[3]", "device_select[3]", 0 ],
+			"obj-123" : [ "bank_up[1]", "bank_up", 0 ],
 			"obj-228" : [ "redo[1]", "redo", 0 ],
 			"obj-57" : [ "track_select[2]", "track_select[2]", 0 ],
-			"obj-100" : [ "tag_button[6]", "tag_button[6]", 0 ],
 			"obj-46" : [ "button[34]", "button", 0 ],
+			"obj-100" : [ "tag_button[6]", "tag_button[6]", 0 ],
 			"obj-69" : [ "files_chooser", "files_chooser", 0 ],
 			"obj-206" : [ "selection_mode[1]", "selection_mode", 0 ],
 			"obj-155" : [ "paramDial[12]", "paramDial[12]", 0 ],
+			"obj-44" : [ "button[33]", "button", 0 ],
 			"obj-224" : [ "preset_right", "preset_right", 0 ],
 			"obj-35" : [ "next_track", "next_track", 0 ],
 			"obj-179" : [ "paramDial[7]", "paramDial[7]", 0 ],
-			"obj-44" : [ "button[33]", "button", 0 ],
-			"obj-20" : [ "solo_kill", "solo_kill", 0 ],
-			"obj-94" : [ "device_select[7]", "device_select[7]", 0 ],
 			"obj-217" : [ "preset[5]", "preset", 0 ],
+			"obj-94" : [ "device_select[7]", "device_select[7]", 0 ],
+			"obj-20" : [ "solo_kill", "solo_kill", 0 ],
 			"obj-11" : [ "tagchooser", "tagchooser", 0 ],
 			"obj-34" : [ "prev_track", "prev_track", 0 ],
 			"obj-19" : [ "mute_kill", "mute_kill", 0 ],
 			"obj-33" : [ "fire_prev_clip_abs", "fire_prev_clip_abs", 0 ],
 			"obj-60" : [ "track_select[5]", "track_select[5]", 0 ],
 			"obj-18" : [ "arm_kill", "arm_kill", 0 ],
-			"obj-127" : [ "goto[1]", "goto", 0 ],
-			"obj-95" : [ "tag_button[1]", "tag_button[1]", 0 ],
 			"obj-225" : [ "cue", "cue", 0 ],
 			"obj-32" : [ "fire_next_clip_abs", "fire_next_clip_abs", 0 ],
+			"obj-127" : [ "goto[1]", "goto", 0 ],
+			"obj-95" : [ "tag_button[1]", "tag_button[1]", 0 ],
 			"obj-89" : [ "track[2]", "track[2]", 0 ],
-			"obj-28" : [ "undo", "undo", 0 ],
 			"obj-15" : [ "new_scene", "new_scene", 0 ],
-			"obj-9" : [ "play", "play", 0 ],
+			"obj-28" : [ "undo", "undo", 0 ],
 			"obj-37" : [ "volume_slider", "volume_slider", 0 ],
-			"obj-184" : [ "paramDial[2]", "paramDial[2]", 0 ],
+			"obj-9" : [ "play", "play", 0 ],
 			"obj-31" : [ "select_first_armed_track", "select_first_armed_track", 0 ],
-			"obj-16" : [ "select_playing_clip", "select_playing_clip", 0 ],
+			"obj-184" : [ "paramDial[2]", "paramDial[2]", 0 ],
 			"obj-126" : [ "next_in_folder_button", "next_in_folder_button", 0 ],
-			"obj-36" : [ "stop", "stop", 0 ],
+			"obj-16" : [ "select_playing_clip", "select_playing_clip", 0 ],
 			"obj-30" : [ "toggle_detail_clip_loop", "toggle_detail_clip_loop", 0 ],
+			"obj-36" : [ "stop", "stop", 0 ],
 			"obj-17" : [ "stop_all_clips", "stop_all_clips", 0 ],
 			"obj-115" : [ "device_select[1]", "device_select[1]", 0 ],
-			"obj-49" : [ "track_select[0]", "track_select[0]", 0 ],
 			"obj-220" : [ "preset[2]", "preset", 0 ],
+			"obj-49" : [ "track_select[0]", "track_select[0]", 0 ],
 			"obj-98" : [ "tag_button[4]", "tag_button[4]", 0 ],
 			"obj-12" : [ "stop_clip", "stop_clip", 0 ],
 			"obj-25" : [ "toggle_autoarm", "toggle_autoarm", 0 ],
@@ -7805,21 +7847,21 @@
 			"obj-125" : [ "button[1]", "button", 0 ],
 			"obj-222" : [ "preset[0]", "preset", 0 ],
 			"obj-52" : [ "track[7]", "track[7]", 0 ],
-			"obj-181" : [ "paramDial[5]", "paramDial[5]", 0 ],
-			"obj-13" : [ "fire_prev_clip", "fire_prev_clip", 0 ],
 			"obj-24" : [ "solo_excl", "solo_excl", 0 ],
+			"obj-13" : [ "fire_prev_clip", "fire_prev_clip", 0 ],
 			"obj-157" : [ "paramDial[10]", "paramDial[10]", 0 ],
+			"obj-181" : [ "paramDial[5]", "paramDial[5]", 0 ],
 			"obj-107" : [ "device_select[5]", "device_select[5]", 0 ],
 			"obj-23" : [ "mute_excl", "mute_excl", 0 ],
 			"obj-14" : [ "fire_next_clip", "fire_next_clip", 0 ],
-			"obj-58" : [ "track_select[3]", "track_select[3]", 0 ],
 			"obj-7" : [ "solo_selected", "solo_selected", 0 ],
+			"obj-58" : [ "track_select[3]", "track_select[3]", 0 ],
 			"obj-22" : [ "arm_excl", "arm_excl", 0 ],
 			"obj-101" : [ "tag_button[7]", "tag_button[7]", 0 ],
-			"obj-6" : [ "mute_selected", "mute_selected", 0 ],
-			"obj-21" : [ "mute_flip", "mute_flip", 0 ],
 			"obj-42" : [ "bank_track_right", "bank_track_right", 0 ],
+			"obj-6" : [ "mute_selected", "mute_selected", 0 ],
 			"obj-108" : [ "track[0]", "track[0]", 0 ],
+			"obj-21" : [ "mute_flip", "mute_flip", 0 ],
 			"obj-154" : [ "paramDial[13]", "paramDial[13]", 0 ],
 			"obj-186" : [ "paramDial[0]", "paramDial[0]", 0 ],
 			"obj-41" : [ "bank_track_left", "bank_track_left", 0 ],
@@ -7827,52 +7869,53 @@
 			"obj-124" : [ "bank_down[1]", "bank_down", 0 ],
 			"obj-215" : [ "preset[6]", "preset", 0 ],
 			"obj-61" : [ "track_select[6]", "track_select[6]", 0 ],
-			"obj-96" : [ "tag_button[2]", "tag_button[2]", 0 ],
+			"obj-2" : [ "record", "record", 0 ],
 			"obj-88" : [ "track[3]", "track[3]", 0 ],
 			"obj-226" : [ "metro_toggle", "metro_toggle", 0 ],
-			"obj-183" : [ "paramDial[3]", "paramDial[3]", 0 ],
+			"obj-96" : [ "tag_button[2]", "tag_button[2]", 0 ],
 			"obj-159" : [ "paramDial[8]", "paramDial[8]", 0 ],
+			"obj-183" : [ "paramDial[3]", "paramDial[3]", 0 ],
 			"obj-152" : [ "paramDial[15]", "paramDial[15]", 0 ],
 			"obj-112" : [ "device_select[2]", "device_select[2]", 0 ],
 			"obj-50" : [ "track_select[1]", "track_select[1]", 0 ],
 			"obj-99" : [ "tag_button[5]", "tag_button[5]", 0 ],
-			"obj-223" : [ "preset_left", "preset_left", 0 ],
 			"obj-53" : [ "track[6]", "track[6]", 0 ],
-			"obj-85" : [ "selection_mode", "selection_mode", 0 ],
+			"obj-223" : [ "preset_left", "preset_left", 0 ],
 			"obj-219" : [ "preset[3]", "preset", 0 ],
-			"obj-156" : [ "paramDial[11]", "paramDial[11]", 0 ],
-			"obj-40" : [ "button[32]", "button", 0 ],
+			"obj-85" : [ "selection_mode", "selection_mode", 0 ],
 			"obj-180" : [ "paramDial[6]", "paramDial[6]", 0 ],
+			"obj-40" : [ "button[32]", "button", 0 ],
+			"obj-156" : [ "paramDial[11]", "paramDial[11]", 0 ],
 			"obj-27" : [ "create_midi_track", "create_midi_track", 0 ],
 			"obj-106" : [ "device_select[6]", "device_select[6]", 0 ],
 			"obj-26" : [ "create_audio_track", "create_audio_track", 0 ],
 			"obj-103" : [ "tag_button_bank_down", "tag_button_bank_down", 0 ],
 			"obj-117" : [ "bank_device_right[1]", "bank_device_right", 0 ],
 			"obj-59" : [ "track_select[4]", "track_select[4]", 0 ],
-			"obj-63" : [ "live.text[2]", "live.text", 0 ],
 			"obj-10" : [ "toggle_clip_detail", "toggle_clip_detail", 0 ],
+			"obj-63" : [ "live.text[2]", "live.text", 0 ],
 			"obj-93" : [ "tag_button[0]", "tag_button[0]", 0 ],
 			"obj-90" : [ "track[1]", "track[1]", 0 ],
 			"obj-153" : [ "paramDial[14]", "paramDial[14]", 0 ],
-			"obj-8" : [ "fire_next_armed", "fire_next_armed", 0 ],
 			"obj-128" : [ "selection_mode[3]", "selection_mode", 0 ],
+			"obj-8" : [ "fire_next_armed", "fire_next_armed", 0 ],
 			"obj-185" : [ "paramDial[1]", "paramDial[1]", 0 ],
 			"obj-221" : [ "preset[1]", "preset", 0 ],
 			"obj-4" : [ "fire_all_armed", "fire_all_armed", 0 ],
 			"obj-70" : [ "parent_chooser", "parent_chooser", 0 ],
 			"obj-218" : [ "preset[4]", "preset", 0 ],
-			"obj-116" : [ "device_select[0]", "device_select[0]", 0 ],
 			"obj-62" : [ "track_select[7]", "track_select[7]", 0 ],
-			"obj-118" : [ "bank_device_left[1]", "bank_device_left", 0 ],
+			"obj-116" : [ "device_select[0]", "device_select[0]", 0 ],
 			"obj-205" : [ "preset[7]", "preset", 0 ],
-			"obj-97" : [ "tag_button[3]", "tag_button[3]", 0 ],
+			"obj-118" : [ "bank_device_left[1]", "bank_device_left", 0 ],
 			"obj-29" : [ "redo", "redo", 0 ],
 			"obj-84" : [ "track[4]", "track[4]", 0 ],
+			"obj-97" : [ "tag_button[3]", "tag_button[3]", 0 ],
 			"obj-102" : [ "tag_button_bank_up", "tag_button_bank_up", 0 ],
 			"obj-67" : [ "live.text", "live.text", 0 ],
-			"obj-56" : [ "and_or", "and_or", 0 ],
 			"obj-182" : [ "paramDial[4]", "paramDial[4]", 0 ],
 			"obj-158" : [ "paramDial[9]", "paramDial[9]", 0 ],
+			"obj-56" : [ "and_or", "and_or", 0 ],
 			"obj-51" : [ "button[36]", "button", 0 ],
 			"obj-109" : [ "device_select[4]", "device_select[4]", 0 ],
 			"parameterbanks" : 			{

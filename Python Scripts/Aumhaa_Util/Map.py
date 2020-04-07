@@ -55,13 +55,13 @@ class UtilColors:
 
 	class Session:
 		StopClipDisabled = LividRGB.OFF
-		StopClipTriggered = LividRGB.BiColor.BLUE.WHITE
+		StopClipTriggered = LividRGB.BLUE
 		StopClip = LividRGB.BLUE
 		Scene = LividRGB.CYAN
 		NoScene = LividRGB.OFF
 		SceneTriggered = LividRGB.GREEN
-		ClipTriggeredPlay = LividRGB.BlinkFast.GREEN
-		ClipTriggeredRecord = LividRGB.BlinkFast.RED
+		ClipTriggeredPlay = LividRGB.GREEN
+		ClipTriggeredRecord = LividRGB.RED
 		RecordButton = LividRGB.OFF
 		ClipEmpty = LividRGB.OFF
 		ClipStopped = LividRGB.WHITE
@@ -69,12 +69,12 @@ class UtilColors:
 		ClipRecording = LividRGB.RED
 		NavigationButtonOn = LividRGB.CYAN
 		NavigationButtonOff = LividRGB.YELLOW
-		ZoomOn = LividRGB.BlinkFast.WHITE
+		ZoomOn = LividRGB.WHITE
 		ZoomOff = LividRGB.WHITE
 
 
 	class Zooming:
-		Selected = LividRGB.BlinkFast.YELLOW
+		Selected = LividRGB.YELLOW
 		Stopped = LividRGB.WHITE
 		Playing = LividRGB.GREEN
 		Empty = LividRGB.OFF
@@ -90,18 +90,18 @@ class UtilColors:
 
 
 	class Transport:
-		PlayOn = LividRGB.BiColor.WHITE.GREEN
-		PlayOff = LividRGB.GREEN
+		PlayOn = LividRGB.GREEN
+		PlayOff = LividRGB.WHITE
 		StopOn = LividRGB.BLUE
 		StopOff = LividRGB.BLUE
-		RecordOn = LividRGB.BiColor.WHITE.RED
-		RecordOff = LividRGB.RED
-		OverdubOn = LividRGB.BiColor.WHITE.MAGENTA
-		OverdubOff = LividRGB.MAGENTA
-		SeekBackwardOn = LividRGB.BlinkMedium.CYAN
+		RecordOn = LividRGB.RED
+		RecordOff = LividRGB.WHITE
+		OverdubOn = LividRGB.MAGENTA
+		OverdubOff = LividRGB.WHITE
+		SeekBackwardOn = LividRGB.CYAN
 		SeekBackwardOff = LividRGB.CYAN
-		LoopOn = LividRGB.BlinkMedium.YELLOW
-		LoopOff = LividRGB.YELLOW
+		LoopOn = LividRGB.YELLOW
+		LoopOff = LividRGB.WHITE
 
 
 	class Mixer:
@@ -119,26 +119,26 @@ class UtilColors:
 
 
 	class Recording:
-		On = LividRGB.BiColor.WHITE.MAGENTA
-		Transition = LividRGB.BlinkFast.MAGENTA
+		On = LividRGB.RED
+		Transition = LividRGB.MAGENTA
 		Off = LividRGB.MAGENTA
 
 
 	class Automation:
-		On = LividRGB.BiColor.WHITE.YELLOW
+		On = LividRGB.WHITE
 		Off = LividRGB.YELLOW
 
 
 	class Recorder:
 		On = LividRGB.WHITE
 		Off = LividRGB.BLUE
-		NewOn = LividRGB.BlinkMedium.YELLOW
+		NewOn = LividRGB.YELLOW
 		NewOff = LividRGB.YELLOW
-		FixedOn = LividRGB.BlinkMedium.CYAN
+		FixedOn = LividRGB.CYAN
 		FixedOff = LividRGB.CYAN
-		RecordOn = LividRGB.BiColor.WHITE.MAGENTA
+		RecordOn = LividRGB.MAGENTA
 		RecordOff = LividRGB.MAGENTA
-		AutomationOn = LividRGB.BiColor.WHITE.YELLOW
+		AutomationOn = LividRGB.YELLOW
 		AutomationOff = LividRGB.YELLOW
 		FixedAssigned = LividRGB.MAGENTA
 		FixedNotAssigned = LividRGB.OFF

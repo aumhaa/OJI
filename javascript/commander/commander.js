@@ -77,11 +77,11 @@ control_names = [
 								"track_select[5]",
 								"track_select[6]",
 								"track_select[7]",
-								"bank_down",
-								"bank_up",
+								"place_holder",
+								"metro_toggle",
+								"record",
 								"bank_device_left",
 								"bank_device_right",
-								"place_holder",
 								"device_select[0]",
 								"device_select[1]",
 								"device_select[2]",
@@ -184,7 +184,7 @@ function setup_mixer(){
 	var track_names_callback = function(args){
 			// debug('track_names_callback:', args.length, args);
 		 if((args[0]=='track_names')&&(args[1]!='id')){
-			 outlet(0, 'track_names', args);
+			 //outlet(0, 'track_names', args);
 			 // debug('track_names_callback2:', args.length, args);
 			 for(var i=0;i<8;i++){
 				 track_select_buttons[i].message('text', args[i+1] ? args[i+1] : '');
@@ -195,8 +195,12 @@ function setup_mixer(){
 	apiUtil.set_component_by_type(track_names, 'UtilMixerComponent');
 	if(track_names.id != 0){
 		track_names.property = 'track_names';
+		var names = track_names.get('track_names');
+		for(var i=0;i<8;i++){
+			track_select_buttons[i].message('text', names[i] ? names[i] : '');
+		}
 	}
-	debug('track_names:', track_names.id);
+	//debug('track_names:', track_names.id);
 }
 
 function setup_device_controls(){
