@@ -201,6 +201,20 @@ function setup_mixer(){
 
 function setup_device_controls(){
 	var path = control_surface.path;
+
+	var device_name_callback = function(args){
+		if((args[0]=='device_name')&&(args[1]!='id')){
+		 	debug('device_name:', args.length, args);
+			this.patcher.getnamed('device_name').message('set', args[1])
+		}
+	}
+	script.device_name = new LiveAPI(device_name_callback, path);
+	apiUtil.set_component_by_type(device_name, 'UtilDeviceComponent');
+	if(device_name.id != 0){
+		device_name.property = 'device_name';
+		//debug('get device_name:', device_name.get('device_name'));
+	}
+
 	var parameter_names_callback = function(args){
 		if(args[0]=='current_parameter_names'){
 		 	// debug('parameter_names_callback:', args.length, args);
