@@ -527,6 +527,15 @@ function from_commander(){
       debug('sending command....');
       update_remote_display();
       break;
+    case 'Next':
+      Next();
+      break;
+    case 'Prev':
+      Prev();
+      break;
+    case 'OpenPreset':
+      OpenPreset();
+      break;
   }
 }
 
@@ -784,6 +793,30 @@ FileTreeComponent.prototype.select_child = function(index, item){
   }
 }
 
+FileTreeComponent.prototype.select_previous = function(){
+  //this method doesn't work
+  // if(this.child_list.length){
+  //   for(var i in this.child_list){
+  //     if(this.child_list[i].path == selected_file){
+  //       (i > 0)&&(this.select_child(i-1));
+  //       break;
+  //     }
+  //   }
+  // }
+}
+
+FileTreeComponent.prototype.select_next = function(){
+  //this method doesn't work
+  // if(this.child_list.length){
+  //   for(var i in this.child_list){
+  //     if(this.child_list[i].path == selected_file){
+  //       (index < (this.child_list.length-1))&&(this.select_child(index+1));
+  //       break;
+  //     }
+  //   }
+  // }
+}
+
 FileTreeComponent.prototype.open_child = function(index, item){
   debug('FileTree.open_child:', index, item);
   var entry = this.child_list[index];
@@ -873,7 +906,13 @@ function OpenPreset(){
   outlet(0, 'open_preset', selected_file);
 }
 
+function Next(){
+  FileTree.select_next();
+}
 
+function Prev(){
+  FileTree.select_previous();
+}
 
 forceload(this);
 
