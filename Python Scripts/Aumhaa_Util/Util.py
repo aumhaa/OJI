@@ -42,6 +42,7 @@ from aumhaa.v2.control_surface.elements import MonoEncoderElement, MonoBridgeEle
 #from aumhaa.v2.control_surface.components import MonoMixerComponent  #, DeviceSelectorComponent, DeviceComponent
 from aumhaa.v2.control_surface.components.mono_mixer import MonoMixerComponent, MonoChannelStripComponent
 from aumhaa.v2.control_surface.elements.mono_button import *
+from aumhaa.v2.control_surface.elements.mono_encoder import *
 from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMode, CancellableBehaviourWithRelease, ColoredCancellableBehaviourWithRelease, MomentaryBehaviour, BicoloredMomentaryBehaviour, DefaultedBehaviour
 from aumhaa.v2.base import initialize_debug
 from .parameter_mapping_sensitivities import parameter_mapping_sensitivity, fine_grain_parameter_mapping_sensitivity
@@ -93,6 +94,64 @@ def create_device_bank(device, banking_info):
 # 		names = self.item_names
 # 		self.notify_item_names(*names)
 #
+
+class SpecialEncoderElement(EncoderElement):
+
+	def connect_to(self, parameter):
+		self.remove_parameter_listener()
+		super(SpecialEncoderElement, self).connect_to(parameter)
+		self.add_parameter_listener()
+		self._on_parameter_value_changed()
+		self.notify_parameter_name()
+
+	def add_parameter_listener(self, *a):
+		if liveobj_valid(self._parameter_to_map_to) and not self._parameter_to_map_to.value_has_listener(self._on_parameter_value_changed):
+			self._parameter_to_map_to.add_value_listener(self._on_parameter_value_changed)
+
+	def remove_parameter_listener(self, *a):
+		if liveobj_valid(self._parameter_to_map_to) and self._parameter_to_map_to.value_has_listener(self._on_parameter_value_changed):
+			self._parameter_to_map_to.remove_value_listener(self._on_parameter_value_changed)
+
+	def _on_parameter_value_changed(self, *a):
+		self.notify_parameter_value(self.parameter_value)
+		self.notify_normalized_parameter_value(self.normalized_parameter_value)
+
+	@listenable_property
+	def parameter_name(self):
+		parameter = self._parameter_to_map_to
+		if liveobj_valid(parameter):
+			name = str(parameter.name)
+			return name
+
+	@listenable_property
+	def parameter_value(self):
+		parameter = self._parameter_to_map_to
+		if liveobj_valid(parameter):
+			value = str(parameter)
+			return value
+
+	@listenable_property
+	def normalized_parameter_value(self):
+		parameter = self._parameter_to_map_to
+		if liveobj_valid(parameter):
+			value = int(((parameter.value - parameter.min) / (parameter.max - parameter.min))  * 127)
+			return value
+
+	def set_normalized_value(self, value):
+		parameter = self._parameter_to_map_to
+		if liveobj_valid(parameter):
+			newval = float(float(float(value)/127) * float(parameter.max - parameter.min)) + parameter.min
+			parameter.value = newval
+		else:
+			self.receive_value(value)
+
+	def set_value(self, value):
+		parameter = self._parameter_to_map_to
+		if liveobj_valid(parameter):
+			newval = float(value * (parameter.max - parameter.min)) + parameter.min
+			parameter.value = newval
+		else:
+			self.receive_value(int(value*127))
 
 
 class LargeDescribedDeviceParameterBank(DescribedDeviceParameterBankWithOptions):
@@ -307,10 +366,6 @@ class UtilAutoArmComponent(AutoArmComponent):
 
 	def can_auto_arm_track(self, track):
 		return self.track_can_be_armed(track) and self.autoarm_enabled
-
-	# def update(self):
-	# 	super(UtilAutoArmComponent, self).update()
-	# 	self._update_autoarm_toggle_button()
 
 	@listens('autoarm_enabled')
 	def _update_autoarm_toggle_button(self, *a):
@@ -873,11 +928,12 @@ class Util(ControlSurface):
 		optimized = True
 		resource = PrioritizedResource
 		self._button = [ButtonElement(is_momentary = is_momentary if not index in range(47,63) else True, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
-		self._fader = EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
+		self._fader = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
+		self._dial = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 17, map_mode = Live.MidiMap.MapMode.absolute, name = 'Dial', resource_type = resource)
 		self._track_select_matrix = ButtonMatrixElement(name = 'TrackSelectMatrix', rows = [self._button[34:42]])
 		self._device_select_matrix = ButtonMatrixElement(name = 'DeviceSelectMatrix', rows = [self._button[47:55]])
 		self._chain_select_matrix = ButtonMatrixElement(name = 'ChainSelectMatrix', rows = [self._button[55:63]])
-		self._encoder = [EncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
+		self._encoder = [SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
 		self._encoder_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder]) #, self._encoder[8:]])
 
 
@@ -921,7 +977,7 @@ class Util(ControlSurface):
 
 	def _setup_mixer_control(self):
 		self._mixer = UtilMixerComponent(name = 'Mixer', tracks_provider = self._session_ring, track_assigner = SimpleTrackAssigner(), auto_name = True, channel_strip_component_type = UtilChannelStripComponent)
-		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], arming_track_select_buttons = self._track_select_matrix)
+		self._mixer.layer = Layer(prehear_volume_control = self._dial, util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], arming_track_select_buttons = self._track_select_matrix)
 		self._mixer._selected_strip.layer = Layer(volume_control = self._fader, arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
 		self._mixer._assign_skin_colors()
 		self._mixer.set_enabled(False)

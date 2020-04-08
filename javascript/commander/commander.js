@@ -154,6 +154,8 @@ function setup_patcher(){
 		paramValue[i] = this.patcher.getnamed('value['+i+']');
 		paramDial[i] = this.patcher.getnamed('paramDial['+i+']');
 	}
+	script.volume_slider = this.patcher.getnamed('volume_slider');
+	script.cue = this.patcher.getnamed('cue');
 	VIEW_DEVICE&&sub.front();
 }
 
@@ -201,6 +203,33 @@ function setup_mixer(){
 		}
 	}
 	//debug('track_names:', track_names.id);
+
+	var selected_strip_volume_callback = function(args){
+			// debug('cue_volume_callback:', args.length, args);
+			if((args[0]=='normalized_parameter_value')&&(args[1]!='id')){
+				volume_slider.message('set', args[1]);
+		}
+	}
+	script.selected_strip_volume = new LiveAPI(selected_strip_volume_callback, path);
+	apiUtil.set_control_by_name(selected_strip_volume, 'Fader');
+	if(selected_strip_volume.id != 0){
+		selected_strip_volume.property = 'normalized_parameter_value';
+		volume_slider.message('set', selected_strip_volume.get('normalized_parameter_value'));
+	}
+
+	var cue_volume_callback = function(args){
+			// debug('cue_volume_callback:', args.length, args);
+			if((args[0]=='normalized_parameter_value')&&(args[1]!='id')){
+				cue.message('set', args[1]);
+		}
+	}
+	script.cue_volume = new LiveAPI(cue_volume_callback, path);
+	apiUtil.set_control_by_name(cue_volume, 'Dial');
+	if(cue_volume.id != 0){
+		cue_volume.property = 'normalized_parameter_value';
+		cue.message('set', cue_volume.get('normalized_parameter_value'));
+	}
+
 }
 
 function setup_device_controls(){
@@ -456,9 +485,17 @@ function _from_parameter_controls(num, val){
 	parameter_proxy[num].call('set_value', val);
 }
 
-function from_commander(){
+function _from_commander(){
 	var args = arrayfromargs(arguments);
 	//debug('from_commander:', args);
 }
+
+function _fader_value_in(val){
+	selected_strip_volume.call('set_normalized_value', val);
+}
+function _cue_value_in(val){
+	cue_volume.call('set_normalized_value', val);
+}
+
 
 forceload(this);
