@@ -39,7 +39,8 @@ from Push2.device_parameter_bank_with_options import DescribedDeviceParameterBan
 from aumhaa.v2.control_surface.mod_devices import *
 from aumhaa.v2.control_surface.mod import *
 from aumhaa.v2.control_surface.elements import MonoEncoderElement, MonoBridgeElement, generate_strip_string, CodecEncoderElement
-from aumhaa.v2.control_surface.components import DeviceNavigator, DeviceSelectorComponent  #, DeviceComponent
+#from aumhaa.v2.control_surface.components import MonoMixerComponent  #, DeviceSelectorComponent, DeviceComponent
+from aumhaa.v2.control_surface.components.mono_mixer import MonoMixerComponent, MonoChannelStripComponent
 from aumhaa.v2.control_surface.elements.mono_button import *
 from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMode, CancellableBehaviourWithRelease, ColoredCancellableBehaviourWithRelease, MomentaryBehaviour, BicoloredMomentaryBehaviour, DefaultedBehaviour
 from aumhaa.v2.base import initialize_debug
@@ -92,6 +93,7 @@ def create_device_bank(device, banking_info):
 # 		names = self.item_names
 # 		self.notify_item_names(*names)
 #
+
 
 class LargeDescribedDeviceParameterBank(DescribedDeviceParameterBankWithOptions):
 
@@ -282,6 +284,7 @@ class UtilAutoArmComponent(AutoArmComponent):
 
 	def __init__(self, *a, **k):
 		super(UtilAutoArmComponent, self).__init__(*a, **k)
+		self._update_autoarm_toggle_button.subject = self
 
 	def set_util_autoarm_toggle_button(self, button):
 		self.util_autoarm_toggle_button.set_control_element(button)
@@ -295,15 +298,27 @@ class UtilAutoArmComponent(AutoArmComponent):
 
 	def toggle_autoarm(self):
 		self.__autoarm_enabled = not self.__autoarm_enabled
+		#debug('toggle_autoarm')
+		self.notify_autoarm_enabled()
 
+	@listenable_property
 	def autoarm_enabled(self):
 		return self.__autoarm_enabled
 
 	def can_auto_arm_track(self, track):
-		return self.track_can_be_armed(track) and self.autoarm_enabled()
+		return self.track_can_be_armed(track) and self.autoarm_enabled
+
+	# def update(self):
+	# 	super(UtilAutoArmComponent, self).update()
+	# 	self._update_autoarm_toggle_button()
+
+	@listens('autoarm_enabled')
+	def _update_autoarm_toggle_button(self, *a):
+		#debug('_update_autoarm_toggle_button')
+		self.util_autoarm_toggle_button.color = u'Auto_Arm.Enabled' if self.autoarm_enabled else u'Auto_Arm.Disabled'
 
 
-class UtilChannelStripComponent(ChannelStripComponent):
+class UtilChannelStripComponent(MonoChannelStripComponent):
 
 	util_mute_exclusive_button = ButtonControl()
 	util_solo_exclusive_button = ButtonControl()
@@ -382,7 +397,7 @@ class UtilChannelStripComponent(ChannelStripComponent):
 							t.arm = False
 
 
-class UtilMixerComponent(MixerComponent):
+class UtilMixerComponent(MonoMixerComponent):
 
 	util_mute_kill_button = ButtonControl()
 	util_solo_kill_button = ButtonControl()
@@ -906,8 +921,9 @@ class Util(ControlSurface):
 
 	def _setup_mixer_control(self):
 		self._mixer = UtilMixerComponent(name = 'Mixer', tracks_provider = self._session_ring, track_assigner = SimpleTrackAssigner(), auto_name = True, channel_strip_component_type = UtilChannelStripComponent)
-		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], track_select_buttons = self._track_select_matrix)
+		self._mixer.layer = Layer(util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], arming_track_select_buttons = self._track_select_matrix)
 		self._mixer._selected_strip.layer = Layer(volume_control = self._fader, arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
+		self._mixer._assign_skin_colors()
 		self._mixer.set_enabled(False)
 
 

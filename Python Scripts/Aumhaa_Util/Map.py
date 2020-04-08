@@ -103,6 +103,9 @@ class UtilColors:
 		LoopOn = LividRGB.YELLOW
 		LoopOff = LividRGB.WHITE
 
+	class Auto_Arm:
+		Enabled = LividRGB.RED
+		Disabled = LividRGB.WHITE
 
 	class Mixer:
 		SoloOn = LividRGB.BLUE
@@ -110,11 +113,12 @@ class UtilColors:
 		MuteOn = LividRGB.YELLOW
 		MuteOff = LividRGB.WHITE
 		ArmSelected = LividRGB.RED
+		ArmSelectedImplicit = LividRGB.MAGENTA
 		ArmUnselected = LividRGB.RED
 		ArmOff = LividRGB.WHITE
 		StopClip = LividRGB.BLUE
-		SelectedOn = LividRGB.BLUE
-		SelectedOff = LividRGB.MAGENTA
+		SelectedOn = LividRGB.WHITE
+		SelectedOff = LividRGB.OFF
 		ArmOn = LividRGB.RED
 
 
