@@ -9,6 +9,8 @@ CHANNEL = 0
 
 UTIL_BUTTONS = range(128)
 
+COLOR_MAP = [1,2,3,4,5,6,7]
+
 class UtilColors:
 
 	class Option:

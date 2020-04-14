@@ -1,7 +1,7 @@
 # by amounra 0420 : http://www.aumhaa.com
 # written against Live 10.1.9 release on 040520
 
-from __future__ import with_statement
+from __future__ import with_statement, unicode_literals
 import Live
 import time
 import math
@@ -38,7 +38,7 @@ from Push2.device_parameter_bank_with_options import DescribedDeviceParameterBan
 
 from aumhaa.v2.control_surface.mod_devices import *
 from aumhaa.v2.control_surface.mod import *
-from aumhaa.v2.control_surface.elements import MonoEncoderElement, MonoBridgeElement, generate_strip_string, CodecEncoderElement
+from aumhaa.v2.control_surface.elements import MonoButtonElement, MonoEncoderElement, MonoBridgeElement, generate_strip_string, CodecEncoderElement
 #from aumhaa.v2.control_surface.components import MonoMixerComponent  #, DeviceSelectorComponent, DeviceComponent
 from aumhaa.v2.control_surface.components.mono_mixer import MonoMixerComponent, MonoChannelStripComponent
 from aumhaa.v2.control_surface.elements.mono_button import *
@@ -120,14 +120,14 @@ class SpecialEncoderElement(EncoderElement):
 	def parameter_name(self):
 		parameter = self._parameter_to_map_to
 		if liveobj_valid(parameter):
-			name = str(parameter.name)
+			name = str(parameter.name).decode('utf-8', 'ignore')
 			return name
 
 	@listenable_property
 	def parameter_value(self):
 		parameter = self._parameter_to_map_to
 		if liveobj_valid(parameter):
-			value = str(parameter)
+			value = parameter.str_for_value(parameter.value).decode('utf-8', 'ignore')
 			return value
 
 	@listenable_property
@@ -152,6 +152,28 @@ class SpecialEncoderElement(EncoderElement):
 			parameter.value = newval
 		else:
 			self.receive_value(int(value*127))
+
+
+class SpecialMonoButtonElement(MonoButtonElement):
+
+	def __init__(self, *a, **k):
+		self._text = u''
+		super(SpecialMonoButtonElement, self).__init__(*a, **k)
+
+	@listenable_property
+	def text(self):
+		return str(self._text)
+
+	def set_text(self, text = u''):
+		# debug('button text:', self._text)
+		# self._text = text.encode('utf-8', 'ignore')
+		self._text = str(text)
+		self.notify_text(self._text)
+
+	def reset(self):
+		super(SpecialMonoButtonElement, self).reset()
+		self._text = u''
+		self.notify_text(self._text)
 
 
 class LargeDescribedDeviceParameterBank(DescribedDeviceParameterBankWithOptions):
@@ -473,7 +495,7 @@ class UtilMixerComponent(MonoMixerComponent):
 		names = []
 		for strip in self._channel_strips:
 			if liveobj_valid(strip._track) and hasattr(strip._track, 'name'):
-				names.append(str(strip._track.name).replace(' ', '_'))
+				names.append(str(strip._track.name).decode('utf-8', 'ignore').replace(' ', '_'))
 			else:
 				names.append('-')
 		return names
@@ -835,6 +857,190 @@ class UtilSessionRingComponent(SessionRingTrackProvider):
 		return (self.track_offset, self.scene_offset)
 
 
+class TextGrid(Grid):
+
+	def __init__(self, name, width, height, active_handlers = return_empty, *a, **k):
+		super(TextGrid, self).__init__(name, width, height, active_handlers, *a, **k)
+		self._cell = [[StoredElement(active_handlers, _name = self._name + '_' + str(x) + '_' + str(y), _x = x, _y = y , _value = u'', *a, **k) for y in range(height)] for x in range(width)]
+
+
+class TextArray(Array):
+
+	def __init__(self, name, size, active_handlers = return_empty, *a, **k):
+		super(TextArray, self).__init__(name, size, active_handlers, *a, **k)
+		self._cell = [StoredElement(self._name + '_' + str(num), _num = num, _value = u'', *a, **k) for num in range(size)]
+
+
+class UtilModHandler(ModHandler):
+
+
+	Shift_button = ButtonControl()
+	Alt_button = ButtonControl()
+	_name = u'UtilModHandler'
+
+	def __init__(self, *a, **k):
+		self._color_type = 'LividRGB'
+		self._grid = None
+		addresses = {'key_text': {'obj':TextArray('key_text', 8), 'method':self._receive_key_text},
+					'grid_text': {'obj':TextGrid('grid_text', 16, 16), 'method':self._receive_grid_text}}
+		super(UtilModHandler, self).__init__(addresses = addresses, *a, **k)
+		self.nav_box = UtilNavigationBox(self, 16, 16, 8, 4, self.set_offset,)
+		self._shifted = False
+
+
+	def select_mod(self, mod):
+		super(UtilModHandler, self).select_mod(mod)
+		#self._script._select_note_mode()
+		self.update()
+		debug('modhandler select mod: ' + str(mod))
+
+
+	def _receive_grid_text(self, x, y, value = u'', *a, **k):
+		# debug('_receive_grid_text:', x, y, value)
+		mod = self.active_mod()
+		if mod and self._grid_value.subject:
+			if mod.legacy:
+				x = x-self.x_offset
+				y = y-self.y_offset
+			if x in range(8) and y in range(4):
+				button = self._grid_value.subject.get_button(y, x)
+				if button:
+					# debug('setting button')
+					button.set_text(value)
+
+
+	def _receive_grid(self, x, y, value = -1, identifier = -1, channel = -1, *a, **k):
+		#debug('_receive_base_grid:', x, y, value, identifier, channel)
+		mod = self.active_mod()
+		if mod and self._grid_value.subject:
+			if mod.legacy:
+				x = x-self.x_offset
+				y = y-self.y_offset
+			if x in range(8) and y in range(4):
+				value > -1 and self._grid_value.subject.send_value(x, y, self._colors[value], True)
+				button = self._grid_value.subject.get_button(y, x)
+				if button:
+					new_identifier = identifier if identifier > -1 else button._original_identifier
+					new_channel = channel if channel > -1 else button._original_channel
+					button._msg_identifier != new_identifier and button.set_identifier(new_identifier)
+					button._msg_channel != new_channel and button.set_channel(new_channel)
+					button._report_input = True
+					button.suppress_script_forwarding = not ((channel, identifier) == (-1, -1))
+
+
+	def _receive_key_text(self, x, value = u'', *a, **k):
+		#debug('_receive_key:', x, value)
+		if not self._keys_value.subject is None:
+			button = self._keys_value.subject.get_button(0, x)
+			if button:
+				button.set_text(value)
+
+
+	def _receive_key(self, x, value):
+		#debug('_receive_key:', x, value)
+		if not self._keys_value.subject is None:
+			self._keys_value.subject.send_value(x, 0, self._colors[value], True)
+
+
+	def nav_update(self):
+		self.nav_box and self.nav_box.update()
+
+
+	def set_modifier_colors(self):
+		shiftbutton = self._shift_value.subject
+		shiftbutton and shiftbutton.set_on_off_values('Mod.ShiftOn', 'Mod.ShiftOff')
+		altbutton = self._alt_value.subject
+		altbutton and altbutton.set_on_off_values('Mod.AltOn', 'Mod.AltOff')
+
+
+	@Shift_button.pressed
+	def Shift_button(self, button):
+		debug('shift_button.pressed')
+		self._is_shifted = True
+		mod = self.active_mod()
+		if mod:
+			mod.send('shift', 1)
+		#self.shift_layer and self.shift_layer.enter_mode()
+		if mod and mod.legacy:
+			self.legacy_shift_layer and self.legacy_shift_layer.enter_mode()
+		self.update()
+
+
+	@Shift_button.released
+	def Shift_button(self, button):
+		self._is_shifted = False
+		mod = self.active_mod()
+		if mod:
+			mod.send('shift', 0)
+		self.legacy_shift_layer and self.legacy_shift_layer.leave_mode()
+		#self.shift_layer and self.shift_layer.leave_mode()
+		self.update()
+
+
+	@Alt_button.pressed
+	def Alt_button(self, button):
+		debug('alt_button.pressed')
+		self._is_alted = True
+		mod = self.active_mod()
+		if mod:
+			mod.send('alt', 1)
+			mod._device_proxy._alted = True
+			mod._device_proxy.update_parameters()
+		self.alt_layer and self.alt_layer.enter_mode()
+		self.update()
+
+
+	@Alt_button.released
+	def Alt_button(self, button):
+		self._is_alted = False
+		mod = self.active_mod()
+		if mod:
+			mod.send('alt', 0)
+			mod._device_proxy._alted = False
+			mod._device_proxy.update_parameters()
+		self.alt_layer and self.alt_layer.leave_mode()
+		self.update()
+
+
+	def update(self, *a, **k):
+		mod = self.active_mod()
+		if not mod is None:
+			mod.restore()
+		else:
+			if not self._grid_value.subject is None:
+				self._grid_value.subject.reset()
+			if not self._keys_value.subject is None:
+				self._keys_value.subject.reset()
+
+
+
+class UtilNavigationBox(NavigationBox):
+
+
+	def update(self):
+		# debug('nav_box.update()')
+		nav_grid = self._on_navigation_value.subject
+		left_button = self._on_nav_left_value.subject
+		right_button = self._on_nav_right_value.subject
+		up_button = self._on_nav_up_value.subject
+		down_button = self._on_nav_down_value.subject
+		xinc = self._x_inc
+		yinc = self._y_inc
+		xoff = self.x_offset
+		yoff = self.y_offset
+		xmax = xoff+self._window_x
+		ymax = yoff+self._window_y
+		if nav_grid:
+			for button, coord in nav_grid.iterbuttons():
+				x = coord[0]
+				y = coord[1]
+				button and button.set_light('Mod.Nav.OnValue' if ((x*xinc) in range(xoff, xmax)) and ((y*yinc) in range(yoff, ymax)) else 'Mod.Nav.OffValue')
+		left_button and left_button.set_light('DefaultButton.On' if (xoff>0) else 'DefaultButton.Off')
+		right_button and right_button.set_light('DefaultButton.On' if (xoff<(self.width()-self._window_x)) else 'DefaultButton.Off')
+		up_button and up_button.set_light('DefaultButton.On' if (yoff>0) else 'DefaultButton.Off')
+		down_button and down_button.set_light('DefaultButton.On' if (yoff<(self.height()-self._window_y)) else 'DefaultButton.Off')
+
+
 class UtilViewControlComponent(ViewControlComponent):
 
 	toggle_clip_detail_button = ButtonControl()
@@ -879,6 +1085,7 @@ class UtilViewControlComponent(ViewControlComponent):
 
 class Util(ControlSurface):
 
+	device_provider_class = ModDeviceProvider
 	bank_definitions = BANK_DEFINITIONS
 
 	def __init__(self, c_instance, *a, **k):
@@ -901,8 +1108,10 @@ class Util(ControlSurface):
 			self._setup_view_control()
 			self._setup_transport()
 			self._setup_device_controls()
+			self._setup_mod()
 			self._setup_main_modes()
 			self._initialize_script()
+
 
 	@listenable_property
 	def pipe(self):
@@ -927,14 +1136,29 @@ class Util(ControlSurface):
 		is_momentary = False
 		optimized = True
 		resource = PrioritizedResource
-		self._button = [ButtonElement(is_momentary = is_momentary if not index in range(47,63) else True, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
+		color_map = COLOR_MAP
+		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary if not index in range(47,63) else True, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
 		self._fader = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 		self._dial = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 17, map_mode = Live.MidiMap.MapMode.absolute, name = 'Dial', resource_type = resource)
 		self._track_select_matrix = ButtonMatrixElement(name = 'TrackSelectMatrix', rows = [self._button[34:42]])
-		self._device_select_matrix = ButtonMatrixElement(name = 'DeviceSelectMatrix', rows = [self._button[47:55]])
-		self._chain_select_matrix = ButtonMatrixElement(name = 'ChainSelectMatrix', rows = [self._button[55:63]])
-		self._encoder = [SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
+		self._device_select_matrix = ButtonMatrixElement(name = 'DeviceSelectMatrix', rows = [self._button[48:56]])
+		self._chain_select_matrix = ButtonMatrixElement(name = 'ChainSelectMatrix', rows = [self._button[56:64]])
+		self._encoder = [SpecialEncoderElement(name = 'Encoder_'+str(index), msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
 		self._encoder_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder]) #, self._encoder[8:]])
+		# self._grid = ButtonMatrixElement(name = 'ModGrid', rows = [self._button[47:55],
+		# 															self._button[55:63],
+		# 															self._button[64:72],
+		# 															self._button[72:80],
+		# 															self._button[80:88],
+		# 															self._button[88:96],
+		# 															self._button[96:104],
+		# 															self._button[104:112]])
+
+		self._keys = ButtonMatrixElement(name = 'ModKeys', rows = [self._button[64:72]])
+		self._grid = ButtonMatrixElement(name = 'ModGrid', rows = [self._button[72:80],
+																	self._button[80:88],
+																	self._button[88:96],
+																	self._button[96:104]])
 
 
 	def _setup_autoarm(self):
@@ -999,7 +1223,7 @@ class Util(ControlSurface):
 
 	def _setup_transport(self):
 		self._transport = TransportComponent()
-		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[43], record_button = self._button[44])
+		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[42], record_button = self._button[43])
 
 	def _setup_device_controls(self):
 		self._device_bank_registry = DeviceBankRegistry()
@@ -1010,7 +1234,7 @@ class Util(ControlSurface):
 													device_bank_registry = self._device_bank_registry,
 													banking_info = self._banking_info,
 													name = u"DeviceComponent")
-		self._parameter_provider.layer = Layer(bank_up_button = self._button[44], bank_down_button = self._button[43])
+		# self._parameter_provider.layer = Layer(bank_up_button = self._button[44], bank_down_button = self._button[43])
 		self._device = UtilDeviceParameterComponent(parameter_provider = self._parameter_provider)
 		self._device.layer = Layer(parameter_controls = self._encoder_matrix)
 		self._device.set_enabled(False)
@@ -1021,22 +1245,71 @@ class Util(ControlSurface):
 																device_component = self._parameter_provider,
 																track_list_component = self._track_list_component)
 		self._device_navigation.layer = Layer(select_buttons = self._device_select_matrix)
-		self._device_navigation.scroll_left_layer = Layer(button = self._button[47], priority = 5)
-		self._device_navigation.scroll_right_layer = Layer(button = self._button[54], priority = 5)
+		self._device_navigation.scroll_left_layer = Layer(button = self._button[48], priority = 5)
+		self._device_navigation.scroll_right_layer = Layer(button = self._button[55], priority = 5)
 		self._device_navigation.chain_selection.layer = Layer(select_buttons = self._chain_select_matrix, priority = 5)
-		self._device_navigation.chain_selection.scroll_left_layer = Layer(button = self._button[55], priority = 5)
-		self._device_navigation.chain_selection.scroll_right_layer = Layer(button = self._button[62], priority = 5)
+		self._device_navigation.chain_selection.scroll_left_layer = Layer(button = self._button[56], priority = 5)
+		self._device_navigation.chain_selection.scroll_right_layer = Layer(button = self._button[63], priority = 5)
 		self._device_navigation.bank_selection.layer = Layer(option_buttons = self._device_select_matrix, select_buttons = self._chain_select_matrix, priority = 5)
-		self._device_navigation.bank_selection.scroll_left_layer = Layer(button = self._button[55], priority = 5)
-		self._device_navigation.bank_selection.scroll_right_layer = Layer(button = self._button[62], priority = 5)
-		#self._device_navigation._modes.layer = Layer(chain_selection_button = self._button[45], bank_selection_button = self._button[46])
+		self._device_navigation.bank_selection.scroll_left_layer = Layer(button = self._button[56], priority = 5)
+		self._device_navigation.bank_selection.scroll_right_layer = Layer(button = self._button[63], priority = 5)
 		self._device_navigation.set_enabled(False)
+
+	def _setup_mod(self):
+
+		def get_monomodular(host):
+				if isinstance(__builtins__, dict):
+					if not 'monomodular' in __builtins__.keys() or not isinstance(__builtins__['monomodular'], ModRouter):
+						__builtins__['monomodular'] = ModRouter(song = self.song, register_component = self._register_component)
+				else:
+					if not hasattr(__builtins__, 'monomodular') or not isinstance(__builtins__['monomodular'], ModRouter):
+						setattr(__builtins__, 'monomodular', ModRouter(song = self.song, register_component = self._register_component))
+				monomodular = __builtins__['monomodular']
+				if not monomodular.has_host():
+					monomodular.set_host(host)
+				return monomodular
+
+
+		self.monomodular = get_monomodular(self)
+		self.monomodular.name = 'monomodular_switcher'
+		with inject(register_component = const(self._register_component), song = const(self.song)).everywhere():
+			self.modhandler = UtilModHandler(self) ## song = self.song, register_component = self._register_component)
+		self.modhandler.name = 'ModHandler'
+		self.modhandler.layer = Layer( priority = 6, grid = self._grid, key_buttons = self._keys, Shift_button = self._button[46], Alt_button = self._button[47])
+		# self.modhandler.layer = Layer( priority = 6, lock_button = self.elements.note_mode_button, grid = self.elements.matrix,
+		# 																	nav_up_button = self.elements.octave_up_button,
+		# 																	nav_down_button = self.elements.octave_down_button,
+		# 																	nav_left_button = self.elements.in_button,
+		# 																	nav_right_button = self.elements.out_button,
+		# 																	key_buttons = self.elements.side_buttons,
+		# 																	)
+		self.modhandler.alt_shift_layer = AddLayerMode( self.modhandler, Layer(Shift_button = self._button[46],
+																			Alt_button = self._button[47]))
+		self.modhandler.legacy_shift_layer = AddLayerMode( self.modhandler, Layer(priority = 7,
+																			device_selector_matrix = self._grid.submatrix[:, :1],
+																			channel_buttons = self._grid.submatrix[:, 1:2],))
+		# 																	nav_matrix = self.elements.matrix.submatrix[4:8, 2:6],
+		# 																	))
+		self.modhandler.shift_layer = AddLayerMode( self.modhandler, Layer( priority = 7,
+																			device_selector_matrix = self._grid.submatrix[:, :1],
+																			))
+		# 																	#lock_button = self.elements.master_select_button,
+		# 																	#))
+		self.modhandler.alt_layer = AddLayerMode( self.modhandler, Layer( priority = 7,
+																			))
+		# 																	#key_buttons = self.elements.select_buttons))
+		# 																	#key_buttons = self.elements.track_state_buttons))
+		self._device_provider.restart_mod()
+
+
 
 	def _setup_main_modes(self):
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode('Main', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
+		# self._main_modes.layer = Layer(Main_button = self._button[44], Mod_button = self._button[45])
 		self._main_modes.set_enabled(False)
 
 	def _can_auto_arm_track(self, track):
@@ -1057,6 +1330,9 @@ class Util(ControlSurface):
 		debug('receive_cc', num, val)
 		self.receive_midi(tuple([176, num, val]))
 
+	def refresh_state(self, *a, **k):
+		super(Util, self).refresh_state(*a, **k)
+		self.modhandler.update()
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
 		debug('load_preset()', 'target:', target, 'folder:', folder, 'directory:', directory)
 		if not target is None:

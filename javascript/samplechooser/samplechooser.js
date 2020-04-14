@@ -15,6 +15,8 @@ var DEBUG = false;
 var VIEW_DEVICEDICT = false;
 aumhaa.init(this);
 
+var APIUtility = require('aumhaa_LiveAPI_util').APIUtility;
+
 var finder;
 var mod;
 var found_mod;
@@ -49,7 +51,7 @@ var AUDITION_DURATION = 200;
 var AUTODETECT_PARENT_DEVICE_INSTEAD_OF_NEXT_DEVICE = true;
 var USE_RELAY_FOR_AUDITION = false;
 
-var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice'];
+var DEVICE_TYPES = ['InstrumentGroupDevice','DrumGroupDevice','MidiEffectGroupDevice','Operator','UltraAnalog','OriginalSimpler','MultiSampler','LoungeLizard','StringStudio','Collision','InstrumentImpulse','NoDevice','Other'];
 var DRUMCHOOSER_BANKS = {};
 for(var i in DEVICE_TYPES){
 	DRUMCHOOSER_BANKS[DEVICE_TYPES[i]] = [['Transpose', 'Mod_Chain_Vol', 'Filter Freq', 'Filter Res', 'Shaper Amt', 'Filter Type', 'Ve Release', 'Detune']];
@@ -69,10 +71,7 @@ function note_in(){}
 function init(){
 	debug('init', script._name);
 	mod = new ModProxy(script, ['Send', 'SendDirect', 'restart']);
-	//found_mod = new Mod(script, 'samplechooser', unique, false);
-	//mod.debug = debug;
-	mod_finder = new LiveAPI(mod_callback, 'this_device');
-	//found_mod.assign_api(mod_finder);
+
 
 	setup_tasks();
 	setup_translations();
@@ -87,11 +86,16 @@ function init(){
 	setup_modes();
 	setup_listeners();
 	setup_storage();
-	setup_global_link();
+	// setup_global_link();
 	setup_tests();
 	deprivatize_script_functions(this);
 
 	update_background();
+
+	found_mod = new Mod(script, 'samplechooser', unique, false);
+	// found_mod.debug = debug;
+	mod_finder = new LiveAPI(mod_callback, 'this_device');
+	found_mod.assign_api(mod_finder);
 
 	Alive = true;
 }
@@ -126,6 +130,8 @@ function alive(val){
 
 function initialize(){
 	mod = found_mod;
+	setup_device();
+	_redetect_adjacent_rack();
 }
 
 function setup_tasks(){
@@ -162,7 +168,7 @@ function setup_controls(){
 		{
 			var func = function(value, suppress_block)
 			{
-				//debug('sending:', args[0], args[1], args[2], args[3], value);
+				// (args[0]=='grid_text') && (debug('sending:', args[0], args[1], args[2], args[3], value));
 				mod.Send(args[0], args[1], args[2], args[3], value);
 			}
 		}
@@ -183,7 +189,8 @@ function setup_controls(){
 		for(var y=0;y<8;y++)
 		{
 			var id = x+(y*8);
-			grid[x][y] = new ButtonClass(id, 'Cell_'+id, make_send_func('grid', 'value', x, y));
+			grid[x][y] = new ButtonClass(id, 'Cell_'+id, make_send_func('grid', 'value', x, y), {send_text:make_send_func('grid_text', 'value', x, y)});
+			grid[x][y].add_bound_properties(grid[x][y], ['_send_text']);
 			raw_grid.push(grid[x][y]);
 			GridControlRegistry.register_control(id, grid[x][y]);
 			Grid.add_control(x, y, grid[x][y]);
@@ -192,7 +199,7 @@ function setup_controls(){
 
 	for(var id=0;id<8;id++)
 	{
-		KeyButtons[id] = new ButtonClass(id, 'Key_'+id, make_send_func('key', 'value', id));
+		KeyButtons[id] = new ButtonClass(id, 'Key_'+id, make_send_func('key', 'value', id), {send_text:make_send_func('key_text', 'value', id)});
 		Key2Buttons[id] = new ButtonClass(id, 'Key2_'+id, make_send_func('key2', 'value', id));
 		KeysControlRegistry.register_control(id, KeyButtons[id]);
 		Keys2ControlRegistry.register_control(id, Key2Buttons[id]);
@@ -232,7 +239,7 @@ function setup_editor(){
 function setup_components(){
 	var current_layer_value = layer.getvalueof();
 	debug('current_layer_value', current_layer_value);
-	script['layerChooser'] = new PagedRadioComponent('LayerChooser', 0, 128, current_layer_value, undefined, 1, 11, {'play_callback':audition});
+	script['layerChooser'] = new PagedRadioComponent('LayerChooser', 0, 128, current_layer_value, undefined, 1, 0, {'play_callback':audition});
 	script['rackDevice'] = new RackDevice('RackDevice');
 	rackDevice.set_layerChooser(layerChooser);
 	layerChooser.set_target(rackDevice.set_parameter_value);
@@ -270,10 +277,12 @@ function setup_device(){
 	mod.Send('receive_device', 'set_mod_device_type', 'DrumChooser');
 	mod.Send( 'receive_device', 'set_number_params', 16);
 	//detect_adjacent_drumrack();
+	debug('SETUP_DEVICE');
 	for(var dev_type in DRUMCHOOSER_BANKS)
 	{
 		for(var bank_num in DRUMCHOOSER_BANKS[dev_type])
 		{
+			debug('Sending bank:', dev_type, bank_num, DRUMCHOOSER_BANKS[dev_type][bank_num]);
 			mod.SendDirect('receive_device_proxy', 'set_bank_dict_entry', dev_type, bank_num, DRUMCHOOSER_BANKS[dev_type][bank_num]);
 		}
 		//mod.Send('receive_device_proxy', 'update_parameters');
@@ -288,7 +297,7 @@ function setup_modes(){
 		debug('mainPage entered');
 		layerChooser.set_controls(Grid);
 		layerChooser.activeLayer.set_control(LayerDial);
-		layerChooser._page_offset.set_control(KeyButtons[7]);
+		layerChooser._page_offset.set_controls([KeyButtons[4], KeyButtons[5], KeyButtons[6], KeyButtons[7]]);
 		//layerChooser._detentDialValue.set_control(DetentDial);
 	}
 	mainPage.exit_mode = function()
@@ -320,6 +329,7 @@ function setup_modes(){
 
 function setup_listeners(){
 	//debug('track id:', track_id());
+	// Grid.add_listener(function(x, y, val){debug('grid input:', x, y, val); });
 }
 
 function setup_storage(){}
@@ -348,6 +358,7 @@ function dissolve_global_link(){
 
 function setup_tests(){
   //introspect_global();
+	// layerChooser.update_controls();
 }
 
 
@@ -594,18 +605,33 @@ function selected_device(val){
 }
 
 
+function auto_populate_names(){
+	var names = [];
+
+}
 
 
 function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue, offValue, args){
-	this._faveValue = 30;
-  this._faveValue2 = 60;
-  this._faveOffValue = 80;
-  this._faveOffValue2 = 100;
+	this._faveValue = 5;
+  this._faveValue1 = 5;
+	this._faveValue2 = 5;
+  this._faveValue3 = 5;
+  this._faveOffValue = 4;
+  this._faveOffValue1 = 4;
+	this._faveOffValue2 = 4;
+  this._faveOffValue3 = 4;
+	this._onValue1 = 1;
 	this._onValue2 = 1;
-	this._offValue2 = 23;
-  this._page_offset = new ToggledParameter(this._name + '_PageOffset', {'onValue':50, 'offValue':40, 'value':0});
+	this._onValue3 = 1;
+	this._offValue1 = 0;
+	this._offValue2 = 0;
+	this._offValue3 = 0;
+  // this._page_offset = new ToggledParameter(this._name + '_PageOffset', {'onValue':50, 'offValue':40, 'value':0});
+	// this._page_offset.set_target(this._page_offset_callback.bind(this));
+	// this._page_length = 64;
+	this._page_offset = new RadioComponent(this._name + '_PageOffset', 0, 3, 0, undefined, 6, 1, {'onValue':6, 'offValue':1, 'value':0});
 	this._page_offset.set_target(this._page_offset_callback.bind(this));
-	this._page_length = 64;
+	this._page_length = 32;
   this.fave_skip = new ToggledParameter(this._name + '_FaveSkip', {'onValue':50, 'offValue':40, 'value':0});
 	this._play_callback = undefined;
 	this.activeLayer = new RangedParameter('activeLayer', 128);
@@ -619,9 +645,44 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
 	this._favorites = dict.contains('favorites') ? dict.get('favorites') : [];
 	debug('favorites:', this._favorites);
 	//this._favorites = this._favorites.length ? this._favorites : [];
+	debug('names:', dict.contains('names'));
 	this._names = dict.contains('names') ? dict.get('names') : DEFAULT_NAMES;
+	debug('names are:', this._names);
 	//this._names = this._names.length == 128 ? this._names : DEFAULT_NAMES;
-	this.add_bound_properties(this, ['dependent_listener_callback', '_names', 'store_names', 'set_current_name', 'update_names_display', '_play_callback', '_detent_dial_callback', 'toggle_favorite_status', 'is_favorite', 'activeLayer', 'activeLayer_callback', 'next_favorite', 'previous_favorite', '_Callback', 'update_controls', '_page_offset_callback', 'increase_value', 'decrease_value', '_parent', '_faveValue', '_faveValue2', '_faveOffValue', '_faveOffValue2']);
+	this.add_bound_properties(this, ['dependent_listener_callback',
+	 																	'_names',
+																		'store_names',
+																		'set_current_name',
+																		'update_names_display',
+																		'_play_callback',
+																		'_detent_dial_callback',
+																		'toggle_favorite_status',
+																		'is_favorite',
+																		'activeLayer',
+																		'activeLayer_callback',
+																		'next_favorite',
+																		'previous_favorite',
+																		'_Callback',
+																		'update_controls',
+																		'_page_offset_callback',
+																		'increase_value',
+																		'decrease_value',
+																		'_parent',
+																		'_faveValue',
+																		'_faveValue1',
+																		'_faveOffValue',
+																		'_faveOffValue1',
+																		'_faveValue2',
+																		'_faveValue3',
+																		'_faveOffValue2',
+																		'_faveOffValue3',
+																		'_onValue1',
+																		'_onValue2',
+																		'_onValue3',
+																		'_offValue1',
+																		'_offValue2',
+																		'_offValue3'
+																	]);
 
 	PagedRadioComponent.super_.call(this, name, minimum, maximum, initial, callback, onValue, offValue, args);
 	this.add_listener(this.dependent_listener_callback);
@@ -635,7 +696,7 @@ PagedRadioComponent.prototype.dependent_listener_callback = function(obj){
 		editorWindow.objs.cellblock.message('select', 0, obj._value);
 		messnamed(unique+'cellblock_scroll', 'sync', 'click', 1, obj._value, 1, 1);
 		editorWindow.objs.textedit.message('set', this._names[obj._value]);
-		rackDevice.update_controlled_parameters(this._value);
+		// rackDevice.update_controlled_parameters(this._value);
 }
 
 PagedRadioComponent.prototype.activeLayer_callback = function(obj){
@@ -662,10 +723,10 @@ PagedRadioComponent.prototype._Callback = function(obj){
 		var val = this._buttons.indexOf(obj) + (this._page_offset._value*this._page_length);
     if(!AltButton.pressed())
     {
-  		debug('PagedRadio:', obj, obj._value, val, this._page_offset._value, '*', this._page_length);
+  		// debug('PagedRadio:', obj, obj._value, val, this._page_offset._value, '*', this._page_length);
   		this.set_value(val);
   		if(this._apiObj){this._apiObj.set('value', val);}
-			debug('PagedRadio:', this._value);
+			// debug('PagedRadio:', this._value);
 			if(this._play_callback)
 			{
 				this._play_callback(obj);
@@ -689,6 +750,7 @@ PagedRadioComponent.prototype.store_names = function(){
 	dict.replace('names', this._names);
 	VIEW_DEVICEDICT&&dict_obj.message('wclose');
 	VIEW_DEVICEDICT&&dict_obj.message('edit');
+	this.update_controls();
 }
 
 PagedRadioComponent.prototype.update_names_display = function(){
@@ -699,6 +761,7 @@ PagedRadioComponent.prototype.update_names_display = function(){
 		var fgcolor = fav ? [256, 256, 256] : [0, 0, 0];
 		editorWindow.objs.cellblock.message('cell', 0, i, 'brgb', bgcolor);
 		editorWindow.objs.cellblock.message('cell', 0, i, 'frgb', fgcolor);
+		//grid.send_text((i%8), Math.floor(i/8), this._names[i]);
 	}
 }
 
@@ -724,21 +787,54 @@ PagedRadioComponent.prototype.update_controls = function(){
   var faves = this._favorites;
   //debug('faves:', faves)
   var offset = Math.floor(this._page_offset._value*this._page_length);
-	for(var i in this._buttons)
-	{
-		if(this._buttons[i])
-		{
+	for(var i in this._page_offset._buttons){
+		// debug('sending:', 'Page'+(i+1));
+		var num = Math.floor(i)+1;
+		this._page_offset._buttons[i]._send_text('Page '+num);
+	}
+	for(var i in this._buttons){
+		if(this._buttons[i]){
+			// debug('updating button:', i);
+
       var actual = parseInt(i) + offset;
+			this._buttons[i]._send_text(this._names[actual]);
       //debug('indexOf:', actual, faves.indexOf(actual), 'this._value:', this._value);
-      if(faves.indexOf(actual)>-1)
-      {
+			var is_selected = (this._buttons.indexOf(this._buttons[i])+offset)==this._value ;
+      if(faves.indexOf(actual)>-1){
 				//debug('value to send:', ((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._faveValue2 : this._faveValue : this._page_offset._value ? this._faveOffValue2 : this._faveOffValue));
-        this._buttons[i].send((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._faveValue2 : this._faveValue : this._page_offset._value ? this._faveOffValue2 : this._faveOffValue);
-      }
-      else
-      {
+				// this._buttons[i].send((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._faveValue2 : this._faveValue : this._page_offset._value ? this._faveOffValue2 : this._faveOffValue);
+			  switch(this._page_offset._value){
+					case 0:
+						this._buttons[i].send(is_selected ? this._faveValue : this._faveOffValue);
+						break;
+					case 1:
+						this._buttons[i].send(is_selected ? this._faveValue1 : this._faveOffValue1);
+						break;
+					case 2:
+						this._buttons[i].send(is_selected ? this._faveValue2 : this._faveOffValue2);
+						break;
+					case 3:
+						this._buttons[i].send(is_selected ? this._faveValue3 : this._faveOffValue3);
+						break;
+				}
+			}
+      else{
 				//debug('value to send:', (this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._onValue2 : this._onValue : this._page_offset._value ? this._offValue2 : this._offValue);
-        this._buttons[i].send((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._onValue2 : this._onValue : this._page_offset._value ? this._offValue2 : this._offValue);
+        // this._buttons[i].send((this._buttons.indexOf(this._buttons[i])+offset)==this._value ? this._page_offset._value ? this._onValue2 : this._onValue : this._page_offset._value ? this._offValue2 : this._offValue);
+				switch(this._page_offset._value){
+					case 0:
+						this._buttons[i].send(is_selected ? this._onValue : this._offValue);
+						break;
+					case 1:
+						this._buttons[i].send(is_selected ? this._onValue1 : this._offValue1);
+						break;
+					case 2:
+						this._buttons[i].send(is_selected ? this._onValue2 : this._offValue2);
+						break;
+					case 3:
+						this._buttons[i].send(is_selected ? this._onValue3 : this._offValue3);
+						break;
+				}
       }
 		}
 	}
@@ -927,7 +1023,8 @@ RackDevice.prototype.detect_next_device_for_parameter_control = function(){
 			debug('found a device....');
 			finder.goto('devices', this_device_index+1);
 			debug('sending dev id:', parseInt(finder.id));
-			mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  parseInt(finder.id));
+			// mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_parent', 'id',  parseInt(finder.id));
+			mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device', 'id',  parseInt(finder.id));
 		}
 		else{
 			post('No Adjacent Device found to control.');
@@ -1018,10 +1115,14 @@ RackDevice.prototype.update_controlled_parameters = function(num){
 	}
 	debug('id is:', id);
 	mod.Send( 'send_explicit', 'receive_device_proxy', 'set_mod_device_chain', num);
-	mod.Send( 'push_name_display', 'value', 0, 'SelLayer');
-	mod.Send( 'push_name_display', 'value', 1, num);
-	mod.Send( 'push_name_display', 'value', 2, 'DeviceName');
-	mod.Send( 'push_name_display', 'value', 3, finder.get('name'));
+	// mod.Send( 'push_name_display', 'value', 0, 'SelLayer');
+	// mod.Send( 'push_name_display', 'value', 1, num);
+	// mod.Send( 'push_name_display', 'value', 2, 'DeviceName');
+	// mod.Send( 'push_name_display', 'value', 3, finder.get('name'));
+	// KeyButtons[0]._send_text('SelLayer');
+	// KeyButtons[1]._send_text(num);
+	// KeyButtons[2]._send_text('DeviceName');
+	// KeyButtons[3]._send_text(finder.get('name'));
 }
 
 
@@ -1157,199 +1258,18 @@ EditorModule.prototype.receive = function(num, val){
 		case 'Dec':
 			script._Dec(val);
 			break;
+		case 'unlock':
+			this.unlock();
+			break;
+		case 'populate':
+			script.auto_populate_names();
+			break;
 		default:
 			break;
 	}
 }
 
 
-function APIUtility(finder){
-	var self = this;
-	this.finder = finder;
-	this.device_id = parseInt(this.finder.id);
-	this.container_id = parseInt(this.container_from_id(this.device_id));
-}
-
-APIUtility.prototype.track_from_id = function(id){
-	this.finder.id = id;
-	var recurse = function(id){
-		if(id == 0){
-			return 0;
-		}
-		this.finder.goto('canonical_parent');
-		if(this.finder.type=='Track'){
-			return parseInt(this.finder.id);
-		}
-		else{
-			return recurse(id);
-		}
-	}
-	return recurse(id);
-}
-
-APIUtility.prototype.container_from_id = function(id){
-	this.finder.id = id;
-	this.finder.goto('canonical_parent');
-	return parseInt(this.finder.id);
-}
-
-APIUtility.prototype.previous_device = function(track, device){
-	var device_id = device;
-	this.finder.id = device;
-	this.finder.goto('canonical_parent');
-	if(!(this.finder.type=='Chain')){
-		//debug('container is track')
-		this.finder.id = track;
-	}
-	var devices = this.finder.get('devices').filter(function(element){return element !== 'id';});
-	var index = devices.indexOf(device_id);
-	if(index > 0){
-		device_id = devices[index-1];
-	}
-	return device_id
-}
-
-APIUtility.prototype.next_device = function(track, device){
-	var device_id = device;
-	this.finder.id = device;
-	this.finder.goto('canonical_parent');
-	if(!(this.finder.type=='Chain')){
-		//debug('container is track')
-		this.finder.id = track;
-	}
-	var devices = this.finder.get('devices').filter(function(element){return element !== 'id';});
-	var index = devices.indexOf(device_id);
-	if(index < (devices.length-1)){
-		device_id = devices[index+1];
-	}
-	return device_id
-}
-
-APIUtility.prototype.device_name_from_id = function(id){
-	var new_name = 'None';
-	this.finder.id = parseInt(id);
-	if(id > 0){
-		new_name = this.finder.get('name').slice(0,40);
-		/*var new_name = [];
-		new_name.unshift(this.finder.get('name'));
-		this.finder.goto('canonical_parent');
-		//this._this.finder.goto('canonical_parent');
-		new_name.unshift(' || ');
-		new_name.unshift(this.finder.get('name'));
-		new_name = new_name.join('');
-		new_name = new_name.slice(0, 40);*/
-	}
-	return new_name;
-}
-
-APIUtility.prototype.container_name_from_id = function(id){
-	var new_name = 'None';
-	this.finder.id = parseInt(id);
-	if(id > 0){
-		var new_name = this.finder.get('name').slice(0, 40);
-	}
-	return new_name;
-}
-
-APIUtility.prototype.name_from_id = function(id){
-	var new_name = 'None';
-	this.finder.id = parseInt(id);
-	if(id > 0){
-		var new_name = this.finder.get('name').slice(0, 40);
-	}
-	return new_name;
-}
-
-APIUtility.prototype.device_input_from_id = function(id){
-	if(id==this_device_id){
-		this.finder.id = parseInt(container_id);
-		var new_name = [':Track Input'];
-		new_name.unshift(this.finder.get('name'));
-		new_name = new_name.join('');
-		new_name = new_name.slice(0, 40);
-		return new_name;
-	}
-	else{
-		return device_name_from_id(id);
-	}
-}
-
-APIUtility.prototype.device_output_from_id = function(id){
-	if(id==this.device_id){
-		this.finder.id = parseInt(this.container_id);
-		var new_name = [':Track Output'];
-		new_name.unshift(this.finder.get('name'));
-		new_name = new_name.join('');
-		new_name = new_name.slice(0, 40);
-		return new_name;
-	}
-	else{
-		return device_name_from_id(id);
-	}
-}
-
-APIUtility.prototype.drum_output_note_from_drumchain = function(id){
-	var note = undefined;
-	this.finder.id = id;
-	if(this.finder.type=='DrumChain'){
-		note = this.finder.get('out_note')
-	}
-	debug('drum_note_from_chain', finder.path, note);
-	return note;
-}
-
-APIUtility.prototype.drum_input_note_from_drumchain = function(id){
-	var note = undefined;
-	var drumchain_id = id;
-	this.finder.id = drumchain_id;
-	if(this.finder.type=='DrumChain'){
-		this.finder.goto('canonical_parent');
-		var drumrack_id = parseInt(this.finder.id);
-		for(var i=0;i<127;i++){
-			this.finder.id = drumrack_id;
-			this.finder.goto('drum_pads', i);
-			var count = this.finder.getcount('chains');
-			//debug('count', count);
-			if(count){
-				var chains = this.finder.get('chains').filter(function(element){return element !== 'id';});
-				//debug('chains', chains, drumrack_id);
-				var index = chains.indexOf(drumchain_id);
-				if((index >-1)||(chains==drumchain_id)){
-					//debug('found chain!');
-					note = this.finder.get('note');
-					break;
-				}
-			}
-		}
-	}
-	//debug('drum_note_from_chain', note);
-	return note;
-}
-
-//draft
-APIUtility.is_container = function(id){
-	finder.id = id;
-	var type = finder.type;
-	return ['Track', 'Chain', 'DrumChain', 'RackDevice', 'DrumPad'].indexOf(type)>-1;
-}
-
-//draft
-APIUtility.chain_ids_from_parent = function(id){
-	var ids = [];
-	finder.id = id;
-	if(finder.get('can_have_chains')){
-		ids = finder.get('chains').filter(function(element){return element !== 'id';});
-	}
-	return ids;
-}
-
-//draft
-APIUtility.device_ids_from_parent = function(id){
-	var ids = [];
-	finder.id = id;
-	ids = finder.get('devices').filter(function(element){return element !== 'id';});
-	return ids;
-}
 
 
 function Global_Proxy_Object(){

@@ -7,13 +7,27 @@ var util = require('aumhaa_util');
 util.inject(this, util);
 var api_util = require('aumhaa_LiveAPI_util');
 
+var control_names = require('commander_map').control_names;
+var COLORS = {white:[.7, .7, .7],
+							off:[0, 0, 0],
+							red:[.7, 0, 0],
+							green:[0, .7, 0],
+							blue:[0, 0, .7],
+							cyan:[0, .7, .7],
+							yellow:[.7, .7, 0],
+							magenta:[.7, 0, .7]};
+
+var color_order = [COLORS.white,COLORS.yellow,COLORS.cyan,COLORS.magenta,COLORS.red,COLORS.green,COLORS.blue];
+var colors = [COLORS.off];
+for(var i=0;i<127;i++){
+	colors[i+1] = color_order[i%7];
+}
 
 var Alive = false;
 var _name = jsarguments[0];
 var finder;
 var control_surface;
 var return_value;
-var control_names = [];
 var controls = {};
 var EXCLUDED = ['control', 'control_names', 'done'];
 var control_surface_type = jsarguments[1]||'None';
@@ -25,7 +39,6 @@ var VIEW_DEVICE = false;
 aumhaa.init(this);
 var script = this;
 
-
 if(typeof(String.prototype.trim) === "undefined")
 {
 	String.prototype.trim = function()
@@ -33,78 +46,6 @@ if(typeof(String.prototype.trim) === "undefined")
 		return String(this).replace(/^\s+|\s+$/g, '');
 	}
 }
-
-control_names = [
-								"arm_selected",
-								"mute_selected",
-								"solo_selected",
-								"fire_next_clip",
-								"fire_prev_clip",
-								"stop_clip",
-								"stop_all_clips",
-								"select_playing_clip",
-								"new_scene",
-								"arm_kill",
-								"mute_kill",
-								"solo_kill",
-								"mute_flip",
-								"arm_excl",
-								"mute_excl",
-								"solo_excl",
-								"toggle_autoarm",
-								"toggle_clip_detail",
-								"create_audio_track",
-								"create_midi_track",
-								"undo",
-								"redo",
-								"toggle_detail_clip_loop",
-								"select_first_armed_track",
-								"fire_next_clip_abs",
-								"fire_prev_clip_abs",
-								"fire_next_armed",
-								"fire_all_armed",
-								"prev_track",
-								"next_track",
-								"play",
-								"stop",
-								"bank_track_left",
-								"bank_track_right",
-								"track_select[0]",
-								"track_select[1]",
-								"track_select[2]",
-								"track_select[3]",
-								"track_select[4]",
-								"track_select[5]",
-								"track_select[6]",
-								"track_select[7]",
-								"place_holder",
-								"metro_toggle",
-								"record",
-								"bank_device_left",
-								"bank_device_right",
-								"device_select[0]",
-								"device_select[1]",
-								"device_select[2]",
-								"device_select[3]",
-								"device_select[4]",
-								"device_select[5]",
-								"device_select[6]",
-								"device_select[7]",
-								"track[0]",
-								"track[1]",
-								"track[2]",
-								"track[3]",
-								"track[4]",
-								"track[5]",
-								"track[6]",
-								"track[7]"];
-
-// "volume_slider",
-// "enter",
-// "dir_left",
-// "dir_up",
-// "dir_right",
-// "dir_down",
 
 
 function init(){
@@ -119,10 +60,13 @@ function init(){
 }
 
 function continue_init(){
+	setup_controls();
   setup_session_ring();
 	setup_mixer();
 	setup_device_controls();
 	setup_device_navigation();
+	setup_listeners();
+	setup_tests();
 	control_surface.call('refresh_state');
 }
 
@@ -161,6 +105,70 @@ function setup_patcher(){
 
 function setup_apiUtil(){
 	script.apiUtil = new api_util.APIUtility();
+}
+
+function setup_controls(){
+
+	var make_textbutton_callback = function(id){
+		var callback = function(args){
+			if((args[0]=='text')&&(args[1]!='id')){
+				if(controls[control_names[id]]){
+					controls[control_names[id]].message('text', args.slice(1).join());
+				}
+			}
+		}
+		return callback;
+	}
+
+	var make_send_func = function(id, maxObj){
+		var func = function(color_index){
+			// (args[0]=='grid_text') && (debug('sending:', args[0], args[1], args[2], args[3], value));
+			maxObj.message('activebgcolor', colors[color_index]);
+			// obj.call('recieve_value', value);
+			// _call_function('receive_note', obj)
+		}
+		return func;
+	}
+
+	script['ControlRegistry'] = new ControlRegistry('ControlRegistry');
+	script['grid'] = [];
+	script['gridRaw'] = [];
+	script['key'] = [];
+	script['Grid'] = new GridClass(8, 4, 'Grid');
+	script['Keys'] = new GridClass(8, 1, 'Keys');
+	script['ShiftButton'] = new ButtonClass('shift', 'Shift', function(){});
+	script['AltButton'] = new ButtonClass('alt', 'Alt', function(){});
+
+
+
+	var path = control_surface.path;
+
+	for(var x=0;x<8;x++)
+	{
+		grid[x] = [];
+		for(var y=0;y<5;y++)
+		{
+			var index = x+(y*8);
+			var id = index + 64;
+			var apiObj = new LiveAPI(make_textbutton_callback(id), path);
+			apiUtil.set_control_by_name(apiObj, 'Button_'+id);
+			if(apiObj.id != 0){
+				apiObj.property = 'text';
+			}
+			var maxObj = controls[control_names[id]];
+ 			gridRaw[index]= new ModButton(id, 'modButton_'+index, make_send_func(id, maxObj), {'maxObj':maxObj, 'apiObj':apiObj});
+			if(y > 0){
+
+				grid[x][y-1] = gridRaw[index];
+				Grid.add_control(x, y-1, gridRaw[index]);
+			}
+			else{
+				key[x] = gridRaw[index]
+				Keys.add_control(x, 0, key[x]);
+			}
+			ControlRegistry.register_control((id), gridRaw[index]);
+		}
+	}
 }
 
 function setup_session_ring(){
@@ -320,31 +328,61 @@ function setup_device_navigation(){
 	debug('device_names:', device_names.id);
 }
 
-var COLORS = {white:[.7, .7, .7],
-							off:[0, 0, 0],
-							red:[.7, 0, 0],
-							green:[0, .7, 0],
-							blue:[0, 0, .7],
-							cyan:[0, .7, .7],
-							yellow:[.7, .7, 0],
-							magenta:[.7, 0, .7]};
+function setup_listeners(){
+	// Grid.add_listener(function(obj){debug('Grid:', Grid.button_coords(obj), obj._value);});
+}
 
-var color_order = [COLORS.white,COLORS.yellow,COLORS.cyan,COLORS.magenta,COLORS.red,COLORS.green,COLORS.blue];
-var colors = [COLORS.off];
-for(var i=0;i<127;i++){
-	colors[i+1] = color_order[i%7];
+function setup_tests(){
+	// gridRaw[0].send(1);
+	// grid[0][0].send(1);
+	// key[0].send(1);
+	//Grid.send(0, 0, 1);
+}
+
+function setup_modes(){
+	//Page 1:  mainPage
+	script['mainPage'] = new Page('mainPage');
+	mainPage.enter_mode = function()
+	{
+		debug('mainPage entered');
+	}
+	mainPage.exit_mode = function()
+	{
+		debug('mainPage exited');
+	}
+	mainPage.update_mode = function()
+	{
+		debug('mainPage updated');
+		if(mainPage._shifted)
+		{
+			debug('mainPage._shifted');
+		}
+		else if(mainPage._alted)
+		{
+			debug('mainPage._alted');
+		}
+		else
+		{
+			mainPage.enter_mode();
+		}
+	}
+	script["MainModes"] = new PageStack(1, 'Main Mode');
+	MainModes.add_mode(0, mainPage);
+	//MainModes.set_mode_cycle_button();
+	MainModes.change_mode(0);
 }
 
 function pipe_callback(args){
 	//debug('args', args);
-	if(args[1]=='midi'){
-		//outlet(0, args.slice(1));
-		if(args[2]==144){
-			if(args[3] < 64){
-				if(controls[control_names[args[3]]]){
-					controls[control_names[args[3]]].message('activebgcolor', colors[args[4]]);
-				}
+	if((args[1]=='midi')&&(args[2]==144)){
+		if(args[3] < 64){
+			if(controls[control_names[args[3]]]){
+				controls[control_names[args[3]]].message('activebgcolor', colors[args[4]]);
 			}
+		}
+		else if(args[3] < 112){
+			// debug('sending:', args[3]-64, args[4], gridRaw[args[3]-64] ? gridRaw[args[3]-64]._name : 'null');
+			gridRaw[args[3]-64].send(args[4]);
 		}
 	}
 }
@@ -493,9 +531,41 @@ function _from_commander(){
 function _fader_value_in(val){
 	selected_strip_volume.call('set_normalized_value', val);
 }
+
 function _cue_value_in(val){
 	cue_volume.call('set_normalized_value', val);
 }
+
+function mod_button_IN(num, val){
+	Alive&&ControlRegistry.receive(num, val);
+	// debug('mod_button_IN', num, val);
+}
+
+
+
+function ModButton(id, name, _send, args){
+	var self = this;
+	this.add_bound_properties(this, ['width', 'set_enabled', '_maxObj', '_apiObj']);
+	this.width = 1;
+	ModButton.super_.call(this, id, name, _send, args);
+}
+
+util.inherits(ModButton, ButtonClass);
+
+ModButton.prototype.set_enabled = function(enabled){
+	this._enabled = enabled;
+	this._maxObj.message('visible', enabled);
+}
+
+ModButton.prototype.set_width = function(width){
+	this.width = width;
+}
+
+ModButton.prototype.receive = function(value){
+	this.Super_().prototype.receive.call(this, value);
+	this._apiObj.call('receive_value', value);
+}
+
 
 
 forceload(this);
