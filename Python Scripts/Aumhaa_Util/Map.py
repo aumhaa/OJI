@@ -25,16 +25,25 @@ class UtilColors:
 		ItemSelected = LividRGB.YELLOW
 		NoItem = LividRGB.OFF
 
-
 	class EditModeOptions:
 		ItemNotSelected = LividRGB.BLUE
 		ItemSelected = LividRGB.YELLOW
 		NoItem = LividRGB.OFF
 
+	class DeviceNavigation:
+		ItemNotSelected = LividRGB.MAGENTA
+		ItemSelected = LividRGB.CYAN
+		NoItem = LividRGB.OFF
 
 	class BankSelection:
-		ItemNotSelected = LividRGB.BLUE
-		ItemSelected = LividRGB.YELLOW
+		ItemNotSelected = LividRGB.MAGENTA
+		ItemSelected = LividRGB.CYAN
+		NoItem = LividRGB.OFF
+
+
+	class ChainNavigation:
+		ItemNotSelected = LividRGB.GREEN
+		ItemSelected = LividRGB.RED
 		NoItem = LividRGB.OFF
 
 

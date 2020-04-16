@@ -30,7 +30,7 @@ from ableton.v2.control_surface.control import ControlList, MappedSensitivitySet
 from ableton.v2.control_surface.banking_util import *
 from ableton.v2.control_surface.device_parameter_bank import DeviceParameterBank
 
-
+from pushbase.loop_selector_component import LoopSelectorComponent
 # from Push2.device_navigation import DeviceNavigationComponent
 # from Push2.track_list import TrackListComponent
 from Push2.track_selection import SessionRingTrackProvider
@@ -1013,7 +1013,6 @@ class UtilModHandler(ModHandler):
 				self._keys_value.subject.reset()
 
 
-
 class UtilNavigationBox(NavigationBox):
 
 
@@ -1109,8 +1108,10 @@ class Util(ControlSurface):
 			self._setup_transport()
 			self._setup_device_controls()
 			self._setup_mod()
+			self._setup_audiolooper()
 			self._setup_main_modes()
 			self._initialize_script()
+		self._on_device_changed.subject = self._device_provider
 
 
 	@listenable_property
@@ -1133,11 +1134,12 @@ class Util(ControlSurface):
 
 
 	def _setup_controls(self):
-		is_momentary = False
+		def is_momentary(id):
+			return id > 34 and id not in (42,43,44,45,46,47)
 		optimized = True
 		resource = PrioritizedResource
 		color_map = COLOR_MAP
-		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary if not index in range(47,63) else True, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
+		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
 		self._fader = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 		self._dial = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 17, map_mode = Live.MidiMap.MapMode.absolute, name = 'Dial', resource_type = resource)
 		self._track_select_matrix = ButtonMatrixElement(name = 'TrackSelectMatrix', rows = [self._button[34:42]])
@@ -1145,14 +1147,6 @@ class Util(ControlSurface):
 		self._chain_select_matrix = ButtonMatrixElement(name = 'ChainSelectMatrix', rows = [self._button[56:64]])
 		self._encoder = [SpecialEncoderElement(name = 'Encoder_'+str(index), msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
 		self._encoder_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder]) #, self._encoder[8:]])
-		# self._grid = ButtonMatrixElement(name = 'ModGrid', rows = [self._button[47:55],
-		# 															self._button[55:63],
-		# 															self._button[64:72],
-		# 															self._button[72:80],
-		# 															self._button[80:88],
-		# 															self._button[88:96],
-		# 															self._button[96:104],
-		# 															self._button[104:112]])
 
 		self._keys = ButtonMatrixElement(name = 'ModKeys', rows = [self._button[64:72]])
 		self._grid = ButtonMatrixElement(name = 'ModGrid', rows = [self._button[72:80],
@@ -1216,7 +1210,6 @@ class Util(ControlSurface):
 		self._undo_redo = UndoRedoComponent()
 		self._undo_redo.layer = Layer(undo_button = self._button[20], redo_button = self._button[21])
 
-
 	def _setup_view_control(self):
 		self._view_control = UtilViewControlComponent()
 		self._view_control.layer = Layer(toggle_clip_detail_button = self._button[17], toggle_detail_clip_loop_button = self._button[22], prev_track_button = self._button[28], next_track_button = self._button[29])
@@ -1245,14 +1238,14 @@ class Util(ControlSurface):
 																device_component = self._parameter_provider,
 																track_list_component = self._track_list_component)
 		self._device_navigation.layer = Layer(select_buttons = self._device_select_matrix)
-		self._device_navigation.scroll_left_layer = Layer(button = self._button[48], priority = 5)
-		self._device_navigation.scroll_right_layer = Layer(button = self._button[55], priority = 5)
-		self._device_navigation.chain_selection.layer = Layer(select_buttons = self._chain_select_matrix, priority = 5)
-		self._device_navigation.chain_selection.scroll_left_layer = Layer(button = self._button[56], priority = 5)
-		self._device_navigation.chain_selection.scroll_right_layer = Layer(button = self._button[63], priority = 5)
-		self._device_navigation.bank_selection.layer = Layer(option_buttons = self._device_select_matrix, select_buttons = self._chain_select_matrix, priority = 5)
-		self._device_navigation.bank_selection.scroll_left_layer = Layer(button = self._button[56], priority = 5)
-		self._device_navigation.bank_selection.scroll_right_layer = Layer(button = self._button[63], priority = 5)
+		self._device_navigation.scroll_left_layer = Layer(button = self._button[48], priority = 6)
+		self._device_navigation.scroll_right_layer = Layer(button = self._button[55], priority = 6)
+		self._device_navigation.chain_selection.layer = Layer(select_buttons = self._chain_select_matrix, priority = 6)
+		self._device_navigation.chain_selection.scroll_left_layer = Layer(button = self._button[56], priority = 6)
+		self._device_navigation.chain_selection.scroll_right_layer = Layer(button = self._button[63], priority = 6)
+		self._device_navigation.bank_selection.layer = Layer(option_buttons = self._device_select_matrix, select_buttons = self._chain_select_matrix, priority = 6)
+		self._device_navigation.bank_selection.scroll_left_layer = Layer(button = self._button[56], priority = 6)
+		self._device_navigation.bank_selection.scroll_right_layer = Layer(button = self._button[63], priority = 6)
 		self._device_navigation.set_enabled(False)
 
 	def _setup_mod(self):
@@ -1301,14 +1294,25 @@ class Util(ControlSurface):
 		# 																	#key_buttons = self.elements.track_state_buttons))
 		self._device_provider.restart_mod()
 
+	def _setup_audiolooper(self):
+		self._audiolooper = LoopSelectorComponent(follow_detail_clip=True, measure_length=1.0, name='Loop_Selector', default_size = 8)
+		self._audiolooper.layer = Layer(loop_selector_matrix = self._grid)
+		self._audiolooper.set_enabled(False)
 
 
 	def _setup_main_modes(self):
+		self._modswitcher = ModesComponent(name = u'ModSwitcher')
+		self._modswitcher.add_mode(u'disabled', [])
+		self._modswitcher.add_mode(u'mod', [self.modhandler])
+		self._modswitcher.add_mode(u'audiolooper', [self._audiolooper])
+		self._modswitcher.selected_mode = u'disabled'
+		self._modswitcher.set_enabled(False)
+
 		self._main_modes = ModesComponent(name = 'MainModes')
-		self._main_modes.add_mode('disabled', [])
-		self._main_modes.add_mode('Main', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode(u'disabled', [])
+		self._main_modes.add_mode(u'Main', [self._modswitcher, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
-		self._main_modes.selected_mode = 'disabled'
+		self._main_modes.selected_mode = u'disabled'
 		# self._main_modes.layer = Layer(Main_button = self._button[44], Mod_button = self._button[45])
 		self._main_modes.set_enabled(False)
 
@@ -1333,6 +1337,18 @@ class Util(ControlSurface):
 	def refresh_state(self, *a, **k):
 		super(Util, self).refresh_state(*a, **k)
 		self.modhandler.update()
+
+	@listens('device')
+	def _on_device_changed(self):
+		self.schedule_message(1, self._update_modswitcher)
+
+	def _update_modswitcher(self):
+		debug('update modswitcher, mod is:', self.modhandler.active_mod())
+		if self.modhandler.active_mod():
+			self._modswitcher.selected_mode = 'mod'
+		else:
+			self._modswitcher.selected_mode = 'audiolooper'
+
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
 		debug('load_preset()', 'target:', target, 'folder:', folder, 'directory:', directory)
 		if not target is None:
