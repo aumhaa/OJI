@@ -1216,7 +1216,7 @@ class Util(ControlSurface):
 
 	def _setup_transport(self):
 		self._transport = TransportComponent()
-		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[42], record_button = self._button[43])
+		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[42], overdub_button = self._button[43])
 
 	def _setup_device_controls(self):
 		self._device_bank_registry = DeviceBankRegistry()
