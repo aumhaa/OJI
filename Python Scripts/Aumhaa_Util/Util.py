@@ -39,15 +39,17 @@ from Push2.device_parameter_bank_with_options import DescribedDeviceParameterBan
 from aumhaa.v2.control_surface.mod_devices import *
 from aumhaa.v2.control_surface.mod import *
 from aumhaa.v2.control_surface.elements import MonoButtonElement, MonoEncoderElement, MonoBridgeElement, generate_strip_string, CodecEncoderElement
-#from aumhaa.v2.control_surface.components import MonoMixerComponent  #, DeviceSelectorComponent, DeviceComponent
+# from aumhaa.v2.control_surface.components import MonoMixerComponent  #, DeviceSelectorComponent, DeviceComponent
 from aumhaa.v2.control_surface.components.mono_mixer import MonoMixerComponent, MonoChannelStripComponent
 from aumhaa.v2.control_surface.elements.mono_button import *
 from aumhaa.v2.control_surface.elements.mono_encoder import *
 from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMode, CancellableBehaviourWithRelease, ColoredCancellableBehaviourWithRelease, MomentaryBehaviour, BicoloredMomentaryBehaviour, DefaultedBehaviour
+from aumhaa.v2.control_surface.components.fixed_length_recorder import FixedLengthSessionRecordingComponent
 from aumhaa.v2.base import initialize_debug
 from .parameter_mapping_sensitivities import parameter_mapping_sensitivity, fine_grain_parameter_mapping_sensitivity
 from .track_list import TrackListComponent
 from .device_navigation import DeviceNavigationComponent as UtilDeviceNavigationComponent
+# from .session_recording_component import FixedLengthRecording, FixedLengthSessionRecordingComponent
 from .Map import *
 
 from aumhaa.v2.base.debug import initialize_debug
@@ -55,7 +57,7 @@ from aumhaa.v2.base.debug import initialize_debug
 debug = initialize_debug()
 
 DEVICE_COMPONENTS = ['device_0', 'device_1']
-
+LENGTH_VALUES = [2, 3, 4]
 
 """Custom files, overrides, and files from other scripts"""
 from _Generic.Devices import *
@@ -1106,6 +1108,7 @@ class Util(ControlSurface):
 			self._setup_undo_redo()
 			self._setup_view_control()
 			self._setup_transport()
+			self._setup_session_recording_component()
 			self._setup_device_controls()
 			self._setup_mod()
 			self._setup_audiolooper()
@@ -1216,7 +1219,16 @@ class Util(ControlSurface):
 
 	def _setup_transport(self):
 		self._transport = TransportComponent()
-		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[42], overdub_button = self._button[43])
+		self._transport.layer = Layer(play_button = self._button[30], stop_button = self._button[31], metronome_button = self._button[42]) #, overdub_button = self._button[43])
+
+	def _setup_session_recording_component(self):
+		self._clip_creator = ClipCreator()
+		self._clip_creator.name = 'ClipCreator'
+		self._recorder = FixedLengthSessionRecordingComponent(length_values = LENGTH_VALUES, clip_creator = self._clip_creator, view_controller = ViewControlComponent())
+		self._recorder.layer = Layer(record_button = self._button[43])
+		#self._recorder.alt_layer = LayerMode(self._recorder, Layer(priority = 6, new_button = self._button[5], record_button = self._button[6]))
+		# self._recorder.alt_layer = LayerMode(self._recorder, Layer(priority = 6, length_buttons = self._nav_buttons.submatrix[1:4,:]))
+		self._recorder.set_enabled(False)
 
 	def _setup_device_controls(self):
 		self._device_bank_registry = DeviceBankRegistry()
@@ -1310,7 +1322,7 @@ class Util(ControlSurface):
 
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode(u'disabled', [])
-		self._main_modes.add_mode(u'Main', [self._modswitcher, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode(u'Main', [self._modswitcher, self._recorder, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = u'disabled'
 		# self._main_modes.layer = Layer(Main_button = self._button[44], Mod_button = self._button[45])

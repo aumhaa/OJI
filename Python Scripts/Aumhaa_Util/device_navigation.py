@@ -364,7 +364,7 @@ class DeviceNavigationComponent(DeviceNavigationComponentBase):
 	@listens(u'state')
 	def __on_device_item_state_changed(self):
 		self._update_button_colors()
-		debug('adding task...')
+		# debug('adding task...')
 		self._tasks.add(self._update_button_colors)
 
 	@listenable_property
