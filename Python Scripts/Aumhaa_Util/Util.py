@@ -49,7 +49,6 @@ from aumhaa.v2.base import initialize_debug
 from .parameter_mapping_sensitivities import parameter_mapping_sensitivity, fine_grain_parameter_mapping_sensitivity
 from .track_list import TrackListComponent
 from .device_navigation import DeviceNavigationComponent as UtilDeviceNavigationComponent
-# from .session_recording_component import FixedLengthRecording, FixedLengthSessionRecordingComponent
 from .Map import *
 
 from aumhaa.v2.base.debug import initialize_debug
@@ -1307,7 +1306,7 @@ class Util(ControlSurface):
 		self._device_provider.restart_mod()
 
 	def _setup_audiolooper(self):
-		self._audiolooper = LoopSelectorComponent(follow_detail_clip=True, measure_length=1.0, name='Loop_Selector', default_size = 8)
+		self._audiolooper = LoopSelectorComponent(follow_detail_clip=True, measure_length=4.0, name='Loop_Selector', default_size = 32)
 		self._audiolooper.layer = Layer(loop_selector_matrix = self._grid)
 		self._audiolooper.set_enabled(False)
 

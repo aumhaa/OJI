@@ -132,6 +132,7 @@ function initialize(){
 	mod = found_mod;
 	setup_device();
 	_redetect_adjacent_rack();
+	KeyButtons[0]._send_text('Fav');
 }
 
 function setup_tasks(){
@@ -249,6 +250,11 @@ function setup_components(){
 	var drumrack = apiUtil.container_from_id(apiUtil.container_from_id(apiUtil.container_id));
 	drumrack_output_note = apiUtil.drum_output_note_from_drumchain(drumrack);
 	drumrack_input_note = apiUtil.drum_input_note_from_drumchain(drumrack);
+	script['favorite_toggle'] = new MomentaryParameter('FavoriteToggle');
+	var favorite_callback = function(obj){
+		_Favorite(obj._value);
+	}
+	favorite_toggle.set_target(favorite_callback);
 
 	//messnamed(uid+'init', 'bang');
 	//debug('just banged selected_device_patcher...');
@@ -298,10 +304,17 @@ function setup_modes(){
 		layerChooser.set_controls(Grid);
 		layerChooser.activeLayer.set_control(LayerDial);
 		layerChooser._page_offset.set_controls([KeyButtons[4], KeyButtons[5], KeyButtons[6], KeyButtons[7]]);
+		favorite_toggle.set_control(KeyButtons[0]);
+		KeyButtons[0]._send_text('Fav');  //this is also happening in initialize()
 		//layerChooser._detentDialValue.set_control(DetentDial);
 	}
 	mainPage.exit_mode = function()
 	{
+		layerChooser.set_controls();
+		layerChooser.activeLayer.set_control();
+		layerChooser._page_offset.set_controls();
+		favorite_toggle.set_control();
+		KeyButtons[0]._send_text('');
 		debug('mainPage exited');
 	}
 	mainPage.update_mode = function()
