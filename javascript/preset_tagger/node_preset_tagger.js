@@ -32,6 +32,7 @@ var selected_file = undefined;
 var selected_tag = [];
 var library_data = {};
 var file_tree = {};
+let watcher = {close: () => {} };
 const prefFile_prefix = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share");
 const prefFile_path = prefFile_prefix + '/com.aumhaa.preset_tagger_preferences.json';
 const default_prefs = {preferences:{path:''}};
@@ -143,8 +144,8 @@ maxApi.addHandler('set_tag', async(tag) => {
 			new_tags = sep_tags.concat(new_tags).join(' ');
 			xattr.setSync(selected_file, namespace, new_tags);
 		}
-		scan_library();
-		maxApi.outlet('js', 'refresh_chooser');
+		// scan_library();
+		// maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -166,8 +167,8 @@ maxApi.addHandler('remove_tag', async(tag) => {
 			new_tags = new_tags.join(' ');
 			xattr.setSync(selected_file, namespace, new_tags);
 		}
-		scan_library();
-		maxApi.outlet('js', 'refresh_chooser');
+		// scan_library();
+		// maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -175,8 +176,8 @@ maxApi.addHandler('clear_tags', async() => {
 	//debug('clear_tags');
 	if( (fs.existsSync(selected_file)) && (fs.lstatSync(selected_file).isFile()) && (xattr.listSync(selected_file).indexOf(namespace)>-1)){
 		xattr.removeSync(selected_file, namespace);
-		scan_library();
-	 	maxApi.outlet('js', 'refresh_chooser');
+		// scan_library();
+	 	// maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -206,8 +207,8 @@ maxApi.addHandler('set_folder_tags', async(dir_name) => {
 				}
 			}
 		})
-		scan_library();
-	 	maxApi.outlet('js', 'refresh_chooser');
+		// scan_library();
+	 	// maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -235,8 +236,8 @@ maxApi.addHandler('remove_folder_tags', async(dir_name) => {
 				}
 			}
 		})
-		scan_library();
-	 	maxApi.outlet('js', 'refresh_chooser');
+		// scan_library();
+	 	// maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -251,8 +252,8 @@ maxApi.addHandler('clear_folder_tags', async(dir_name) => {
 				xattr.removeSync(file_path, namespace);
 			}
 		})
-		scan_library();
-	 	maxApi.outlet('js', 'refresh_chooser');
+		// scan_library();
+	 	// maxApi.outlet('js', 'refresh_chooser');
 	}
 });
 
@@ -266,7 +267,7 @@ maxApi.addHandler('select_library', async(dir) => {
 
 maxApi.addHandler('scan_library', async() => {
 	debug('scan_library');
-	scan_library();
+	scan_library().then(maxApi.outlet('js', 'library_updated'));
 });
 
 maxApi.addHandler('set_global_path', async() => {
@@ -317,7 +318,7 @@ const resolve_library_path = async() => {
 		errors.push(err.message.toString());
 	}
 	try {
-	  const filetreeDict = maxApi.getDict(filetreeDictId);
+	  const filetreeDict = await maxApi.getDict(filetreeDictId);
 	}
 	catch (err) {
 		debug('filetree dict init error', err);
@@ -350,11 +351,23 @@ const resolve_library_path = async() => {
 
 const set_library_internal = async(dir) => {
 	debug('set_library_internal', dir);
+	watcher.close();
 	if( (fs.existsSync(dir)) && (fs.lstatSync(dir).isDirectory()) ){
 		library_dir = dir;
 		library_base = dir.split(path.basename(dir))[0];
 		//debug('library_base:', library_base);
 		scan_library();
+		watcher = await fs.watch(dir, {recursive:true}, on_file_changed);
+		// debug('installed fs.watch', watcher);
+	}
+}
+
+const on_file_changed = (event, file_name) => {
+	debug('on_file_changed:', event, file_name);
+	let file_path = path.join(library_dir, file_name).toString();
+	if( ((fs.existsSync(file_path)) && (VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1)) || (event == 'rename') ){
+		debug('scanning...');
+		scan_library().then(maxApi.outlet('js', 'library_updated'));
 	}
 }
 
@@ -368,8 +381,6 @@ const scan_library = async () => {
 	if( (fs.existsSync(library_dir)) && (fs.lstatSync(library_dir).isDirectory()) ){
 		library_data = {};
 		setDict(libraryDictId, library_data);
-		//maxApi.outlet('dictSet', 'clear');
-		//maxApi.outlet('treeSet', 'clear');
 		file_tree = {name:'root',
 							root:path.basename(library_dir),
 							root_path:library_dir,
@@ -379,11 +390,10 @@ const scan_library = async () => {
 		scan_folder(library_dir, file_tree);
 		setDict(libraryDictId, library_data);
 		setDict(filetreeDictId, file_tree);
-		//maxApi.outlet('js', 'refresh_chooser');
 	}
 }
 
-const scan_folder = async (dir_name, filetree_node) => {
+const scan_folder = (dir_name, filetree_node) => {
 	// debug('scan_folder:', dir_name, typeof filetree_node);
 	// debug('name:', filetree_node.name);
 	let directoryFiles = fs.readdirSync(dir_name);
@@ -405,7 +415,7 @@ const scan_folder = async (dir_name, filetree_node) => {
 	})
 }
 
-const scan_file = async (file_name, shortname, filetree_node) => {
+const scan_file = (file_name, shortname, filetree_node) => {
 	//debug('scan_file', file_name);
 	if( (fs.existsSync(file_name)) && (VALID_FILE_TYPES.indexOf(path.extname(file_name))>-1)){
 		let tags = [];
@@ -420,7 +430,7 @@ const scan_file = async (file_name, shortname, filetree_node) => {
 															parents: file_name.replace(library_base, '').replace(shortname, '').split('/').slice(0, -1),
 															tags: tags};
 	}
-	return filetree_node
+	// return filetree_node
 }
 
 const updateDict = async (id, updatePath, updateValue) => {
@@ -466,6 +476,10 @@ const restore_snapshot = async(filename) => {
 	}
 }
 
+const refresh_chooser = (val) => {
+	debug('node refresh_chooser...', val);
+	maxApi.outlet('js', 'refresh_chooser');
+}
 
 
 maxApi.outlet('js', 'nodescript_running');

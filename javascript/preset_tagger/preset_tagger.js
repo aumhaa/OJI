@@ -37,6 +37,7 @@ function init(){
   setup_nodescript();
   editor.lock();
   editor.open();
+  //editor._floatToggle.receive(1);
   Alive = true;
 }
 
@@ -94,7 +95,7 @@ function setup_browser(){
 	var pcontrol = this.patcher.getnamed('editor_pcontrol');
 	var thispatcher = obj.subpatcher().getnamed('thispatcher');
 	var window_position = obj.subpatcher().getnamed('window_position');
-  script['editor'] = new FloatingWindowModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':850, 'sizeY':680, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':true});
+  script['editor'] = new FloatingWindowModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':850, 'sizeY':680, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':false});
   script['browserInput'] = function(){
     var args = arrayfromargs(arguments);
     if(args[0]=='close'){
@@ -191,9 +192,10 @@ function node_script_not_initialized(){
 }
 
 function library_updated(){
-  selected_file = null;
+  //selected_file = null;
   refresh_chooser();
   FileTree.update_files();
+  // FileTree.find_file(selected_file);
 }
 
 function set_tag_filter(){
@@ -218,6 +220,7 @@ function display_tag_buffer(tag){
 }
 
 function refresh_chooser(){
+  debug('js refresh_chooser!');
   libraryObj = dict_to_jsobj(libraryDict);
   display_filtered_files();
   refresh_filtered_chooser_selection();
@@ -226,8 +229,8 @@ function refresh_chooser(){
 }
 
 function refresh_chooser_selection(){
-  debug(selected_file);
-  if(selected_file!=''){
+  debug('selected_file:', selected_file == null ? 'null' : selected_file);
+  if((selected_file!='')&&(selected_file!=null)){
     // var selected_shortname = libraryDict.get(selected_file+'::shortname');
     var selected_shortname = libraryObj.shortname;
     if(selected_shortname in hash_list){
@@ -319,8 +322,8 @@ function display_filtered_files(){
 }
 
 function refresh_filtered_chooser_selection(){
-  debug(selected_file);
-  if(selected_file!=null){
+  debug('selected_file:', selected_file == null ? 'null' : selected_file);
+  if((selected_file!=undefined)&&(selected_file in libraryObj)){
     var selected_shortname = libraryObj[selected_file].shortname;
     //debug('selected_shortname', selected_shortname);
     if(selected_shortname in filtered_hash_list){
@@ -396,7 +399,8 @@ function display_selected_file(path){
 }
 
 function display_selected_file_tags(path){
-  debug("display_selected_file_tags:", path);
+  // debug("display_selected_file_tags:", path);
+  // util.introspect_object(path, true);
   if((typeof path == 'string')&&(path in libraryObj)){
     //var tags = libraryDict.get(path+'::tags');
     var tags = libraryObj[path].tags;
@@ -586,8 +590,8 @@ function FileTreeComponent(name, args){
 	this.add_bound_properties(this, ['init_parent_node', 'input', 'select_parent',
    'select_child', 'open_child', '_parentChooser', '_filesChooser', '_treeobj',
    'current_parent_node', 'current_child_node', '_dict', '_treeobj',
-   'empty_child_node', 'parent_list', 'child_list', 'selected_parent_name',
-   'selected_child_name', 'Defer', 'miraDefer', 'find_file', '_miraParentChooser',
+   'empty_child_node', 'parent_list', 'child_list', 'selected_parent_path',
+   'selected_child_path', 'Defer', 'miraDefer', 'find_file', '_miraParentChooser',
    '_miraFilesChooser']);
 	FileTreeComponent.super_.call(this, name, args);
   this._treeobj = dict_to_jsobj(this._dict);
@@ -596,8 +600,8 @@ function FileTreeComponent(name, args){
   this.current_child_node = null;
   this.parent_list = [];
   this.child_list = [];
-  this.selected_parent_name = '';
-  this.selected_child_name = '';
+  // this.selected_parent_path = undefined;
+  // this.selected_child_path = undefined;
 }
 
 util.inherits(FileTreeComponent, Bindable);
@@ -608,7 +612,8 @@ FileTreeComponent.prototype._init = function(args){
 }
 
 FileTreeComponent.prototype.init_parent_node = function(){
-  if((!this.current_parent_node)||(this._treeobj.name)){
+  if((!this.current_parent_node)||(!this._treeobj.name)){
+    debug('FileTree.init_parent_node', !this.current_parent_node, this._treeobj.name);
     this.current_parent_node = this._treeobj.children[Object.keys(this._treeobj.children)];
   }
 }
@@ -616,16 +621,18 @@ FileTreeComponent.prototype.init_parent_node = function(){
 FileTreeComponent.prototype.update_files = function(){
   debug('FileTree.update_files');
   this._treeobj = dict_to_jsobj(filetreeDict);
+  this.refresh_parent_node();
   this.init_parent_node();
+  // this.refresh_child_node();
   this.refresh();
 }
 
 FileTreeComponent.prototype.refresh = function(){
-  //debug('REFRESH!!!');
-  // debug('current_root', this.current_parent_node.name);
+  debug('REFRESH!!!');
+  debug('current_root', this.current_parent_node.name);
   mira_gate.message(0);
   var current_root = retrieve_parent(this._treeobj, this.current_parent_node.parents);
-  //debug('FileTree parent_node:', current_root.name);
+  debug('FileTree parent_node:', current_root.name);
   this.parent_list = [];
   for(var i in current_root.children){
     this.parent_list.push(current_root.children[i]);
@@ -646,14 +653,16 @@ FileTreeComponent.prototype.refresh = function(){
   }
   var selected_index = this.parent_list.indexOf(this.current_parent_node);
   if(selected_index>-1){
-    //debug('found selected parent');
+    // debug('found selected parent');
     this._Defer.message('parent', 'set', selected_index);
     this._miraDefer.message('parent', 'set', selected_index);
     messnamed('from_preset_tagger_deferred', 'parent', 'set', selected_index);
   }
 
   var current_dir = this.current_parent_node ? this.current_parent_node : {name:'none', children:[], type:root};
-  //debug('FileTree child_node:', current_dir.name);
+  debug('FileTree child_node:', current_dir.name);
+  //debug(util.introspect(current_dir, {deep:true, min_level:4, max_level:6}));
+  //debug(JSON.stringify(current_dir));
   this._filesChooser.message('clear');
   this._miraFilesChooser.message('clear');
   if(!selected_tags.length>0){
@@ -671,8 +680,10 @@ FileTreeComponent.prototype.refresh = function(){
       if(!selected_tags.length>0){
         messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
       }
+      debug('append:', this.child_list[i].name);
     }
     var selected_index = this.child_list.indexOf(this.current_child_node);
+    selected_index  = selected_index >-1 ? selected_index : 0;
     if(selected_index>-1){
       //debug('found selected child');
       this._Defer.message('files', 'set', selected_index);
@@ -699,7 +710,7 @@ FileTreeComponent.prototype.input = function(){
 }
 
 FileTreeComponent.prototype.select_parent = function(index, item){
-  //debug('FileTree.select_parent:', index, item);
+  debug('FileTree.select_parent:', index, item);
   if(this.parent_list.length){
     var entry = this.parent_list[index];
     if(entry.type == 'folder'){
@@ -768,7 +779,7 @@ FileTreeComponent.prototype.open_parent = function(index, item){
 }
 
 FileTreeComponent.prototype.select_child = function(index, item){
-  //debug('FileTree.select_child:', index, item);
+  debug('FileTree.select_child:', index, item);
   if(this.child_list.length){
     var entry = this.child_list[index];
     if(entry.type == 'folder'){
@@ -839,15 +850,30 @@ FileTreeComponent.prototype.open_child = function(index, item){
 }
 
 FileTreeComponent.prototype.find_file = function(path){
-  // debug('path:', path);
-  var root = this._treeobj.parent;
-  var parents = path.toString().replace(root, '').split('/');
-  var ft_obj = retrieve_child(this._treeobj, parents);
-  //debug('found obj:', ft_obj.name);
-  this.current_parent_node = retrieve_parent(this._treeobj, ft_obj.parents);
-  this.current_child_node = ft_obj;
-  this.refresh();
+  debug('FileTree.find_file:', path);
+  if(path){
+    var root = this._treeobj.parent;
+    var parents = path.toString().replace(root, '').split('/');
+    var ft_obj = retrieve_child(this._treeobj, parents);
+    //debug('found obj:', ft_obj.name);
+    if(parents&&ft_obj){
+      this.current_parent_node = retrieve_parent(this._treeobj, ft_obj.parents);
+      this.current_child_node = ft_obj;
+    }
+    this.refresh();
+  }
+}
 
+FileTreeComponent.prototype.refresh_parent_node = function(){
+  var node = this.current_parent_node;
+  if(node.name!='root'){
+    this.current_parent_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
+  }
+}
+
+FileTreeComponent.prototype.refresh_child_node = function(){
+  // var node = this.current_parent_node;
+  // this.current_child_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
 }
 
 FileTreeComponent.prototype.set_folder_tags = function(){
@@ -946,6 +972,7 @@ function retrieve_child(obj, parents){
   }
   return new_obj;
 }
+
 
 Array.prototype.equals = function (array) {
     // if the other array is a falsy value, return

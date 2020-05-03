@@ -110,7 +110,7 @@ var control_names = [
 								"mod_button[44]",
 								"mod_button[45]",
 								"mod_button[46]",
-								"mod_button[47]",
+								"mod_button[47]"
 							];
 
 // "volume_slider",
