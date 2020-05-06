@@ -4,7 +4,7 @@ aumhaa = require('_base');
 var util = require('aumhaa_util');
 util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var SHOW_DICTS = false;
 aumhaa.init(this);
 var script = this;
@@ -25,6 +25,8 @@ var libraryObj = {};
 var nodeScriptInitialized = false;
 var selection_mode_value = false;
 var statusDict;
+var BROWSERXSIZE = 780;
+var BROWSERYSIZE = 530;
 
 function init(){
   debug('init', this._name);
@@ -34,6 +36,7 @@ function init(){
   setup_patcher();
   setup_browser();
   setup_filetree();
+  // setup_tests();
   setup_nodescript();
   editor.lock();
   editor.open();
@@ -95,7 +98,7 @@ function setup_browser(){
 	var pcontrol = this.patcher.getnamed('editor_pcontrol');
 	var thispatcher = obj.subpatcher().getnamed('thispatcher');
 	var window_position = obj.subpatcher().getnamed('window_position');
-  script['editor'] = new FloatingWindowModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':850, 'sizeY':680, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':false});
+  script['editor'] = new FloatingWindowModule('Editor', {'window_position':window_position, 'thispatcher':thispatcher, 'pcontrol':pcontrol, 'obj':obj, 'sizeX':BROWSERXSIZE, 'sizeY':BROWSERYSIZE, 'nominimize':true, 'nozoom':false, 'noclose':true, 'nogrow':true, 'notitle':false, 'float':false});
   script['browserInput'] = function(){
     var args = arrayfromargs(arguments);
     if(args[0]=='close'){
@@ -183,12 +186,13 @@ function node_script_initialized(libdir_from_nodescript){
   nodeScriptInitialized = true;
   library_directory = libdir_from_nodescript;
   library_updated();
+  clear_filter();
 }
 
 function node_script_not_initialized(){
   var args = arrayfromargs(arguments);
   debug('node_script_not_initialized:', args, typeof args);
-
+  Alive = false;
 }
 
 function library_updated(){
@@ -323,7 +327,7 @@ function display_filtered_files(){
 
 function refresh_filtered_chooser_selection(){
   debug('selected_file:', selected_file == null ? 'null' : selected_file);
-  if((selected_file!=undefined)&&(selected_file in libraryObj)){
+  if((selected_file!=undefined)&&(selected_file!=null)&&(selected_file in libraryObj)){
     var selected_shortname = libraryObj[selected_file].shortname;
     //debug('selected_shortname', selected_shortname);
     if(selected_shortname in filtered_hash_list){
@@ -394,12 +398,12 @@ function chooser_single(index, shortname){
 }
 
 function display_selected_file(path){
-  current_selected_file.message('set', path ? path : '');
+  current_selected_file.message('set', path ? '...'+path.slice(-50) : '');
   mira_current_selected_file.message('set', path ? path : '');
 }
 
 function display_selected_file_tags(path){
-  // debug("display_selected_file_tags:", path);
+  debug("display_selected_file_tags:", path);
   // util.introspect_object(path, true);
   if((typeof path == 'string')&&(path in libraryObj)){
     //var tags = libraryDict.get(path+'::tags');
@@ -447,8 +451,8 @@ function clear_folder_tags(){
 }
 
 function filter_mode(val){
-  filter_mode_value = val;
-  refresh_chooser();
+  filter_mode_value = !val;
+  nodeScriptInitialized&&refresh_chooser();
 }
 
 function scan_library(){
@@ -473,6 +477,15 @@ function tag_selection_from_commander(){
   else{
     refresh_chooser();
   }
+}
+
+function tag_next_selected(){
+  debug('tag_next_selected');
+  debug('selected_tags:', selected_tags);
+  tag_buffer = selected_tags;
+  display_tag_buffer(tag_buffer);
+  outlet(0, 'select_tag', tag_buffer);
+  set_tag();
 }
 
 function clear_filter(){

@@ -133,6 +133,8 @@ function initialize(){
 	setup_device();
 	_redetect_adjacent_rack();
 	KeyButtons[0]._send_text('Fav');
+	KeyButtons[2]._send_text('<-');
+	KeyButtons[3]._send_text('->');
 }
 
 function setup_tasks(){
@@ -304,8 +306,12 @@ function setup_modes(){
 		layerChooser.set_controls(Grid);
 		layerChooser.activeLayer.set_control(LayerDial);
 		layerChooser._page_offset.set_controls([KeyButtons[4], KeyButtons[5], KeyButtons[6], KeyButtons[7]]);
+		layerChooser._nextButton.set_control(KeyButtons[3]);
+		layerChooser._prevButton.set_control(KeyButtons[2]);
 		favorite_toggle.set_control(KeyButtons[0]);
 		KeyButtons[0]._send_text('Fav');  //this is also happening in initialize()
+		KeyButtons[2]._send_text('<-');
+		KeyButtons[3]._send_text('->');
 		//layerChooser._detentDialValue.set_control(DetentDial);
 	}
 	mainPage.exit_mode = function()
@@ -653,6 +659,10 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
 	this._rackDevice = undefined;
 	this._detentDialValue = new ParameterClass(this._name + '_detentDial');
 	this._detentDialValue.set_target(this._detent_dial_callback.bind(this));
+	this._nextButton = new MomentaryParameter(this._name + '_NextButton', {'onValue':1, 'offValue':0, 'value':0});
+	this._nextButton.add_listener(function(obj){debug('next', obj._value);if(obj._value){this.increase_value();}}.bind(this));
+	this._prevButton = new MomentaryParameter(this._name + '_PrevButton', {'onValue':1, 'offValue':0, 'value':0});
+	this._prevButton.add_listener(function(obj){debug('prev', obj._value);if(obj._value){this.decrease_value();}}.bind(this));
 	debug('keys:',dict.getkeys());
 	debug('favorites:', dict.contains('favorites'));
 	this._favorites = dict.contains('favorites') ? dict.get('favorites') : [];
@@ -694,7 +704,9 @@ function PagedRadioComponent(name, minimum, maximum, initial, callback, onValue,
 																		'_onValue3',
 																		'_offValue1',
 																		'_offValue2',
-																		'_offValue3'
+																		'_offValue3',
+																		'_prevButton',
+																		'_nextButton'
 																	]);
 
 	PagedRadioComponent.super_.call(this, name, minimum, maximum, initial, callback, onValue, offValue, args);

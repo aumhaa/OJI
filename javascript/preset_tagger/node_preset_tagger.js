@@ -22,10 +22,10 @@ Debug = function(){
 	//args = args.join(' ');
 	maxApi.post(args + '\n');
 }
-const DEBUG = true;
+const DEBUG = false;
 const debug = DEBUG&&Debug?Debug:function(){}
 
-const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv'];
+const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif'];
 const namespace = 'com.aumhaa.Tag';
 var library_dir = '';
 var selected_file = undefined;

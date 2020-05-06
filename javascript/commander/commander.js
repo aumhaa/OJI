@@ -33,7 +33,7 @@ var EXCLUDED = ['control', 'control_names', 'done'];
 var control_surface_type = jsarguments[1]||'None';
 
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var SHOW_DICTS = false;
 var VIEW_DEVICE = false;
 aumhaa.init(this);
@@ -523,10 +523,10 @@ function _from_parameter_controls(num, val){
 	parameter_proxy[num].call('set_value', val);
 }
 
-function _from_commander(){
-	var args = arrayfromargs(arguments);
-	//debug('from_commander:', args);
-}
+// function _from_commander(){
+// 	var args = arrayfromargs(arguments);
+// 	//debug('from_commander:', args);
+// }
 
 function _fader_value_in(val){
 	selected_strip_volume.call('set_normalized_value', val);
