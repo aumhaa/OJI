@@ -304,16 +304,18 @@ class PresetTagger {
 			let shortname = path.basename(file_path);
 			let parents = relative_path.replace(shortname, '').split('/');
 			let base = path.basename(this.library_dir);
-			// debug('parents:', base, parents.length, parents, shortname);
 			let node = this.file_tree.children[base];
-			for(var i in parents){
-				if(node.children[parents[i]]){
-					// debug('node:', node, 'parents[i]', i, parents[i]);
-					node = node.children[parents[i]];
+			if(parents.length){
+				parents.shift()
+				for(var i in parents){
+					if(node.children[parents[i]]){
+						// debug('node:', node, 'parents[i]', i, parents[i]);
+						node = node.children[parents[i]];
+					}
 				}
+				debug('node path:', node.path);
+				return node
 			}
-			debug('node path:', node.path);
-			return node
 		}
 		catch(e){
 			debug('find_filetree_node error:', e.message);
@@ -349,7 +351,7 @@ class PresetTagger {
 
 	/**helper method for scan_library...combine*/
 	scan_folder = async(dir_name, filetree_node) => {
-		debug('scan_folder:', dir_name, typeof filetree_node);
+		// debug('scan_folder:', dir_name, typeof filetree_node);
 		let directoryFiles = fs.readdirSync(dir_name);
 		let shortname = path.basename(dir_name);
 		filetree_node.children[shortname] = {name: shortname,
@@ -628,8 +630,6 @@ class PresetTagger {
 		// debug('open_preset', filepath);
 		return await open(filepath, {wait: true, app:'/Applications/Ableton Live 10 Suite.app'});
 	}
-
-
 
 
 
