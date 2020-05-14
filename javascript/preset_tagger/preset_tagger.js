@@ -1,16 +1,26 @@
 autowatch = 1;
 
+/**TODO:
+*  All control elements need to be abstracted so that messages sent to remote
+*  client are handled by the same object as those going to elements in the main
+*  patcher.
+*  Somekind of async server/client for Commander integration.
+*/
+
 aumhaa = require('_base');
 var util = require('aumhaa_util');
 util.inject(this, util);
-var FORCELOAD = false;
-var DEBUG = false;
+var FORCELOAD = true;
+var DEBUG = true;
+var NODE_DEBUG = true;
 var SHOW_DICTS = false;
+var EDITOR_OPEN = true;
 aumhaa.init(this);
 var script = this;
 
 var Alive = false;
-var _name = 'preset_tagger.js';
+var _name = jsarguments[0];
+var dbg = new DebugNamespace(script._name+' async=>').debug;
 var finder;
 var selected_tags = [];
 var tag_buffer = '';
@@ -24,9 +34,10 @@ var filter_mode_value = 0;
 var libraryObj = {};
 var nodeScriptInitialized = false;
 var selection_mode_value = false;
-var statusDict;
+
 var BROWSERXSIZE = 780;
 var BROWSERYSIZE = 530;
+
 
 function init(){
   debug('init', this._name);
@@ -36,12 +47,10 @@ function init(){
   setup_patcher();
   setup_browser();
   setup_filetree();
-  // setup_tests();
   setup_nodescript();
-  editor.lock();
-  editor.open();
+  NODE_DEBUG&&node_debug.front();
   //editor._floatToggle.receive(1);
-  Alive = true;
+  initialize_nodescript();
 }
 
 function setup_tasks(){
@@ -54,7 +63,6 @@ function setup_library(){
 
 function setup_patcher(){
   script.node_script = this.patcher.getnamed('node_script');
-  //script.ns_running = this.patcher.getnamed('ns_running');
   script.browser_patcher = this.patcher.getnamed('browser');
   script.file_chooser = browser_patcher.subpatcher().getnamed('filechooser');
   script.tag_chooser = browser_patcher.subpatcher().getnamed('tagchooser');
@@ -65,27 +73,15 @@ function setup_patcher(){
   script.libPath = this.patcher.getnamed('libPath');
   script.parentChooser = browser_patcher.subpatcher().getnamed('parent_chooser');
   script.filesChooser = browser_patcher.subpatcher().getnamed('files_chooser');
-  script.filetreeDefer = browser_patcher.subpatcher().getnamed('filetreeDefer');
-  script.statusDictObj = this.patcher.getnamed('statusDict');
+  script.filetreeDefer = browser_patcher.subpatcher().getnamed('filetreeDeferLow');
   script.EditorButton = this.patcher.getnamed('Editor');
   script.ParentBackButton = browser_patcher.subpatcher().getnamed('parent_back_button');
   script.ChildrenBackButton = browser_patcher.subpatcher().getnamed('children_back_button');
-  script.mira_patcher = this.patcher.getnamed('mira_window');
-  script.mira_file_chooser = mira_patcher.subpatcher().getnamed('filechooser');
-  script.mira_tag_chooser = mira_patcher.subpatcher().getnamed('tagchooser');
-  script.mira_current_selected_file = mira_patcher.subpatcher().getnamed('current_selected_file');
-  script.mira_selected_file_tags = mira_patcher.subpatcher().getnamed('selected_file_tags');
-  script.mira_select_pipe = mira_patcher.subpatcher().getnamed('select_pipe');
-  script.mira_tag_buffer_display = mira_patcher.subpatcher().getnamed('tag_buffer_display');
-  script.mira_parentChooser = mira_patcher.subpatcher().getnamed('parent_chooser');
-  script.mira_filesChooser = mira_patcher.subpatcher().getnamed('files_chooser');
-  script.mira_filetreeDefer = mira_patcher.subpatcher().getnamed('filetreeDefer');
-  script.mira_ParentBackButton = browser_patcher.subpatcher().getnamed('parent_back_button');
   script.mira_gate = this.patcher.getnamed('mira_gate');
-  var statusDictName = statusDictObj.getattr('name');
-  statusDict = new Dict(statusDictName);
-  debug('statusDictName:', statusDictName)
-
+  script.node_debug = this.patcher.getnamed('node_debug');
+  script.restart_button = this.patcher.getnamed('restart_button');
+  script.select_library_button = this.patcher.getnamed('select_library_button');
+  restart_button.hidden = 1;
   if(SHOW_DICTS){
     this.patcher.getnamed('library').message('edit');
     this.patcher.getnamed('filetree').message('edit');
@@ -121,87 +117,103 @@ function setup_filetree(){
                                                           dict:filetreeDict,
                                                           parentChooser:parentChooser,
                                                           filesChooser:filesChooser,
-                                                          miraParentChooser:mira_parentChooser,
-                                                          miraFilesChooser:mira_filesChooser,
+                                                          // miraParentChooser:mira_parentChooser,
+                                                          // miraFilesChooser:mira_filesChooser,
                                                           Defer:filetreeDefer,
-                                                          miraDefer:mira_filetreeDefer
+                                                          // miraDefer:mira_filetreeDefer
                                                         });
   script['toFileTree'] = FileTree.input;
   //FileTree._init;
 }
 
-//collect all dump output from node.script, start node.script when npm install finishes.
-function nodeLog(){
-	var args = arrayfromargs(arguments);
-	var status = dict_to_jsobj(statusDict);
-	if(('args' in status)&&(status.args[0]=='install'))
-	{
-		if(status.status=='completed'){
-			outlet(0, 'script', 'start');
-		}
-	}
-}
-
 function setup_nodescript(){
-  debug('setup_nodescript');
-  var running = node_script.getattr('running');
-  debug('node_script is currently running?:', running);
-  if(running>0){
-    outlet(0, 'init_from_js');
-  }
-  else{
-    //outlet(0, 'script', 'start');
-    outlet(0, 'script', 'npm', 'install');
-    tasks.addTask(check_running, {}, 20, true, 'check_running');
+  // debug('setup_nodescript');
+  script['NSProxy'] = new NodeScriptProxy('NSProxy', {obj:node_script,
+                                                      cabled:false,
+                                                      debug:false,
+                                                      debugTyes:['error']});
+  script['asyncResolve'] = NSProxy.asyncResolve;
+  script['nodeDump'] = NSProxy.nodeDump;
+  script['toNSProxy'] = NSProxy.receive;
+
+  var restart_task = new Task(initialize_nodescript, this);
+  var on_nodescript_terminated = function () {
+    debug('on_nodescript_terminated');
+    // restart_task.schedule(1000);
+    Alive = false;
+    nodeScriptInitialized = true;
+    EditorButton.message(0);
+    editor.close();
+    restart_button.hidden = 0;
   }
 
+  NSProxy.addTerminationCallback(on_nodescript_terminated);
 }
 
-function check_running(){
-  var running = node_script.getattr('running');
-  //debug('check running', running);
-  if(running<1){
-    debug('not running');
-    outlet(0, 'script', 'start');
-  }
-  else{
-    tasks.removeTask(check_running, {}, 'check_running');
-  }
+function setup_tests(){
+  debug('setup_tests');
+  // NSProxy.asyncCall('test_function', 'blah', true)
+  // .then(function(res){
+  //   debug('test_function success', res)})
+  // ['catch'](function(e){
+  //   debug('test_function failure', e.message);
+  // });
 }
 
-/*Nodescript communication*/
-function nodescript_running(libdir_from_nodescript){
-  outlet(0, 'init_from_js');
+function initialize_nodescript(){
+  NSProxy.initialize().then(function(res){
+    debug('SCRIPT', 'success', JSON.stringify(res));
+    return NSProxy.asyncCall('init_from_js');
+  }).then(function(path){
+    return node_script_initialized(path);
+  }).catch(function(err){
+    debug('NSProxy setup error:', err.message);
+    if(err.message=='no library path'){
+      select_library_button.message(1);
+      node_script_initialized();
+    };
+  });
 }
 
 function node_script_initialized(libdir_from_nodescript){
-  debug('node_script_initialized:', libdir_from_nodescript);
-  tasks.removeTask(check_running, {}, 'check_running');
-  //var internal_libdir = libPath.getvalueof();
-  //library_directory =  internal_libdir != 0 ? internal_libdir : libdir_from_nodescript;
-  // debug('resolved_libdir:', library_directory);
-  // if(library_directory){
-  //   outlet(0, 'select_library', library_directory);
-  // }
+  // debug('node_script_initialized:', libdir_from_nodescript);
   nodeScriptInitialized = true;
   library_directory = libdir_from_nodescript;
-  library_updated();
-  clear_filter();
+  debug('NSProxy init finished');
+  deprivatize_script_functions(script);
+  library_directory&&activate();
 }
 
-function node_script_not_initialized(){
-  var args = arrayfromargs(arguments);
-  debug('node_script_not_initialized:', args, typeof args);
-  Alive = false;
+function activate(){
+  debug('activate');
+  library_updated();
+  clear_filter();
+  restart_button.hidden = 1;
+  editor.lock();
+  if(EDITOR_OPEN){
+    editor.open();
+    EditorButton.message(1);
+  };
+  Alive = true;
+  // setup_tests();
 }
 
 function library_updated(){
   //selected_file = null;
+  debug('library_updated');
   refresh_chooser();
   FileTree.update_files();
+  selected_file!=null&&selected_file!=undefined&&FileTree.find_file(selected_file);
+  //this.patcher.getnamed('library').message('edit');
+  if(SHOW_DICTS){
+    this.patcher.getnamed('filetree').message('wclose');
+    this.patcher.getnamed('filetree').message('edit');
+  };
+  debug('library updated finished');
   // FileTree.find_file(selected_file);
 }
 
+//editor functions
 function set_tag_filter(){
   var tags = [].concat(arrayfromargs(arguments));
   selected_tags = tags[0]=='bang'?[]:tags;
@@ -214,13 +226,13 @@ function set_tag_buffer(){
   tag_buffer = tags[0]=='bang' ? '' : tags;
   //outlet(0, 'select_tag', tags[0]);
   display_tag_buffer(tag_buffer);
-  outlet(0, 'select_tag', tag_buffer);
+  NSProxy.asyncCall('select_tag', tag_buffer);
 }
 
 function display_tag_buffer(tag){
   // debug('display_tag_buffer', tag);
   tag_buffer_display.message('set', tag ? tag : '');
-  mira_tag_buffer_display.message('set', tag ? tag : '');
+  // mira_tag_buffer_display.message('set', tag ? tag : '');
 }
 
 function refresh_chooser(){
@@ -240,7 +252,7 @@ function refresh_chooser_selection(){
     if(selected_shortname in hash_list){
       var entry = parseInt(hash_list[selected_shortname].entry);
       select_pipe.message(entry);
-      mira_select_pipe.message(entry);
+      // mira_select_pipe.message(entry);
       if(selected_tags.length){
         messnamed('from_preset_tagger_deferred', 'files', 'entry');
       }
@@ -252,7 +264,7 @@ function display_filtered_files(){
   //debug('display_filtered_files', selected_tags);
   mira_gate.message(0);
   file_chooser.message('clear');
-  mira_file_chooser.message('clear');
+  // mira_file_chooser.message('clear');
   if(selected_tags.length>0){
     messnamed('from_preset_tagger', 'files', 'clear');
   }
@@ -269,7 +281,7 @@ function display_filtered_files(){
           if(selected_tags.indexOf(tags[j])>-1){
             filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
             file_chooser.append(shortname);
-            mira_file_chooser.append(shortname);
+            // mira_file_chooser.append(shortname);
             if(selected_tags.length>0){
               messnamed('from_preset_tagger', 'files', 'append', shortname);
             }
@@ -295,7 +307,7 @@ function display_filtered_files(){
         if(add){
           filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
           file_chooser.append(shortname);
-          mira_file_chooser.append(shortname);
+          // mira_file_chooser.append(shortname);
           if(selected_tags.length>0){
             messnamed('from_preset_tagger', 'files', 'append', shortname);
           }
@@ -314,7 +326,7 @@ function display_filtered_files(){
       if(tags.length==0){
         filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
         file_chooser.append(shortname);
-        mira_file_chooser.append(shortname);
+        // mira_file_chooser.append(shortname);
         // if(selected_tags){
         //   messnamed('from_preset_tagger', 'files', 'append', shortname);
         // }
@@ -333,7 +345,7 @@ function refresh_filtered_chooser_selection(){
     if(selected_shortname in filtered_hash_list){
       var entry = parseInt(filtered_hash_list[selected_shortname].entry);;
       select_pipe.message(entry);
-      mira_select_pipe.message(entry);
+      // mira_select_pipe.message(entry);
       if(selected_tags.length>0){
         messnamed('from_preset_tagger_deferred', 'files', 'set', entry);
       }
@@ -347,11 +359,11 @@ function refresh_tagchooser(){
   if(!last_found_tags.equals(found_tags)){
     mira_gate.message(0);
     tag_chooser.message('clear');
-    mira_tag_chooser.message('clear');
+    // mira_tag_chooser.message('clear');
     messnamed('from_preset_tagger', 'filters', 'clear');
     for(var i in found_tags){
       tag_chooser.append(found_tags[i]);
-      mira_tag_chooser.append(found_tags[i]);
+      // mira_tag_chooser.append(found_tags[i]);
       messnamed('from_preset_tagger', 'filters', 'append', found_tags[i]);
     }
     mira_gate.message(1);
@@ -361,13 +373,13 @@ function refresh_tagchooser(){
 function redraw_tagchooser(){
   mira_gate.message(0);
   tag_chooser.message('clear');
-  mira_tag_chooser.message('clear');
+  // mira_tag_chooser.message('clear');
   messnamed('from_preset_tagger', 'filters', 'clear');
   for(var i in found_tags){
     tag_chooser.append(found_tags[i]);
-    mira_tag_chooser.append(found_tags[i]);
+    // mira_tag_chooser.append(found_tags[i]);
     messnamed('from_preset_tagger', 'filters', 'append', found_tags[i]);
-    debug('sending:', 'from_preset_tagger', 'filters', 'append', found_tags[i]);
+    // debug('sending:', 'from_preset_tagger', 'filters', 'append', found_tags[i]);
   }
   mira_gate.message(0);
 }
@@ -391,7 +403,7 @@ function chooser_single(index, shortname){
   // var path = selected_tags.length ? filtered_hash_list[shortname].file : hash_list[shortname].file;
   var path = filtered_hash_list[shortname].file;
   selected_file = path;
-  outlet(0, 'select_file', path);
+  NSProxy.asyncCall('select_file', path);
   display_selected_file(path);
   display_selected_file_tags(path);
   FileTree.find_file(path);
@@ -399,7 +411,7 @@ function chooser_single(index, shortname){
 
 function display_selected_file(path){
   current_selected_file.message('set', path ? '...'+path.slice(-50) : '');
-  mira_current_selected_file.message('set', path ? path : '');
+  // mira_current_selected_file.message('set', path ? path : '');
 }
 
 function display_selected_file_tags(path){
@@ -409,7 +421,7 @@ function display_selected_file_tags(path){
     //var tags = libraryDict.get(path+'::tags');
     var tags = libraryObj[path].tags;
     selected_file_tags.message('set', tags ? tags : '');
-    mira_selected_file_tags.message('set', tags ? tags : '');
+    // mira_selected_file_tags.message('set', tags ? tags : '');
   }
   else{
     debug('can\'t display tags for path:', path, 'not in libraryObj');
@@ -420,22 +432,21 @@ function chooser_double(index, shortname){
   debug('chooser_double', index, shortname);
   var path = selected_tags.length ? filtered_hash_list[shortname].file : hash_list[shortname].file;
   // debug('chooser_double:', index, path);
-  outlet(0, 'open_preset', path);
+  NSProxy.asyncCall('open_preset', path);
 }
 
 function set_tag(){
-  //outlet(0, 'set_tag');
-  outlet(0, 'set_tag');
+  NSProxy.asyncCall('apply_tag', selected_file, tag_buffer);
 }
 
 function remove_tag(){
-  //outlet(0, 'remove_tag');
-  outlet(0, 'remove_tag');
+
+  NSProxy.asyncCall('remove_tag', selected_file, tag_buffer);
 }
 
 function clear_tags(){
-  //outlet(0, 'clear_tags');
-  outlet(0, 'clear_tags');
+
+  NSProxy.asyncCall('clear_tags', selected_file);
 }
 
 function set_folder_tags(){
@@ -456,7 +467,11 @@ function filter_mode(val){
 }
 
 function scan_library(){
-  outlet(0, 'scan_library');
+  NSProxy.asyncCall('scan_library').then(function(res){
+    library_updated();
+  }).catch(function(e){
+    debug('scan_library error:', e.message);
+  })
 }
 
 function tag_selection(){
@@ -484,7 +499,7 @@ function tag_next_selected(){
   debug('selected_tags:', selected_tags);
   tag_buffer = selected_tags;
   display_tag_buffer(tag_buffer);
-  outlet(0, 'select_tag', tag_buffer);
+  NSProxy.asyncCall('select_tag', tag_buffer);
   set_tag();
 }
 
@@ -568,7 +583,49 @@ function unlock_editor(){
   editor.unlock();
 }
 
+function restart(){
+  init();
+}
 
+function set_library(){
+  var args = arrayfromargs(arguments);
+  debug('set_library:', args);
+  NSProxy.asyncCall('set_library', args).then(function(res){
+    debug('SET_LIBRARY response:', res);
+    if(!Alive){
+      activate();
+    }
+    else {
+      library_updated();
+    }
+  });
+}
+
+function restore_snapshot(){
+  var args = arrayfromargs(arguments);
+  debug('restore_snapshot:', args);
+  NSProxy.asyncCall('restore_snapshot', args).then(function(res){
+    debug('restore_snapshot response:', res);
+    library_updated();
+  });
+}
+
+function set_global_path(){
+  // debug('set_global_path');
+  NSProxy.asyncCall('set_global_path').then(function(res){
+    debug('new global path is::', res);
+  }).catch(function(e){
+    debug('set_global_path error:', e.message);
+  });
+}
+
+
+
+/**
+*  Component deals with all tagging tasks.
+*  Basically everything in right two windows,
+*  as well as all actions in the bottom section.
+*/
 function TaggerComponent(name, args){
   this.add_bound_properties(this, []);
   TaggerComponent.super_.call(this, name, args);
@@ -598,7 +655,10 @@ TaggerComponent.prototype.input = function(){
 }
 
 
-
+/**
+*  Component deals with all file-structure browser navigation tasks.
+*  Basically everything in the left two browser windows.
+*/
 function FileTreeComponent(name, args){
 	this.add_bound_properties(this, ['init_parent_node', 'input', 'select_parent',
    'select_child', 'open_child', '_parentChooser', '_filesChooser', '_treeobj',
@@ -632,7 +692,7 @@ FileTreeComponent.prototype.init_parent_node = function(){
 }
 
 FileTreeComponent.prototype.update_files = function(){
-  debug('FileTree.update_files');
+  // debug('FileTree.update_files');
   this._treeobj = dict_to_jsobj(filetreeDict);
   this.refresh_parent_node();
   this.init_parent_node();
@@ -641,11 +701,12 @@ FileTreeComponent.prototype.update_files = function(){
 }
 
 FileTreeComponent.prototype.refresh = function(){
+  /**refreshes current UI elements with current dir data*/
   debug('REFRESH!!!');
-  debug('current_root', this.current_parent_node.name);
+  // debug('current_root', this.current_parent_node.name);
   mira_gate.message(0);
   var current_root = retrieve_parent(this._treeobj, this.current_parent_node.parents);
-  debug('FileTree parent_node:', current_root.name);
+  // debug('FileTree parent_node:', current_root.name);
   this.parent_list = [];
   for(var i in current_root.children){
     this.parent_list.push(current_root.children[i]);
@@ -654,21 +715,21 @@ FileTreeComponent.prototype.refresh = function(){
     this.parent_list.push({name:'<==back', type:'back_command', parents:[current_root]});
   }
   ParentBackButton.message('active', current_root.type!='root');
-  mira_ParentBackButton.message('active', current_root.type!='root');
+  // mira_ParentBackButton.message('active', current_root.type!='root');
   messnamed('from_preset_tagger', 'back', 'set', current_root.type!='root');
   this._parentChooser.message('clear');
-  this._miraParentChooser.message('clear');
+  // this._miraParentChooser.message('clear');
   messnamed('from_preset_tagger', 'parent', 'clear');
   for(var i in this.parent_list){
     this._parentChooser.message('append', this.parent_list[i].name);
-    this._miraParentChooser.message('append', this.parent_list[i].name);
+    // this._miraParentChooser.message('append', this.parent_list[i].name);
     messnamed('from_preset_tagger', 'parent', 'append', this.parent_list[i].name);
   }
   var selected_index = this.parent_list.indexOf(this.current_parent_node);
   if(selected_index>-1){
     // debug('found selected parent');
     this._Defer.message('parent', 'set', selected_index);
-    this._miraDefer.message('parent', 'set', selected_index);
+    // this._miraDefer.message('parent', 'set', selected_index);
     messnamed('from_preset_tagger_deferred', 'parent', 'set', selected_index);
   }
 
@@ -677,7 +738,7 @@ FileTreeComponent.prototype.refresh = function(){
   //debug(util.introspect(current_dir, {deep:true, min_level:4, max_level:6}));
   //debug(JSON.stringify(current_dir));
   this._filesChooser.message('clear');
-  this._miraFilesChooser.message('clear');
+  // this._miraFilesChooser.message('clear');
   if(!selected_tags.length>0){
     messnamed('from_preset_tagger', 'files', 'clear');
   }
@@ -689,18 +750,18 @@ FileTreeComponent.prototype.refresh = function(){
     }
     for(var i in this.child_list){
       this._filesChooser.message('append', this.child_list[i].name);
-      this._miraFilesChooser.message('append', this.child_list[i].name);
+      // this._miraFilesChooser.message('append', this.child_list[i].name);
       if(!selected_tags.length>0){
         messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
       }
-      debug('append:', this.child_list[i].name);
+      // debug('append:', this.child_list[i].name);
     }
     var selected_index = this.child_list.indexOf(this.current_child_node);
     selected_index  = selected_index >-1 ? selected_index : 0;
     if(selected_index>-1){
       //debug('found selected child');
       this._Defer.message('files', 'set', selected_index);
-      this._miraDefer.message('files', 'set', selected_index);
+      // this._miraDefer.message('files', 'set', selected_index);
       if(!selected_tags.length>0){
         messnamed('from_preset_tagger_deferred', 'files', 'set', selected_index);
       }
@@ -710,6 +771,7 @@ FileTreeComponent.prototype.refresh = function(){
 }
 
 FileTreeComponent.prototype.input = function(){
+  /**distributes input to Class instance to its available methods*/
   var args = arrayfromargs(arguments);
   //debug('FileTree.input:', args);
   try{
@@ -723,7 +785,8 @@ FileTreeComponent.prototype.input = function(){
 }
 
 FileTreeComponent.prototype.select_parent = function(index, item){
-  debug('FileTree.select_parent:', index, item);
+  /**input from left browser pane*/
+  // debug('FileTree.select_parent:', index, item);
   if(this.parent_list.length){
     var entry = this.parent_list[index];
     if(entry.type == 'folder'){
@@ -735,7 +798,7 @@ FileTreeComponent.prototype.select_parent = function(index, item){
       if(this.current_parent_node.type == 'root'){
         this.current_child_node = entry;
         selected_file = entry.path;
-        outlet(0, 'select_file', entry.path);
+        NSProxy.asyncCall('select_file', entry.path);
         display_selected_file(entry.path);
         display_selected_file_tags(entry.path);
       }
@@ -757,7 +820,8 @@ FileTreeComponent.prototype.select_parent = function(index, item){
 }
 
 FileTreeComponent.prototype.open_parent = function(index, item){
-  debug('FileTree.open_parent:', index, item);
+  /**double-click from left pane of browser*/
+  // debug('FileTree.open_parent:', index, item);
   if(this.parent_list.length){
     var entry = this.parent_list[index];
     if(entry.type == 'folder'){
@@ -769,10 +833,10 @@ FileTreeComponent.prototype.open_parent = function(index, item){
       if(this.current_parent_node.type == 'root'){
         this.current_child_node = entry;
         selected_file = entry.path;
-        outlet(0, 'select_file', entry.path);
+        NSProxy.asyncCall('select_file', entry.path);
         display_selected_file(entry.path);
         display_selected_file_tags(entry.path);
-        outlet(0, 'open_preset', entry.path);
+        NSProxy.asyncCall('open_preset', entry.path);
       }
       else{
         this.current_child_node = entry;
@@ -792,6 +856,7 @@ FileTreeComponent.prototype.open_parent = function(index, item){
 }
 
 FileTreeComponent.prototype.select_child = function(index, item){
+  /**input from right browser pane*/
   debug('FileTree.select_child:', index, item);
   if(this.child_list.length){
     var entry = this.child_list[index];
@@ -799,7 +864,7 @@ FileTreeComponent.prototype.select_child = function(index, item){
       this.current_child_node = null;
       this.current_parent_node = entry;
       this.refresh();
-      outlet(0, 'select_file');
+      NSProxy.asyncCall('select_file');
       display_selected_file();
       display_selected_file_tags();
 
@@ -807,7 +872,7 @@ FileTreeComponent.prototype.select_child = function(index, item){
     else if(entry.type == 'file'){
       this.current_child_node = entry;
       selected_file = entry.path;
-      outlet(0, 'select_file', entry.path);
+      NSProxy.asyncCall('select_file', entry.path);
       display_selected_file(entry.path);
       display_selected_file_tags(entry.path);
     }
@@ -817,53 +882,31 @@ FileTreeComponent.prototype.select_child = function(index, item){
   }
 }
 
-FileTreeComponent.prototype.select_previous = function(){
-  //this method doesn't work
-  // if(this.child_list.length){
-  //   for(var i in this.child_list){
-  //     if(this.child_list[i].path == selected_file){
-  //       (i > 0)&&(this.select_child(i-1));
-  //       break;
-  //     }
-  //   }
-  // }
-}
-
-FileTreeComponent.prototype.select_next = function(){
-  //this method doesn't work
-  // if(this.child_list.length){
-  //   for(var i in this.child_list){
-  //     if(this.child_list[i].path == selected_file){
-  //       (index < (this.child_list.length-1))&&(this.select_child(index+1));
-  //       break;
-  //     }
-  //   }
-  // }
-}
-
 FileTreeComponent.prototype.open_child = function(index, item){
-  debug('FileTree.open_child:', index, item);
+  /**double-click from right pane of browser*/
+  // debug('FileTree.open_child:', index, item);
   var entry = this.child_list[index];
   if(entry.type == 'folder'){
     this.current_child_node = null;
     this.current_parent_node = entry;
     this.refresh();
-    outlet(0, 'select_file');
+    NSProxy.asyncCall('select_file');
     display_selected_file();
     display_selected_file_tags();
 
   }
   else if(entry.type == 'file'){
     this.current_child_node = entry;
-    outlet(0, 'select_file', entry.path);
+    NSProxy.asyncCall('select_file', entry.path);
     display_selected_file(entry.path);
     display_selected_file_tags(entry.path);
-    outlet(0, 'open_preset', entry.path);
+    NSProxy.asyncCall('open_preset', entry.path);
   }
 }
 
 FileTreeComponent.prototype.find_file = function(path){
-  debug('FileTree.find_file:', path);
+  /**used primarily by selected file from filter window*/
+  // debug('FileTree.find_file:', path);
   if(path){
     var root = this._treeobj.parent;
     var parents = path.toString().replace(root, '').split('/');
@@ -889,26 +932,52 @@ FileTreeComponent.prototype.refresh_child_node = function(){
   // this.current_child_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
 }
 
+//These methods need to be made with asyncCall, rewritten in nodescript.
 FileTreeComponent.prototype.set_folder_tags = function(){
   if(this.current_parent_node.type == 'folder'){
-    outlet(0, 'set_folder_tags', this.current_parent_node.path);
+    NSProxy.asyncCall('apply_folder_tags', this.current_parent_node.path, tag_buffer);
   }
 }
 
 FileTreeComponent.prototype.remove_folder_tags = function(){
   if(this.current_parent_node.type == 'folder'){
-    outlet(0, 'remove_folder_tags', this.current_parent_node.path);
+    NSProxy.asyncCall('remove_folder_tags', this.current_parent_node.path, tag_buffer);
   }
 }
 
 FileTreeComponent.prototype.clear_folder_tags = function(){
   if(this.current_parent_node.type == 'folder'){
-    outlet(0, 'clear_folder_tags', this.current_parent_node.path);
+    NSProxy.asyncCall('clear_folder_tags', this.current_parent_node.path);
   }
 }
 
+//These methods don't work//
+FileTreeComponent.prototype.select_previous = function(){
+  //this method doesn't work
+  // if(this.child_list.length){
+  //   for(var i in this.child_list){
+  //     if(this.child_list[i].path == selected_file){
+  //       (i > 0)&&(this.select_child(i-1));
+  //       break;
+  //     }
+  //   }
+  // }
+}
 
-/*Remote key functions*/
+FileTreeComponent.prototype.select_next = function(){
+  //this method doesn't work
+  // if(this.child_list.length){
+  //   for(var i in this.child_list){
+  //     if(this.child_list[i].path == selected_file){
+  //       (index < (this.child_list.length-1))&&(this.select_child(index+1));
+  //       break;
+  //     }
+  //   }
+  // }
+}
+
+
+//Remote key functions//
 function AddTag(val){
   // debug('AddTag', val);
   set_tag();
@@ -942,7 +1011,7 @@ function Editor(val){
 
 function OpenPreset(){
   debug('OpenPreset');
-  outlet(0, 'open_preset', selected_file);
+  NSProxy.asyncCall('open_preset', selected_file);
 }
 
 function Next(){
@@ -952,6 +1021,8 @@ function Next(){
 function Prev(){
   FileTree.select_previous();
 }
+
+
 
 forceload(this);
 
@@ -1068,3 +1139,68 @@ function isNumber(obj) {
 function isString(obj) {
   return obj !== undefined && typeof(obj) === 'string' && obj!== ''
 }
+
+//TEST_BUTTON
+function AddTag(val){
+  debug('TestButton', val);
+  NSProxy.asyncCall('break_patch').then(function(res){
+    debug('break_patch success:', res);
+  }).catch(function(err){
+    debug('break_patch error:', err.message);
+  });
+}
+// function setup_nodescript(){
+//   // debug('setup_nodescript');
+//   script['NSProxy'] = new NodeScriptProxy('NSProxy', {script:script, obj:node_script, cabled:false, debug:true});
+//   script['asyncResolve'] = NSProxy.asyncResolve;
+//   script['nodeDump'] = NSProxy.nodeDump;
+//   script['toNSProxy'] = NSProxy.receive;
+//   NSProxy.initialize().then(function(res){
+//       debug('SCRIPT', 'success', JSON.stringify(res));
+//       NSProxy.asyncCall('init_from_js').then(function(path){
+//         node_script_initialized(path);
+//       },
+//       function(e){
+//         debug('NSProxy.init_from_js Error:', e);
+//       });
+//     },
+//     function(err){
+//       debug('SCRIPT', 'start error:', err.message);
+//     }
+//   );
+// }
+
+// // var VAL = 4;
+// var testFunc = function(val){
+//   debug('testFunc:', val);
+//   var promise = new Promise(function(resolve, reject) {
+//     var good = val < 5;
+//     if(good){
+//       debug('is good!');
+//       resolve('in there:)');
+//     }
+//     else {
+//       reject('not in there:(');
+//     }
+//   });
+//   return promise
+// };
+//
+// testFunc(6).then(function(res){
+//   debug('res:', res);
+// }, function(err){
+//   debug('err:', err);
+// });
+
+
+//collect all dump output from node.script, start node.script when npm install finishes.
+// function nodeLog(){
+// 	var args = arrayfromargs(arguments);
+// 	var status = dict_to_jsobj(statusDict);
+// 	if(('args' in status)&&(status.args[0]=='install'))
+// 	{
+// 		if(status.status=='completed'){
+// 			outlet(0, 'script', 'start');
+// 		}
+// 	}
+// }
