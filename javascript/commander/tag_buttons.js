@@ -5,7 +5,7 @@ var util = require('aumhaa_util');
 util.inject(this, util);
 
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 
 aumhaa.init(this);
 var script = this;
@@ -116,6 +116,7 @@ function clear_filter(){
   for(var i in available_tags){
     available_tags[i].active = false;
   }
+	_refresh();
   report_tag_selection();
 }
 

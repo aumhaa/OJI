@@ -7,6 +7,7 @@ const util = require('util');
 const xattr = require('../node_dependencies/node_modules/fs-xattr');
 const open = require('../node_dependencies/node_modules/open');
 const xmljs = require('../node_dependencies/node_modules/xml-js');
+const { exec } = require("child_process");
 
 function arrayfromargs(){
 	return Array.prototype.slice.call(arguments, 0);
@@ -631,6 +632,21 @@ class PresetTagger {
 		return await open(filepath, {wait: true, app:'/Applications/Ableton Live 10 Suite.app'});
 	}
 
+	//reveal
+	reveal_preset = async(filepath) => {
+		debug('reveal_preset', filepath);
+		exec('open -R "' + filepath +'"', (err, stdout, stderr) => {
+			if(err){
+				debug('error:', err.message);
+				return err
+			}
+			if(stderr){
+				debug('stderr:', stderr);
+				return stderr
+			}
+			return true
+		});
+	}
 
 
 	//remove
