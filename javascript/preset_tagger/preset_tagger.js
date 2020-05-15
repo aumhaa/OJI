@@ -329,56 +329,58 @@ function refresh_chooser(){
 function from_commander(){
   var args = arrayfromargs(arguments);
   debug('from_commander:', args);
-  switch(args[0]){
-    case 'toFileTree':
-      if(args[1]=='select_parent'){
-        FileTree.input.apply(FileTree, args.slice(1));
-      }
-      else if(args[1]=='chooser'){
-        if(TagFilter.selected_tags.length){
-          if(FileTagger.selection_mode_value==false){
-            FileTagger.chooser_single.apply(FileTagger, args.slice(2));
+  if(Alive){
+    switch(args[0]){
+      case 'toFileTree':
+        if(args[1]=='select_parent'){
+          FileTree.input.apply(FileTree, args.slice(1));
+        }
+        else if(args[1]=='chooser'){
+          if(TagFilter.selected_tags.length){
+            if(FileTagger.selection_mode_value==false){
+              FileTagger.chooser_single.apply(FileTagger, args.slice(2));
+            }
+            else{
+              FileTagger.chooser_double.apply(FileTagger, args.slice(2));
+            }
           }
           else{
-            FileTagger.chooser_double.apply(FileTagger, args.slice(2));
+            if(FileTagger.selection_mode_value==false){
+              FileTree.select_child.apply(FileTree, args.slice(2));
+            }
+            else{
+              FileTree.open_child.apply(FileTree, args.slice(2));
+            }
           }
         }
-        else{
-          if(FileTagger.selection_mode_value==false){
-            FileTree.select_child.apply(FileTree, args.slice(2));
-          }
-          else{
-            FileTree.open_child.apply(FileTree, args.slice(2));
-          }
-        }
-      }
-      break;
-    case 'tag_selection':
-      debug('tag_selection:', args.slice());
-      TagFilter.tag_selection_from_commander.apply(TagFilter, args.slice());
-      break;
-    case 'filter_mode':
-      TagFilter.filter_mode(args[1]);
-      break;
-    case 'clear_filter':
-      TagFilter.clear_filter();
-      break;
-    case 'selection_mode':
-      FileTagger.selection_mode(args[1]);
-      break;
-    case 'update_remote_display':
-      debug('sending command....');
-      update_remote_display();
-      break;
-    // case 'Next':
-    //   Next();
-    //   break;
-    // case 'Prev':
-    //   Prev();
-    //   break;
-    case 'OpenPreset':
-      OpenPreset();
-      break;
+        break;
+      case 'tag_selection':
+        debug('tag_selection:', args.slice());
+        TagFilter.tag_selection_from_commander.apply(TagFilter, args.slice());
+        break;
+      case 'filter_mode':
+        TagFilter.filter_mode(args[1]);
+        break;
+      case 'clear_filter':
+        TagFilter.clear_filter();
+        break;
+      case 'selection_mode':
+        FileTagger.selection_mode(args[1]);
+        break;
+      case 'update_remote_display':
+        debug('sending command....');
+        update_remote_display();
+        break;
+      // case 'Next':
+      //   Next();
+      //   break;
+      // case 'Prev':
+      //   Prev();
+      //   break;
+      case 'OpenPreset':
+        OpenPreset();
+        break;
+    }
   }
 }
 
