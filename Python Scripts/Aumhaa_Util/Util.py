@@ -892,6 +892,7 @@ class UtilModHandler(ModHandler):
 	def select_mod(self, mod):
 		super(UtilModHandler, self).select_mod(mod)
 		#self._script._select_note_mode()
+		self._script._update_modswitcher()
 		self.update()
 		debug('modhandler select mod: ' + str(mod))
 
@@ -1002,7 +1003,6 @@ class UtilModHandler(ModHandler):
 		self.alt_layer and self.alt_layer.leave_mode()
 		self.update()
 
-
 	def update(self, *a, **k):
 		mod = self.active_mod()
 		if not mod is None:
@@ -1012,6 +1012,10 @@ class UtilModHandler(ModHandler):
 				self._grid_value.subject.reset()
 			if not self._keys_value.subject is None:
 				self._keys_value.subject.reset()
+
+	def set_lock(self, value):
+		self._is_locked = value > 0
+
 
 
 class UtilNavigationBox(NavigationBox):
@@ -1083,6 +1087,31 @@ class UtilViewControlComponent(ViewControlComponent):
 			detail_clip.looping = not detail_clip.looping
 
 
+class PresetTaggerSelectorComponent(Component):
+
+
+	PT_button = ButtonControl()
+	def __init__(self, modhandler, *a, **k):
+		self._modhandler = modhandler
+		self._PT_locked = False
+		super(PresetTaggerSelectorComponent, self).__init__(*a, **k)
+
+
+	@PT_button.pressed
+	def PT_button(self, button):
+		if not self._PT_locked:
+			self._PT_locked = True
+			self._modhandler.select_mod_by_name('PT')
+			self._modhandler.set_lock(True)
+			self.PT_button.color = 'DefaultButton.On'
+		else:
+			self._PT_locked = False
+			self._modhandler.set_lock(False)
+			self._modhandler._on_device_changed()
+			self.PT_button.color = 'DefaultButton.Off'
+
+
+
 class Util(ControlSurface):
 
 	device_provider_class = ModDeviceProvider
@@ -1110,6 +1139,7 @@ class Util(ControlSurface):
 			self._setup_session_recording_component()
 			self._setup_device_controls()
 			self._setup_mod()
+			self._setup_preset_tagger()
 			self._setup_audiolooper()
 			self._setup_main_modes()
 			self._initialize_script()
@@ -1305,11 +1335,15 @@ class Util(ControlSurface):
 		# 																	#key_buttons = self.elements.track_state_buttons))
 		self._device_provider.restart_mod()
 
+	def _setup_preset_tagger(self):
+		self._preset_tagger_selector = PresetTaggerSelectorComponent(self.modhandler)
+		self._preset_tagger_selector.layer = Layer(PT_button = self._button[45])
+		self._preset_tagger_selector.set_enabled(False)
+
 	def _setup_audiolooper(self):
 		self._audiolooper = LoopSelectorComponent(follow_detail_clip=True, measure_length=4.0, name='Loop_Selector', default_size = 32)
 		self._audiolooper.layer = Layer(loop_selector_matrix = self._grid)
 		self._audiolooper.set_enabled(False)
-
 
 	def _setup_main_modes(self):
 		self._modswitcher = ModesComponent(name = u'ModSwitcher')
@@ -1321,7 +1355,7 @@ class Util(ControlSurface):
 
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode(u'disabled', [])
-		self._main_modes.add_mode(u'Main', [self._modswitcher, self._recorder, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode(u'Main', [self._preset_tagger_selector, self._modswitcher, self._recorder, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = u'disabled'
 		# self._main_modes.layer = Layer(Main_button = self._button[44], Mod_button = self._button[45])
@@ -1359,6 +1393,14 @@ class Util(ControlSurface):
 			self._modswitcher.selected_mode = 'mod'
 		else:
 			self._modswitcher.selected_mode = 'audiolooper'
+
+	def modhandler_select_mod_by_name(self, name):
+		if not self.modhandler is None:
+			self.modhandler.select_mod_by_name(name)
+
+	def modhandler_set_lock(self, val):
+		if not self.modhandler is None:
+			self.modhandler.set_lock(val)
 
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
 		debug('load_preset()', 'target:', target, 'folder:', folder, 'directory:', directory)
