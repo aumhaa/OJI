@@ -1170,7 +1170,7 @@ FileTaggerComponent.prototype.chooser_single = function(index, shortname){
 
 FileTaggerComponent.prototype.chooser_double = function(index, shortname){
   // debug('chooser_double', index, shortname);
-  var path = this.selected_tags.length ? TagFilter.filtered_hash_list[shortname].file : TagFilter.hash_list[shortname].file;
+  var path = TagFilter.selected_tags.length ? TagFilter.filtered_hash_list[shortname].file : TagFilter.hash_list[shortname].file;
   NSProxy.asyncCall('open_preset', path);
 }
 
@@ -1416,7 +1416,10 @@ TagFilterComponent.prototype.redraw_tagchooser = function(){
     found_tag = this.found_tags[i];
     tag_chooser.append(found_tag);
     messnamed('from_preset_tagger', 'filters', 'append', found_tag);
-    this.selected_tags.indexOf(found_tag)>-1&&tag_chooser.set(i);
+    if(this.selected_tags.indexOf(found_tag)>-1){
+      tag_chooser.set(i);
+      messnamed('from_preset_tagger', 'filters', 'set', i, 1);
+    }
   }
   mira_gate.message(1);
 }

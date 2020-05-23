@@ -112,6 +112,14 @@ function tag_button_bank_down(){
   }
 }
 
+function set(num, val){
+	var i = num;
+	if(available_tags[i]){
+		available_tags[i].active = val;
+		tagButton[i-bank_index].message('activebgcolor', val ? COLORS.yellow : COLORS.white);
+	}
+}
+
 function clear_filter(){
   for(var i in available_tags){
     available_tags[i].active = false;
