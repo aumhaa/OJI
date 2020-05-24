@@ -274,9 +274,11 @@ class PresetTagger {
 			clearTimeout(this.update_task);
 		}
 		this.update_task = setTimeout(() => {
-			this.scan_library_internal().then(() => {
-				maxApi.outlet('js', 'library_updated');
-			})}, 10);
+			// this.scan_library_internal().then(() => {
+			// 	maxApi.outlet('js', 'library_updated');
+			// })
+			maxApi.outlet('js', 'on_file_changed');
+		}, 10);
 	}
 
 	find_filetree_node = async(file_path) => {
@@ -315,7 +317,6 @@ class PresetTagger {
 	scan_library_internal = async() => {
 		if( (fs.existsSync(this.library_dir)) && (fs.lstatSync(this.library_dir).isDirectory()) ){
 			// debug('this.library_dir is:', this.library_dir);
-			maxApi.outlet('js', 'in_update');
 			this.library_data = {};
 			// setDict(this.libraryDictId, this.library_data);
 			// this.setDict(this.libraryDictId, this.library_data);

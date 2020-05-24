@@ -501,8 +501,9 @@ function activate(){
 
 
 /** called from nodescript instance when it starts its update*/
-function in_update(){
-  debug('in_update received from nodescript');
+function on_file_changed(){
+  // debug('in_update received from nodescript');
+  scan_library();
 }
 
 /** called from nodescript instance when it finishes its update*/
