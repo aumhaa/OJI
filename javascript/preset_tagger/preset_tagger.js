@@ -63,6 +63,7 @@ var ModProxy = ModProxyComponent.bind(script);
 
 var BROWSERXSIZE = 800;
 var BROWSERYSIZE = 360;
+var MULTITAG_DELAY = 1000;
 
 function anything(){}
 
@@ -373,6 +374,7 @@ function setup_tests(){
   //   debug('test_function failure', e.message);
   // });
   FileTree.find_file('/Users/amounra/Music/Ableton/User Library/Presets/Audio Effects/Audio Effect Rack Test/@d_12 Instrument FX 043020.adg');
+  debug('tags:', fileInfo.active_tags);
 }
 
 function setup_modes(){
@@ -384,16 +386,20 @@ function setup_modes(){
 		debug('tagPage entered');
     KeyButtons[0]._send_text('<');
     KeyButtons[1]._send_text('>');
+    KeyButtons[6]._send_text('FileAccess');
     KeyButtons[7]._send_text('TagMode');
     tagChooser.offset.set_inc_dec_buttons(KeyButtons[1], KeyButtons[0]);
     tagChooser.assign_grid(Grid);
+    fileInfo.fileAccessButton.set_control(KeyButtons[6]);
 	}
 	tagPage.exit_mode = function()
 	{
+    fileInfo.fileAccessButton.set_control();
     tagChooser.offset.set_inc_dec_buttons();
     tagChooser.assign_grid();
     KeyButtons[0]._send_text(' ');
     KeyButtons[1]._send_text(' ');
+    Keybuttons[6]._send_text(' ');
     KeyButtons[7]._send_text(' ');
 		debug('tagPage exited');
 	}
@@ -502,14 +508,13 @@ function activate(){
 
 /** called from nodescript instance when it starts its update*/
 function on_file_changed(){
-  // debug('in_update received from nodescript');
+  fileInfo.report_update(true);
   scan_library();
 }
 
 /** called from nodescript instance when it finishes its update*/
 function library_updated(){
-  //selected_file = null;
-  debug('library_updated triggered...');
+  // debug('library_updated triggered...');
   libraryObj = util.dict_to_jsobj(libraryDict);
   FileTree.update_files();
   TagFilter.refresh();
@@ -522,7 +527,8 @@ function library_updated(){
     this.patcher.getnamed('filetree').message('wclose');
     this.patcher.getnamed('filetree').message('edit');
   };
-  debug('...library_updated finished');
+  // debug('...library_updated finished');
+  fileInfo.report_update(false);
 }
 
 
@@ -648,13 +654,22 @@ function set_global_path(){
 }
 
 
+
 function FileInfoComponent(name, args){
   var self = this;
   this._shortname = new ParameterClass('Shortname', {value:undefined});
   this._filepath = new ParameterClass('SelectedFile', {value:undefined});
   this._active_tags = new ArrayParameter('Active_Tags', {value:[]});
+  this._needs_to_update = false;
   this._obj = undefined;
-  this.add_bound_properties(this, []);
+  this._flush_task = new Task(this._flush_changed_tags, this);
+  this.fileAccessButton = new MomentaryParameter(this._name + '_FileAccess', {value:0, onValue:5, offValue:1});
+  this.add_bound_properties(this, ['_flush_changed_tags',
+    'buffer_tags',
+    '_flush_task',
+    '_needs_to_update',
+    'fileAccessButton'
+  ]);
   FileInfoComponent.super_.call(this, name, args);
 }
 
@@ -669,14 +684,31 @@ FileInfoComponent.prototype.__defineGetter__('selected_file', function(){
 })
 
 FileInfoComponent.prototype.__defineGetter__('active_tags', function(){
-  return this._active_tags._value;
+  return this._active_tags._value
 })
 
 FileInfoComponent.prototype.__defineGetter__('shortname', function(){
   return this._shortname._value;
 })
 
+FileInfoComponent.prototype.buffer_tags = function(tags){
+  // var tags = arrayfromargs(arguments);
+  debug('buffer_tags:', tags);
+  this._needs_to_update = true;
+  if(this._flush_task.running){
+    this._flush_task.cancel();
+  }
+  this._flush_task.schedule(MULTITAG_DELAY);
+  this._active_tags.set_value(tags);
+}
+
+FileInfoComponent.prototype._flush_changed_tags = function(){
+  this._needs_to_update = false;
+  FileTagger.set_tags(this.selected_file, this.active_tags);
+}
+
 FileInfoComponent.prototype.select_file = function(filepath){
+  this._needs_to_update&&this._flush_changed_tags();
   this._filepath.set_value(filepath);
   // this._active_tags.set_value(filepath in libraryObj ? libraryObj[filepath].tags : []);
   this.update();
@@ -693,6 +725,20 @@ FileInfoComponent.prototype.refresh = function(){
   var path = this.selected_file;
   selected_file_tags.message('set', tags ? tags : '');
   current_selected_file.message('set', path ? '...'+path.slice(-60) : '');
+}
+
+FileInfoComponent.prototype.report_update = function(val){
+  if(val){
+    // debug('report_update true');
+    current_selected_file.message('bgfillcolor', 1, 0, 0, 1);
+    current_selected_file.message('set', 'ACCESSING FILES...');
+    this.fileAccessButton.set_value(1);
+  }
+  else{
+    // debug('report_update false');
+    current_selected_file.message('bgfillcolor', .2, .5, 1, 1);
+    this.fileAccessButton.set_value(0);
+  }
 }
 
 
@@ -738,8 +784,8 @@ FileTreeComponent.prototype.input = function(){
   }
 }
 
-//used to make sure that when refreshing, some undefined vars don't cause exception in this.refresh
 FileTreeComponent.prototype.init_parent_node = function(){
+  //used to make sure that when refreshing, some undefined vars don't cause exception in this.refresh
   if((!this.current_parent_node)||(!this._treeobj.name)){
     // debug('FileTree.init_parent_node', !this.current_parent_node, this._treeobj.name);
     this.current_parent_node = this._treeobj.children[Object.keys(this._treeobj.children)];
@@ -973,6 +1019,7 @@ FileTreeComponent.prototype.refresh_child_node = function(){
 }
 
 
+
 function retrieve_parent(obj, parents){
   //parents = [].concat(parents);
   if((!parents)||(!parents.length)){
@@ -1003,36 +1050,6 @@ function retrieve_child(obj, parents){
 }
 
 
-//this is here because something is overwriting the aumhaa.util export
-function dict_to_jsobj(dict) {
-	if (dict == null) return null;
-	var o = new Object();
-	var keys = dict.getkeys();
-	if (keys == null || keys.length == 0) return null;
-
-	if (keys instanceof Array) {
-		for (var i = 0; i < keys.length; i++)
-		{
-			var value = dict.get(keys[i]);
-
-			if (value && value instanceof Dict) {
-				value = dict_to_jsobj(value);
-			}
-			o[keys[i]] = value;
-		}
-	} else {
-		var value = dict.get(keys);
-
-		if (value && value instanceof Dict) {
-			value = dict_to_jsobj(value);
-		}
-		o[keys] = value;
-	}
-
-	return o;
-}
-
-
 
 /**
 *  Component deals with all tagging tasks.
@@ -1049,7 +1066,9 @@ function FileTaggerComponent(name, args){
     'refresh',
     'selection_mode_value',
     'toggle_tag',
-    'toggle_tag_listener'
+    'toggle_tag_listener',
+    'apply_tag_locally',
+    'remove_tag_locally'
   ]);
   FileTaggerComponent.super_.call(this, name, args);
   this._init.apply(this);
@@ -1091,6 +1110,7 @@ FileTaggerComponent.prototype.display_tag_buffer = function(tag) {
 }
 
 FileTaggerComponent.prototype.toggle_tag_listener = function(obj){
+  //this is the target of the UI sidebar tagger
   debug('toggle_tag_listener', obj._value);
   this.toggle_tag(obj._value);
 }
@@ -1098,16 +1118,45 @@ FileTaggerComponent.prototype.toggle_tag_listener = function(obj){
 FileTaggerComponent.prototype.toggle_tag = function(stag){
   debug('FileTaggerComponent.prototype.toggle_tag:', stag, typeof stag);
   if(typeof stag == 'string'){
-    var active_tags = [].concat(fileInfo.active_tags);
-    debug('active_tags:', active_tags, active_tags);
-    var index = Math.floor(active_tags.indexOf(stag)>-1);
-    debug('index', index);
-    var actions = ['apply_tag', 'remove_tag'];
-    var action = actions[index];
-    debug(action ,index, actions, actions[1], actions[index]);
-    return NSProxy.asyncCall(action, fileInfo.selected_file, stag);
+    //var active_tags = [].concat(fileInfo.active_tags);
+    var active_tags = fileInfo.active_tags;
+    var exists = Math.floor(active_tags.indexOf(stag)>-1);
+    // debug('active_tags:', typeof active_tags, active_tags, 'exists:', exists);
+    var actions = ['apply_tag_locally', 'remove_tag_locally'];
+    var action = actions[exists];
+    // debug(action ,index, actions, actions[1], actions[index]);
+    // return NSProxy.asyncCall(action, fileInfo.selected_file, stag);
+    this[action].call(this, stag);
+    return Promise.resolve(true);
   }
-  return Promise.reject()
+  return Promise.reject(new Error('tag was not a string'));
+}
+
+FileTaggerComponent.prototype.apply_tag_locally = function(tag){
+  // return NSProxy.asyncCall('apply_tag'', fileInfo.selected_file, tag);
+  var active_tags = fileInfo.active_tags;
+  var index = active_tags.indexOf(tag);
+  // debug('apply_tag_locally', tag, 'active:', active_tags, index);
+  if(index<0){
+    active_tags.push(tag);
+    fileInfo.buffer_tags(active_tags);
+  }
+}
+
+FileTaggerComponent.prototype.remove_tag_locally = function(tag){
+  // return NSProxy.asyncCall('remove_tag'', fileInfo.selected_file, tag);
+  var active_tags = fileInfo.active_tags;
+  var index = active_tags.indexOf(tag);
+  // debug('remove_tag_locally', tag, 'active:', active_tags, index);
+  if(index>-1){
+    active_tags.splice(index, 1);
+    debug('active_tags length:', active_tags, active_tags.length);
+    fileInfo.buffer_tags(active_tags);
+  }
+}
+
+FileTaggerComponent.prototype.set_tags = function(filepath, tags){
+  return NSProxy.asyncCall('set_tags', filepath, tags);
 }
 
 FileTaggerComponent.prototype.set_tag = function(){
@@ -1344,8 +1393,8 @@ TagFilterComponent.prototype.display_filtered_files = function(){
   mira_gate.message(1);
 }
 
-//not currently used
 TagFilterComponent.prototype.refresh_chooser_selection = function(){
+  //not currently used
   var selected_file = fileInfo.selected_file;
   // debug('selected_file:', selected_file);
   if(selected_file){
@@ -1440,7 +1489,6 @@ TagFilterComponent.prototype.detect_found_tags = function(){
   this.found_tags.sort();
   this._tagList.set_value(this.found_tags);
 }
-
 
 
 
@@ -1714,38 +1762,16 @@ function OpenPreset(){
 forceload(this);
 
 
+//This object keeps track of how often an objects tags are changed,
+//Sends them when a reasonable interval has gone by,
+function TagSetBuffer(name, args){
+  var self = this;
+  this.add_bound_properties(this, []);
+  TagSetBuffer.super_.call(this, name, args);
+}
 
+util.inherits(TagSetBuffer, Bindable);
 
-// //this is probably left-over from non-multi tag selection
-// TagFilterComponent.prototype.set_tag_filter = function(){
-//   var tags = [].concat(arrayfromargs(arguments));
-//   this._selected_tags.set_value(tags[0]=='bang'?[]:tags);
-//   this.refresh();
-// }
+TagSetBuffer.prototype._init = function(){}
 
-
-//this is getting moved to fileInfo
-// FileTaggerComponent.prototype.display_selected_file = function(path){
-//   current_selected_file.message('set', path ? '...'+path.slice(-50) : '');
-// }
-
-//this is getting moved to fileInfo
-// FileTaggerComponent.prototype.display_selected_file_tags = function(path){
-//   if((typeof path == 'string')&&(path in libraryObj)){
-//     var tags = libraryObj[path].tags;
-//     selected_file_tags.message('set', tags ? tags : '');
-//     fileInfo._active_tags.set_value(tags);
-//   }
-//   else{
-//     debug('can\'t display tags for path:', path, 'not in libraryObj');
-//     fileInfo._active_tags.set_value([]);
-//   }
-// }
-
-// function Next(){
-//   FileTree.select_next();
-// }
-//
-// function Prev(){
-//   FileTree.select_previous();
-// }
+TagSetBuffer.prototype._init = function(){}

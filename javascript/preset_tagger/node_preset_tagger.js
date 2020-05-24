@@ -438,6 +438,23 @@ class PresetTagger {
 		return Promise.reject(new Error('invalid path'));
 	}
 
+	/**set a files tags to a specific buffer*/
+	set_tags = async (target_file, ...tags) => {
+		// debug('apply_tag:', target_file, tags);
+		if( (target_file!=undefined) &&
+		 (tags.length>0) &&
+		 (fs.existsSync(target_file)) &&
+		 (fs.lstatSync(target_file).isFile()) &&
+	   	 (VALID_FILE_TYPES.indexOf(path.extname(target_file))>-1) ) {
+			let attrs = xattr.listSync(target_file);
+			let tag_buf = [].concat(tags);
+			xattr.setSync(target_file, namespace, tag_buf.join(' '));
+			return true
+		}
+		return Promise.reject(new Error('invalid path or tag'));
+	}
+
+
 	/**apply tag(s) to the target file*/
 	apply_tag = async (target_file, ...tags) => {
 		// debug('apply_tag:', target_file, tags);
