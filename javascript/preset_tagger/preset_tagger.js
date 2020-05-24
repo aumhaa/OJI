@@ -63,7 +63,7 @@ var ModProxy = ModProxyComponent.bind(script);
 
 var BROWSERXSIZE = 800;
 var BROWSERYSIZE = 360;
-var MULTITAG_DELAY = 1000;
+var MULTITAG_DELAY = 3000;
 
 function anything(){}
 
@@ -508,8 +508,10 @@ function activate(){
 
 /** called from nodescript instance when it starts its update*/
 function on_file_changed(){
-  fileInfo.report_update(true);
-  scan_library();
+  if(!fileInfo._needs_to_update){
+    fileInfo.report_update(true);
+    scan_library();
+  }
 }
 
 /** called from nodescript instance when it finishes its update*/
