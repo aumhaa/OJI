@@ -45,6 +45,7 @@ function setup_patcher(){
 }
 
 function append(){
+	debug('append');
   var args = arrayfromargs(arguments);
   debug('append:', args);
   available_tags.push({name:args.join(' '), acive:false});
@@ -115,8 +116,12 @@ function tag_button_bank_down(){
 function set(num, val){
 	var i = num;
 	if(available_tags[i]){
-		available_tags[i].active = val;
-		tagButton[i-bank_index].message('activebgcolor', val ? COLORS.yellow : COLORS.white);
+		available_tags[i].active = val>0;
+		var button_index = parseInt(i) - bank_index;
+		// debug('button_index:', button_index);
+		if((button_index>-1)&&(button_index < 8)){
+			tagButton[button_index].message('activebgcolor', val ? COLORS.yellow : COLORS.white);
+		}
 	}
 }
 

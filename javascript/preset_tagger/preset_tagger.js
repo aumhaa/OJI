@@ -254,7 +254,7 @@ function setup_mod(){
     if(val){
        mod = found_mod;
        MainModes.change_mode(0);
-      MainModes.set_mode_cycle_button(KeyButtons[7]);
+       MainModes.set_mode_cycle_button(KeyButtons[7]);
     }
   }
   mod = new ModProxy(script, ['Send', 'SendDirect', 'restart']);
@@ -399,7 +399,7 @@ function setup_modes(){
     tagChooser.assign_grid();
     KeyButtons[0]._send_text(' ');
     KeyButtons[1]._send_text(' ');
-    Keybuttons[6]._send_text(' ');
+    KeyButtons[6]._send_text(' ');
     KeyButtons[7]._send_text(' ');
 		debug('tagPage exited');
 	}
@@ -462,6 +462,9 @@ function setup_modes(){
 	script["MainModes"] = new PageStack(2, 'Main Mode', {mode_colors:[2,4]});
 	MainModes.add_mode(0, tagPage);
   MainModes.add_mode(1, filterPage);
+  MainModes.add_listener(function(obj){
+    debug('new mode is:', obj._value);
+  })
 
 
 }
@@ -1158,7 +1161,11 @@ FileTaggerComponent.prototype.remove_tag_locally = function(tag){
 }
 
 FileTaggerComponent.prototype.set_tags = function(filepath, tags){
-  return NSProxy.asyncCall('set_tags', filepath, tags);
+  if(util.isArray(tags)){
+    //NSProxy will mar an empty array, so we need to set it to something it can use here
+    var new_tags = tags.length ? tags : '';
+    return NSProxy.asyncCall('set_tags', filepath, new_tags);
+  }
 }
 
 FileTaggerComponent.prototype.set_tag = function(){
@@ -1519,7 +1526,7 @@ function TagDisplayComponent(name, args){
 util.inherits(TagDisplayComponent, Bindable);
 
 TagDisplayComponent.prototype._init = function(){
-  debug(this._name, 'init');
+  // debug(this._name, 'init');
   this.offset.set_target(this._update);
 }
 
@@ -1534,7 +1541,7 @@ TagDisplayComponent.prototype.set_active_tags = function(obj){
 }
 
 TagDisplayComponent.prototype.assign_grid = function(grid){
-	// debug('TagDisplayComponent.assign_grid:', grid);
+	// debug(this._name, '.assign_grid:', grid);
 	if(this._grid instanceof GridClass){
 		this._grid.remove_listener(this._button_press);
 	}
@@ -1546,6 +1553,7 @@ TagDisplayComponent.prototype.assign_grid = function(grid){
 }
 
 TagDisplayComponent.prototype._update = function(){
+  // debug(this._name, '.update');
   if(this._grid){
     var active_tags = this._active_tags;
     var controls = this._grid.controls();
