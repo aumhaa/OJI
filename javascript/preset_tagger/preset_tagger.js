@@ -224,8 +224,12 @@ function setup_filetagger(){
   });
   script['toFileTagger'] = FileTagger.input;
   file_chooser.set_target(function(obj){
-    debug('file_chooser input:', obj, obj._value);
-    FileTagger.input.apply(FileTagger, ['chooser_single'].concat(obj._value));
+    debug('file_chooser input:', obj, obj._value, obj._doublepressed);
+    if(obj._doublepressed){
+      FileTagger.input.apply(FileTagger, ['chooser_double'].concat(obj._value));
+    } else {
+      FileTagger.input.apply(FileTagger, ['chooser_single'].concat(obj._value));
+    }
   });
   tag_chooser.set_tag.add_listener(FileTagger.toggle_tag_listener);
 }
@@ -1228,8 +1232,9 @@ FileTaggerComponent.prototype.chooser_single = function(index, shortname){
 }
 
 FileTaggerComponent.prototype.chooser_double = function(index, shortname){
-  // debug('chooser_double', index, shortname);
-  var path = TagFilter.selected_tags.length ? TagFilter.filtered_hash_list[shortname].file : TagFilter.hash_list[shortname].file;
+  debug('chooser_double', index, shortname, TagFilter.selected_tags, TagFilter.selected_tags.length);
+  // var path = TagFilter.selected_tags.length ? TagFilter.filtered_hash_list[shortname].file : TagFilter.hash_list[shortname].file;
+  var path = TagFilter.filtered_hash_list[shortname].file;
   NSProxy.asyncCall('open_preset', path);
 }
 
@@ -1402,6 +1407,7 @@ TagFilterComponent.prototype.display_filtered_files = function(){
   mira_gate.message(1);
 }
 
+//this shouldn't be needed anymore, since we only seem to be maintaining the filtered_hash_list now.
 TagFilterComponent.prototype.refresh_chooser_selection = function(){
   //not currently used
   var selected_file = fileInfo.selected_file;

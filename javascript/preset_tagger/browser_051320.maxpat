@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 34.0, 79.0, 1413.0, 947.0 ],
+		"rect" : [ 207.0, 281.0, 783.0, 379.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 1,
 		"default_fontsize" : 12.0,
@@ -39,6 +39,65 @@
 		"subpatcher_template" : "",
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
+				"box" : 				{
+					"id" : "obj-78",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 1202.999908000000005, 448.0, 131.0, 22.0 ],
+					"text" : "prepend toTagChooser"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"automouse" : 0,
+					"bblend" : 100,
+					"bgcolor" : [ 0.847058823529412, 0.847058823529412, 0.847058823529412, 1.0 ],
+					"bordercolor" : [ 0.0, 0.0, 0.0, 1.0 ],
+					"celldef" : [ [ 0, 0, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.0, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 1, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 2, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 3, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 4, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 5, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 6, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 7, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 8, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 9, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 10, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 11, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ], [ 0, 12, 0, 1, 0.0, 0.0, 0.0, 1.0, 0, 0.705882352941176, 0.705882352941176, 0.705882352941176, 1.0, -1, -1, -1 ] ],
+					"cols" : 1,
+					"colwidth" : 200,
+					"fblend" : 100,
+					"fontface" : 0,
+					"fontname" : "Arial",
+					"fontsize" : 10.0,
+					"grid" : 0,
+					"gridlinecolor" : [ 0.2, 0.2, 0.2, 1.0 ],
+					"hcellcolor" : [ 0.537254901960784, 0.650980392156863, 0.847058823529412, 0.0 ],
+					"hscroll" : 0,
+					"id" : "obj-73",
+					"maxclass" : "jit.cellblock",
+					"numinlets" : 2,
+					"numoutlets" : 4,
+					"outlettype" : [ "list", "", "", "" ],
+					"patching_rect" : [ 1202.999908000000005, 208.492957293987274, 142.492957949638367, 178.507042706012726 ],
+					"presentation" : 1,
+					"presentation_rect" : [ 590.5, 46.517605125904083, 187.0, 237.982394874095917 ],
+					"rowheight" : 15,
+					"rows" : 13,
+					"sccolor" : [ 0.545098039215686, 0.545098039215686, 0.545098039215686, 1.0 ],
+					"sgcolor" : [ 0.380392156862745, 0.380392156862745, 0.388235294117647, 1.0 ],
+					"stcolor" : [ 0.317647058823529, 0.317647058823529, 0.356862745098039, 1.0 ],
+					"varname" : "tagchooser",
+					"vscroll" : 0
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-72",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 1231.999908000000005, 411.0, 186.0, 22.0 ],
+					"text" : "prepend toTagFilter tag_selection"
+				}
+
+			}
+, 			{
 				"box" : 				{
 					"id" : "obj-65",
 					"maxclass" : "newobj",
@@ -73,7 +132,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 1132.5, 546.0, 100.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 590.5, 437.5, 187.0, 20.0 ],
+					"presentation_rect" : [ 590.5, 283.5, 187.0, 20.0 ],
 					"text" : "tag selected with filter",
 					"varname" : "tag_next_selected_button"
 				}
@@ -123,6 +182,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"align" : 2,
 					"fontface" : 0,
 					"id" : "obj-48",
@@ -342,7 +402,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 1076.0, 577.0, 100.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 689.5, 504.0, 88.0, 20.0 ],
+					"presentation_rect" : [ 689.5, 350.0, 88.0, 20.0 ],
 					"text" : "folder clear"
 				}
 
@@ -357,7 +417,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 999.5, 546.0, 100.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 689.5, 482.0, 88.0, 20.0 ],
+					"presentation_rect" : [ 689.5, 328.0, 88.0, 20.0 ],
 					"text" : "folder remove"
 				}
 
@@ -372,7 +432,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 925.0, 577.0, 100.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 590.5, 482.0, 85.0, 20.0 ],
+					"presentation_rect" : [ 590.5, 328.0, 85.0, 20.0 ],
 					"text" : "folder set"
 				}
 
@@ -745,7 +805,7 @@
 					"headerheight" : 20,
 					"headerlabel" : "Children",
 					"id" : "obj-34",
-					"items" : "<empty>",
+					"items" : [ "User", "Library" ],
 					"margin" : 20,
 					"maxclass" : "chooser",
 					"multiselect" : 0,
@@ -755,7 +815,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 317.0, 70.0, 229.0, 353.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 200.5, 3.5, 196.0, 454.0 ],
+					"presentation_rect" : [ 200.5, 3.5, 196.0, 281.0 ],
 					"selectedclick" : 1,
 					"textjustification" : 0,
 					"varname" : "files_chooser"
@@ -770,7 +830,7 @@
 					"headerheight" : 20,
 					"headerlabel" : "Parent",
 					"id" : "obj-35",
-					"items" : "<empty>",
+					"items" : [ "Ableton", "Folder", "Info", ",", "Ableton", "Project", "Info", ",", "Defaults", ",", "Lessons", ",", "Presets", ",", "Remote", "Scripts", ",", "Sampler", ",", "Samples", ",", "iDrum" ],
 					"maxclass" : "chooser",
 					"multiselect" : 0,
 					"numinlets" : 1,
@@ -779,7 +839,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 86.0, 70.0, 229.0, 353.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 2.5, 23.5, 196.0, 434.5 ],
+					"presentation_rect" : [ 2.5, 23.5, 196.0, 261.5 ],
 					"textjustification" : 0,
 					"varname" : "parent_chooser"
 				}
@@ -830,7 +890,7 @@
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 642.0, 640.0, 255.0, 22.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 200.5, 504.0, 196.0, 22.0 ],
+					"presentation_rect" : [ 200.5, 350.0, 196.0, 22.0 ],
 					"varname" : "tag_buffer_display"
 				}
 
@@ -843,7 +903,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 904.0, 484.0, 255.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 2.5, 460.0, 196.0, 20.0 ],
+					"presentation_rect" : [ 2.5, 306.0, 196.0, 20.0 ],
 					"suppressinlet" : 1,
 					"text" : "Currently selected file",
 					"textcolor" : [ 1.0, 0.999974370002747, 0.999991297721863, 1.0 ],
@@ -871,7 +931,7 @@
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 904.0, 506.0, 255.0, 22.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 200.5, 460.0, 388.0, 22.0 ],
+					"presentation_rect" : [ 200.5, 306.0, 388.0, 22.0 ],
 					"varname" : "current_selected_file"
 				}
 
@@ -983,7 +1043,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 642.0, 506.0, 255.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 2.5, 482.0, 196.0, 20.0 ],
+					"presentation_rect" : [ 2.5, 328.0, 196.0, 20.0 ],
 					"suppressinlet" : 1,
 					"text" : "Currently selected file's active tags",
 					"textcolor" : [ 1.0, 0.999974370002747, 0.999991297721863, 1.0 ],
@@ -1001,7 +1061,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 747.0, 687.0, 150.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 6.5, 504.0, 192.0, 20.0 ],
+					"presentation_rect" : [ 6.5, 350.0, 192.0, 20.0 ],
 					"text" : "Edited tag for selected file",
 					"textcolor" : [ 1.0, 0.999974370002747, 0.999991297721863, 1.0 ],
 					"textjustification" : 1,
@@ -1019,7 +1079,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 810.0, 546.0, 100.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 590.5, 504.0, 85.0, 20.0 ],
+					"presentation_rect" : [ 590.5, 350.0, 85.0, 20.0 ],
 					"text" : "clear all"
 				}
 
@@ -1034,7 +1094,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 713.0, 577.0, 100.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 689.5, 459.5, 88.0, 20.0 ],
+					"presentation_rect" : [ 689.5, 305.5, 88.0, 20.0 ],
 					"text" : "remove"
 				}
 
@@ -1049,7 +1109,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 642.0, 546.0, 100.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 590.5, 460.0, 85.0, 20.0 ],
+					"presentation_rect" : [ 590.5, 306.0, 85.0, 20.0 ],
 					"text" : "add"
 				}
 
@@ -1083,10 +1143,8 @@
 					"parameter_enable" : 0,
 					"parameter_mappable" : 0,
 					"patching_rect" : [ 964.0, 66.0, 165.0, 281.0 ],
-					"presentation" : 1,
-					"presentation_rect" : [ 590.5, 47.5, 187.0, 387.0 ],
 					"textjustification" : 0,
-					"varname" : "tagchooser"
+					"varname" : "tagchooser_old"
 				}
 
 			}
@@ -1157,7 +1215,7 @@
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 642.0, 482.0, 255.0, 22.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 200.5, 482.0, 388.5, 22.0 ],
+					"presentation_rect" : [ 200.5, 328.0, 388.5, 22.0 ],
 					"varname" : "selected_file_tags"
 				}
 
@@ -1176,7 +1234,6 @@
 			}
 , 			{
 				"box" : 				{
-					"bangmode" : 1,
 					"id" : "obj-19",
 					"keymode" : 1,
 					"maxclass" : "textedit",
@@ -1186,7 +1243,8 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 642.0, 664.0, 255.0, 21.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 399.0, 504.0, 190.0, 21.0 ],
+					"presentation_rect" : [ 399.0, 350.0, 190.0, 21.0 ],
+					"text" : "#test2",
 					"varname" : "tagfilter"
 				}
 
@@ -1320,7 +1378,7 @@
 					"parameter_mappable" : 0,
 					"patching_rect" : [ 606.0, 66.0, 343.0, 281.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 398.5, 3.5, 190.0, 454.0 ],
+					"presentation_rect" : [ 398.5, 3.5, 190.0, 281.0 ],
 					"selectedclick" : 1,
 					"textjustification" : 0,
 					"varname" : "filechooser"
@@ -1903,6 +1961,21 @@
 					"destination" : [ "obj-5", 0 ],
 					"midpoints" : [ 651.5, 864.5, 615.5, 864.5 ],
 					"source" : [ "obj-7", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-78", 0 ],
+					"source" : [ "obj-73", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 0 ],
+					"midpoints" : [ 1212.499908000000005, 528.0, 615.5, 528.0 ],
+					"source" : [ "obj-78", 0 ]
 				}
 
 			}
