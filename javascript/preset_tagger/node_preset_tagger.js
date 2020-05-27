@@ -24,7 +24,7 @@ Debug = function(){
 	maxApi.post(args + '\n');
 }
 
-const DEBUG = true;
+const DEBUG = false;
 const debug = DEBUG&&Debug?Debug:function(){}
 
 const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif'];
@@ -57,6 +57,22 @@ async function asyncForEach(array, callback) {
   for (let index = 0; index < array.length; index++) {
     await callback(array[index], index, array);
   }
+}
+
+function arraysEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  if (a.length != b.length) return false;
+
+  // If you don't care about the order of the elements inside
+  // the array, you should sort both arrays here.
+  // Please note that calling sort on an array will modify that array.
+  // you might want to clone your array first.
+
+  for (var i = 0; i < a.length; ++i) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 maxApi.addHandler('asyncJS', async(addy, func, ...args) => {
@@ -265,9 +281,35 @@ class PresetTagger {
 		if( ((fs.existsSync(file_path)) &&
 		(VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1)) ||
 		(event == 'rename') ){
-			this.call_library_update();
+			// this.call_library_update();
+			this.rescan_file(file_path);
 		}
 	}
+
+	rescan_file = async(file_name) => {
+		debug('rescan_file:', file_name);
+		let node = await this.find_filetree_node(file_name).then( (node) => {
+				debug('node is:', JSON.stringify(node));
+				let old_tags = node.tags;
+				let tags = [];
+				let attrs = xattr.listSync(file_name);
+				if(attrs.indexOf(namespace)>-1){
+					tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
+				}
+				if(!arraysEqual(old_tags, tags)){
+					// debug(old_tags, old_tags.length, tags, tags.length, 'new tags, calling update');
+					this.call_library_update();
+				}
+				else{
+					// debug('tags are the same, no need to call update');
+					return true
+				}
+		}).catch((e) => {
+			// debug('problem with rescan file, calling updated');
+			this.call_library_update();
+		})
+	}
+
 
 	call_library_update = () => {
 		if(this.update_task){
@@ -288,10 +330,40 @@ class PresetTagger {
 			let parents = relative_path.replace(shortname, '').split('/');
 			let base = path.basename(this.library_dir);
 			let node = this.file_tree.children[base];
+			//this gets to FileTree.children[]
 			if(parents.length){
 				parents.shift()
 				for(var i in parents){
 					if(node.children[parents[i]]){
+						//we're walking up the chain by each parent;
+						// debug('node:', node, 'parents[i]', i, parents[i]);
+						node = node.children[parents[i]];
+					}
+				}
+				// debug('node path:', node.path);
+				node = node.children[shortname];
+				return node
+			}
+		}
+		catch(e){
+			debug('find_filetree_node error:', e.message);
+			return e
+		}
+	}
+
+	find_filetree_node_parent = async(file_path) => {
+		try{
+			let relative_path = file_path.replace(path.basename(this.library_dir)+'/', '');
+			let shortname = path.basename(file_path);
+			let parents = relative_path.replace(shortname, '').split('/');
+			let base = path.basename(this.library_dir);
+			let node = this.file_tree.children[base];
+			//this gets to FileTree.children[]
+			if(parents.length){
+				parents.shift()
+				for(var i in parents){
+					if(node.children[parents[i]]){
+						//we're walking up the chain by each parent;
 						// debug('node:', node, 'parents[i]', i, parents[i]);
 						node = node.children[parents[i]];
 					}
@@ -304,7 +376,6 @@ class PresetTagger {
 			debug('find_filetree_node error:', e.message);
 			return e
 		}
-
 	}
 
 	/**combine with scan_library_internal and use await*/
@@ -367,7 +438,7 @@ class PresetTagger {
 			let tags = [];
 			let attrs = xattr.listSync(file_name);
 			if(attrs.indexOf(namespace)>-1){
-				tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' '));
+				tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
 			}
 			this.library_data[file_name] = {'tags':tags, 'shortname':shortname};
 			filetree_node.children[shortname] = {name:shortname,
@@ -726,6 +797,8 @@ let script = new PresetTagger();
 	// 	}
 	// 	return false
 	// }
+
+
 
 	// /**set tags for all files contained in a target folder */
 	// apply_folder_tags = async(dir_name, ...tags) => {
