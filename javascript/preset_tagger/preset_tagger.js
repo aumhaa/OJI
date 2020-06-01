@@ -12,8 +12,8 @@ var unique = jsarguments[1];
 aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
-var FORCELOAD = false;
-var DEBUG = false;
+var FORCELOAD = true;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_DICTS = false;
 var EDITOR_OPEN = false;
@@ -61,7 +61,7 @@ var mod_finder;
 var Mod = ModComponent.bind(script);
 var ModProxy = ModProxyComponent.bind(script);
 
-var BROWSERXSIZE = 800;
+var BROWSERXSIZE = 796;
 var BROWSERYSIZE = 360;
 var MULTITAG_DELAY = 3000;
 
@@ -80,6 +80,7 @@ function init(){
   setup_tagfilter();
   setup_tagchooser();
   setup_filterchooser();
+  setup_preview();
   setup_controls();
   setup_modes();
   setup_mod();
@@ -111,6 +112,11 @@ function setup_patcher(){
   script.node_debug = this.patcher.getnamed('node_debug');
   script.restart_button = this.patcher.getnamed('restart_button');
   script.select_library_button = this.patcher.getnamed('select_library_button');
+  script.preview_button = browser_patcher.subpatcher().getnamed('preview_button');
+  script.bufferObj = this.patcher.getnamed('preview_buffer');
+  script.playObj = this.patcher.getnamed('preview_play');
+  script.sfplayObj = this.patcher.getnamed('preview_sfplay');
+  script.waveform = browser_patcher.subpatcher().getnamed('waveform');
   restart_button.hidden = 1;
   if(SHOW_DICTS){
     this.patcher.getnamed('library').message('edit');
@@ -250,6 +256,11 @@ function setup_tagchooser(){
 
 function setup_filterchooser(){
   this.filterChooser = new FilterTagDisplayComponent('FilterChooser', {onValue:6, offValue:3});
+}
+
+function setup_preview(){
+  this.previewPlayer = new PreviewPlayerComponent('PreviewPlayer', {waveform:waveform, bufferObj:bufferObj, playObj:playObj, sfplayObj:sfplayObj});
+  script.toPreviewPlayer = previewPlayer.input;
 }
 
 function setup_mod(){
@@ -663,6 +674,69 @@ function set_global_path(){
 }
 
 
+function PreviewPlayerComponent(name, args){
+  var self = this;
+  this._waveform = undefined;
+  this._bufferObj = undefined;
+  this._playObj = undefined;
+  this._sfplayObj = undefined;
+  this._togglePreview = new ToggledParameter(this._name + '_Toggle', {value:0, onValue:1,offValue:7});
+  this.add_bound_properties(this, ['_waveform', '_preview', 'preview', 'input', '_playObj', '_bufferObj', '_sfplayObj']);
+  PreviewPlayerComponent.super_.call(this, name, args);
+  this._init.call(this);
+}
+
+util.inherits(PreviewPlayerComponent, Bindable);
+
+PreviewPlayerComponent.prototype._init = function(){
+  this._waveform.gridcolor = [0, 0, 0, 1];
+  preview_button.message('bgcolor', [.2, .2, .2, 1]);
+}
+
+PreviewPlayerComponent.prototype.input = function(){
+  var args = arrayfromargs(arguments);
+  debug(this._name, 'input:', args);
+  if(args[0] in this){
+    this[args[0]].apply(this, args.slice(1));
+  }
+}
+
+PreviewPlayerComponent.prototype.preview = function(filename){
+  this._togglePreview._Callback({_value:1});
+  if(this._togglePreview._value){
+    fileInfo._filepath.add_listener(this._preview);
+    preview_button.message('bgcolor', [0, .2, .8, 1]);
+    editor._sizeY = BROWSERYSIZE+102;
+    editor.lock();
+  }
+  else{
+    fileInfo._filepath.remove_listener(this._preview);
+    preview_button.message('bgcolor', [.2, .2, .2, 1]);
+    editor._sizeY = BROWSERYSIZE;
+    editor.lock();
+  }
+}
+
+// PreviewPlayerComponent.prototype.preview = function(filename){
+//   this._preview();
+// }
+
+PreviewPlayerComponent.prototype._preview = function(obj){
+  var file = fileInfo.selected_file;
+  // debug('preview', obj._value);
+  var f = new File(file, 'read');
+  var type = f.filetype;
+  f.close()
+  if((type=='AIFF')||(type=='WAVE')){
+    this._bufferObj.message('sizeinsamps', 20000);
+    this._bufferObj.message('read', file);
+    //this._bufferObj.message('open');
+    // this._sfplayObj.message('open', file);
+    this._playObj.message('start', 0, 200000, 200000);
+    // this._sfplayObj.message('seek', 0, 20000);
+  }
+}
+
 
 function FileInfoComponent(name, args){
   var self = this;
@@ -733,7 +807,7 @@ FileInfoComponent.prototype.refresh = function(){
   var tags = this.active_tags;
   var path = this.selected_file;
   selected_file_tags.message('set', tags ? tags : '');
-  current_selected_file.message('set', path ? '...'+path.slice(-60) : '');
+  current_selected_file.message('set', path ? '...'+path.slice(-58) : '');
 }
 
 FileInfoComponent.prototype.report_update = function(val){
@@ -1227,7 +1301,7 @@ FileTaggerComponent.prototype.chooser_single = function(index, shortname){
   debug('chooser_single:', index, shortname);
   // var path = selected_tags.length ? filtered_hash_list[shortname].file : hash_list[shortname].file;
   var path = TagFilter.filtered_hash_list[shortname].file;
-  fileInfo.select_file(path);
+  // fileInfo.select_file(path);
   FileTree.find_file(path);
 }
 

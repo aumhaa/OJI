@@ -39,6 +39,8 @@ var VIEW_DEVICE = false;
 aumhaa.init(this);
 var script = this;
 
+var PT_FOCUS = false;
+
 if(typeof(String.prototype.trim) === "undefined")
 {
 	String.prototype.trim = function()
