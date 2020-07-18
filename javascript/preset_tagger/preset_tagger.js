@@ -80,6 +80,7 @@ function init(){
   setup_tagfilter();
   setup_tagchooser();
   setup_filterchooser();
+  setup_targetchooser();
   setup_preview();
   setup_controls();
   setup_modes();
@@ -251,11 +252,16 @@ function setup_tagfilter(){
 }
 
 function setup_tagchooser(){
-  this.tagChooser = new AssignTagDisplayComponent('TagChooser', {});
+  script.tagChooser = new AssignTagDisplayComponent('TagChooser', {});
 }
 
 function setup_filterchooser(){
-  this.filterChooser = new FilterTagDisplayComponent('FilterChooser', {onValue:6, offValue:3});
+  script.filterChooser = new FilterTagDisplayComponent('FilterChooser', {onValue:6, offValue:3});
+}
+
+function setup_targetchooser(){
+  script.targetChooser = new TargetChooserComponent('TargetChooser', {onValue:6, offValue:3});
+  TagFilter.on('FilteredHashListUpdated', targetChooser.set_target_choices);
 }
 
 function setup_preview(){
@@ -268,7 +274,7 @@ function setup_mod(){
     debug('mod.init_callback');
     if(val){
        mod = found_mod;
-       MainModes.change_mode(0);
+       MainModes.change_mode(2);
        MainModes.set_mode_cycle_button(KeyButtons[7]);
     }
   }
@@ -474,12 +480,54 @@ function setup_modes(){
 			filterPage.enter_mode();
 		}
 	}
-	script["MainModes"] = new PageStack(2, 'Main Mode', {mode_colors:[2,4]});
+
+  //Page 2:  selectPage
+	script['selectPage'] = new Page('selectPage');
+  selectPage.enter_mode = function()
+	{
+		debug('selectPage entered');
+    targetChooser.assign_grid(Grid);
+    targetChooser.offset.set_inc_dec_buttons(KeyButtons[1], KeyButtons[0]);
+    //TagFilter._filterMode.set_control(KeyButtons[6]);
+    KeyButtons[0]._send_text('<');
+    KeyButtons[1]._send_text('>');
+    KeyButtons[7]._send_text('SelectMode');
+	}
+	selectPage.exit_mode = function()
+	{
+    //TagFilter._filterMode.set_control();
+    targetChooser.offset.set_inc_dec_buttons();
+    targetChooser.assign_grid();
+    KeyButtons[0]._send_text(' ');
+    KeyButtons[1]._send_text(' ');
+    //KeyButtons[6]._send_text(' ');
+    KeyButtons[7]._send_text(' ');
+		debug('selectPage exited');
+	}
+	filterPage.update_mode = function()
+	{
+		debug('selectPage updated');
+		if(selectPage._shifted)
+		{
+			debug('selectPage._shifted');
+		}
+		else if(selectPage._alted)
+		{
+			debug('selectPage._alted');
+		}
+		else
+		{
+			selectPage.enter_mode();
+		}
+	}
+
+	script["MainModes"] = new PageStack(3, 'Main Mode', {mode_colors:[2,4,6]});
 	MainModes.add_mode(0, tagPage);
   MainModes.add_mode(1, filterPage);
+  MainModes.add_mode(2, selectPage);
   MainModes.add_listener(function(obj){
     debug('new mode is:', obj._value);
-  })
+  });
 
 
 }
@@ -705,6 +753,7 @@ PreviewPlayerComponent.prototype.preview = function(filename){
   this._togglePreview._Callback({_value:1});
   if(this._togglePreview._value){
     fileInfo._filepath.add_listener(this._preview);
+    this._preview(fileInfo._filepath);
     preview_button.message('bgcolor', [0, .2, .8, 1]);
     editor._sizeY = BROWSERYSIZE+102;
     editor.lock();
@@ -716,10 +765,6 @@ PreviewPlayerComponent.prototype.preview = function(filename){
     editor.lock();
   }
 }
-
-// PreviewPlayerComponent.prototype.preview = function(filename){
-//   this._preview();
-// }
 
 PreviewPlayerComponent.prototype._preview = function(obj){
   var file = fileInfo.selected_file;
@@ -1334,7 +1379,7 @@ function TagFilterComponent(name, args){
   this._init.apply(this);
 }
 
-util.inherits(TagFilterComponent, Bindable);
+util.inherits(TagFilterComponent, EventEmitter);
 
 TagFilterComponent.prototype.__defineGetter__('selected_tags', function(){
   // debug('selected tags:', this._selected_tags);
@@ -1479,6 +1524,7 @@ TagFilterComponent.prototype.display_filtered_files = function(){
     }
   }
   mira_gate.message(1);
+  this.emit('FilteredHashListUpdated', this.filtered_hash_list);
 }
 
 //this shouldn't be needed anymore, since we only seem to be maintaining the filtered_hash_list now.
@@ -1588,7 +1634,14 @@ function TagDisplayComponent(name, args){
   this._active_tags = [];
   this._onValue = 2;
   this._offValue = 7;
-  this.offset = new OffsetComponent(this._name + 'Offset', 0, 1, 0, undefined, 1, 0, 1, {value:0, onValue:1, offValue:0});
+  this.offset = new OffsetComponent(this._name + 'Offset', 0, 1, 0, undefined, 1, 0, 1, {
+    value:0,
+    onValue:1,
+    offValue:0,
+    tasks:tasks,
+    scroll_delay:8,
+    scroll_hold:true
+  });
   this.add_bound_properties(this, ['_button_press',
     '_grid',
     '_tag_choices',
@@ -1729,6 +1782,99 @@ FilterTagDisplayComponent.prototype._toggle_tag = function(tag){
   FilterTagDisplayComponent.super_.prototype._toggle_tag.call(this, tag);
   TagFilter._selected_tags.set_value(this._active_tags);
   // TagFilter.refresh();
+}
+
+
+
+function TargetChooserComponent(name, args){
+  var self = this;
+  this._grid = undefined;
+  this._target_choices = [];
+  this._selected_shortname = 'NOWAY';
+  this._onValue = 2;
+  this._offValue = 7;
+  this.offset = new OffsetComponent(this._name + 'Offset', 0, 1, 0, undefined, 1, 0, 1, {
+    value:0,
+    onValue:1,
+    offValue:0,
+    tasks:tasks,
+    scroll_delay:8,
+    scroll_hold:true
+  });
+  this.add_bound_properties(this, ['_grid',
+    'offset',
+    '_onValue',
+    '_offValue',
+    '_target_choices',
+    'set_target_choices',
+    'set_selected_target',
+    '_selected_shortname',
+    '_button_press',
+    '_update',
+    'assign_grid',
+    '_init'
+  ]);
+  TargetChooserComponent.super_.call(this, name, args);
+  this._init.apply(this);
+}
+
+util.inherits(TargetChooserComponent, Bindable);
+
+TargetChooserComponent.prototype._init = function(){
+  this.offset.set_target(this._update);
+}
+
+TargetChooserComponent.prototype.assign_grid = function(grid){
+	// debug(this._name, '.assign_grid:', grid);
+	if(this._grid instanceof GridClass){
+		this._grid.remove_listener(this._button_press);
+	}
+	this._grid = grid;
+	if(this._grid instanceof GridClass){
+		this._grid.add_listener(this._button_press);
+	}
+	this._update();
+}
+
+TargetChooserComponent.prototype._update = function(){
+  // debug(this._name, '.update');
+  if(this._grid){
+    var controls = this._grid.controls();
+    for(var i in controls){
+      var index = parseInt(i) + this.offset._value;
+      controls[i]._send_text(this._target_choices[index] ? this._target_choices[index] : ' ');
+      controls[i].send(this._target_choices[index] ? this._target_choices[index] == this._selected_shortname ? this._onValue : this._offValue : 0);
+    }
+  }
+}
+
+TargetChooserComponent.prototype._button_press = function(button){
+	if(button.pressed()){
+    var offset = this.offset._value;
+    var controls = this._grid.controls();
+    var index = controls.indexOf(button);
+    var target = this._target_choices[index+offset];
+    this._select_target(index+offset, target);
+	}
+}
+
+TargetChooserComponent.prototype._select_target = function(index, target){
+  debug(this._name+'._select_target:', index, target);
+  FileTagger.chooser_double(index, target);
+}
+
+TargetChooserComponent.prototype.set_target_choices = function(choices){
+  debug(this._name+'.set_target_choices:', choices);
+  this._target_choices = [];
+  for(var i in choices){
+    this._target_choices.push(i);
+  }
+  this.offset.set_range(0, this._target_choices.length);
+  this._update();
+}
+
+TargetChooserComponent.prototype.set_selected_target = function(target){
+  debug(this._name+'.set_selected_target:', target);
 }
 
 
