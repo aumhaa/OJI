@@ -12,7 +12,7 @@ var unique = jsarguments[1];
 aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
-var FORCELOAD = true;
+var FORCELOAD = false;
 var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_DICTS = false;
