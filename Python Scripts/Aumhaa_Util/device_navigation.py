@@ -371,14 +371,14 @@ class DeviceNavigationComponent(DeviceNavigationComponentBase):
 	def item_names(self):
 		items = ['-' for index in range(16)]
 		if self._modes.selected_mode == u'default' or self._modes.selected_mode == u'chain_selection':
-			new_items = [str(item.name).replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.items]
+			new_items = [(item.name).decode('utf-8', 'ignore').replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.items]
 			items[:len(new_items)] = new_items
 			#debug('mode is default, names are:', items)
 		if self._modes.selected_mode == u'chain_selection':
-			items[8:] = [str(item.name).replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.chain_selection.items]
+			items[8:] = [(item.name).decode('utf-8', 'ignore').replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.chain_selection.items]
 			#debug('mode is chain_selection, names are:', items)
 		elif self._modes.selected_mode == u'bank_selection':
-			items[8:] = [str(item.name).replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.bank_selection.items]
+			items[8:] = [(item.name).decode('utf-8', 'ignore').replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.bank_selection.items]
 			#debug('mode is bank_selection, names are:', items)
 		#debug('item names are:', items)
 		return items

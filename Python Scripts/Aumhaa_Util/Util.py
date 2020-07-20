@@ -67,7 +67,7 @@ def xstr(s):
 	if s is None:
 		return ''
 	else:
-		return str(s)
+		return str(s, encoding='utf-8')
 
 def create_device_bank(device, banking_info):
 	bank = None
@@ -121,14 +121,14 @@ class SpecialEncoderElement(EncoderElement):
 	def parameter_name(self):
 		parameter = self._parameter_to_map_to
 		if liveobj_valid(parameter):
-			name = str(parameter.name).decode('utf-8', 'ignore')
+			name = str(parameter.name, encoding='utf-8').decode('utf-8', 'ignore')
 			return name
 
 	@listenable_property
 	def parameter_value(self):
 		parameter = self._parameter_to_map_to
 		if liveobj_valid(parameter):
-			value = parameter.str_for_value(parameter.value).decode('utf-8', 'ignore')
+			value = parameter.str_for_value(parameter.value, encoding='utf-8').decode('utf-8', 'ignore')
 			return value
 
 	@listenable_property
@@ -163,12 +163,12 @@ class SpecialMonoButtonElement(MonoButtonElement):
 
 	@listenable_property
 	def text(self):
-		return str(self._text)
+		return str(self._text, encoding='utf-8')
 
 	def set_text(self, text = u''):
 		# debug('button text:', self._text)
 		# self._text = text.encode('utf-8', 'ignore')
-		self._text = str(text)
+		self._text = str(text, encoding='utf-8')
 		self.notify_text(self._text)
 
 	def reset(self):
@@ -244,7 +244,7 @@ class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
 
 	@listenable_property
 	def current_parameters(self):
-		return map(lambda p: p and hasattr(p.parameter, 'str_for_value') and str(p.parameter.str_for_value(p.parameter.value)).replace(' ', '_') or u'---', self._parameter_provider.parameters)
+		return map(lambda p: p and hasattr(p.parameter, 'str_for_value') and str(p.parameter.str_for_value(p.parameter.value), encoding='utf-8').replace(' ', '_') or u'---', self._parameter_provider.parameters)
 
 	@listenable_property
 	def current_parameter_names(self):
@@ -322,7 +322,7 @@ class UtilDeviceComponent(DeviceComponent):
 	@listenable_property
 	def device_name(self):
 		device = self.device()
-		name = str(device.name).replace(' ', '_') if liveobj_valid(device) and hasattr(device, 'name') else '-'
+		name = str(device.name, encoding='utf-8').replace(' ', '_') if liveobj_valid(device) and hasattr(device, 'name') else '-'
 		return name
 
 	def _on_device_changed(self, device):
@@ -496,7 +496,7 @@ class UtilMixerComponent(MonoMixerComponent):
 		names = []
 		for strip in self._channel_strips:
 			if liveobj_valid(strip._track) and hasattr(strip._track, 'name'):
-				names.append(str(strip._track.name).decode('utf-8', 'ignore').replace(' ', '_'))
+				names.append(str(strip._track.name, encoding='utf-8').decode('utf-8', 'ignore').replace(' ', '_'))
 			else:
 				names.append('-')
 		return names
