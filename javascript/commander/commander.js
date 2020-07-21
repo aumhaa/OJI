@@ -40,6 +40,16 @@ aumhaa.init(this);
 var script = this;
 
 var PT_FOCUS = false;
+var BROWSER_BUTTON_LABELS = [
+	'ProQ',
+	'Drop',
+	'Pro-R',
+	'VDelay',
+	'Uber',
+	'Shpr',
+	'-',
+	'-'
+];
 
 if(typeof(String.prototype.trim) === "undefined")
 {
@@ -102,6 +112,12 @@ function setup_patcher(){
 	}
 	script.volume_slider = this.patcher.getnamed('volume_slider');
 	script.cue = this.patcher.getnamed('cue');
+
+	for(var i=0;i<8;i++){
+		var index = parseInt(40+i);
+		controls['mod_button['+index+']'].message('text', BROWSER_BUTTON_LABELS[i]);
+	}
+
 	VIEW_DEVICE&&sub.front();
 }
 

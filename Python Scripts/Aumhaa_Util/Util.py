@@ -67,7 +67,7 @@ def xstr(s):
 	if s is None:
 		return ''
 	else:
-		return str(s, encoding='utf-8')
+		return str(s)
 
 def create_device_bank(device, banking_info):
 	bank = None
@@ -121,15 +121,21 @@ class SpecialEncoderElement(EncoderElement):
 	def parameter_name(self):
 		parameter = self._parameter_to_map_to
 		if liveobj_valid(parameter):
-			name = str(parameter.name, encoding='utf-8').decode('utf-8', 'ignore')
-			return name
+			try:
+				name = unicode(parameter.name)
+				return name
+			except:
+				return '-'
 
 	@listenable_property
 	def parameter_value(self):
 		parameter = self._parameter_to_map_to
 		if liveobj_valid(parameter):
-			value = parameter.str_for_value(parameter.value, encoding='utf-8').decode('utf-8', 'ignore')
-			return value
+			try:
+				value = unicdoe(parameter.str_for_value(parameter.value))
+				return value
+			except:
+				return u'-'
 
 	@listenable_property
 	def normalized_parameter_value(self):
@@ -163,12 +169,12 @@ class SpecialMonoButtonElement(MonoButtonElement):
 
 	@listenable_property
 	def text(self):
-		return str(self._text, encoding='utf-8')
+		return str(self._text)
 
 	def set_text(self, text = u''):
 		# debug('button text:', self._text)
 		# self._text = text.encode('utf-8', 'ignore')
-		self._text = str(text, encoding='utf-8')
+		self._text = str(text)
 		self.notify_text(self._text)
 
 	def reset(self):
@@ -230,6 +236,12 @@ class MaxParameterProxy(Component):
 			return value
 
 
+def str_for_value(value):
+	try:
+		return str(value).replace(' ', '_')
+	except:
+		return False
+
 class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
 	controls = ControlList(MappedSensitivitySettingControl, 16)
 
@@ -244,7 +256,7 @@ class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
 
 	@listenable_property
 	def current_parameters(self):
-		return map(lambda p: p and hasattr(p.parameter, 'str_for_value') and str(p.parameter.str_for_value(p.parameter.value), encoding='utf-8').replace(' ', '_') or u'---', self._parameter_provider.parameters)
+		return map(lambda p: p and hasattr(p.parameter, 'str_for_value') and unicode(p.parameter.str_for_value(p.parameter.value)) or u'---', self._parameter_provider.parameters)
 
 	@listenable_property
 	def current_parameter_names(self):
@@ -322,7 +334,7 @@ class UtilDeviceComponent(DeviceComponent):
 	@listenable_property
 	def device_name(self):
 		device = self.device()
-		name = str(device.name, encoding='utf-8').replace(' ', '_') if liveobj_valid(device) and hasattr(device, 'name') else '-'
+		name = str(device.name).replace(' ', '_') if liveobj_valid(device) and hasattr(device, 'name') else '-'
 		return name
 
 	def _on_device_changed(self, device):
@@ -496,7 +508,10 @@ class UtilMixerComponent(MonoMixerComponent):
 		names = []
 		for strip in self._channel_strips:
 			if liveobj_valid(strip._track) and hasattr(strip._track, 'name'):
-				names.append(str(strip._track.name, encoding='utf-8').decode('utf-8', 'ignore').replace(' ', '_'))
+				try:
+					names.append(unicode(strip._track.name).replace(' ', '_'))
+				except:
+					names.append(u'-')
 			else:
 				names.append('-')
 		return names
@@ -1172,6 +1187,8 @@ class Util(ControlSurface):
 		resource = PrioritizedResource
 		color_map = COLOR_MAP
 		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
+		self._button2 = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = SECONDARY_CHANNEL, identifier = SECONDARY_CHANNEL_UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(6)]
+
 		self._fader = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 		self._dial = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 17, map_mode = Live.MidiMap.MapMode.absolute, name = 'Dial', resource_type = resource)
 		self._track_select_matrix = ButtonMatrixElement(name = 'TrackSelectMatrix', rows = [self._button[34:42]])
@@ -1268,7 +1285,7 @@ class Util(ControlSurface):
 													device_bank_registry = self._device_bank_registry,
 													banking_info = self._banking_info,
 													name = u"DeviceComponent")
-		# self._parameter_provider.layer = Layer(bank_up_button = self._button[44], bank_down_button = self._button[43])
+		self._parameter_provider.layer = Layer(bank_up_button = self._button2[1], bank_down_button = self._button2[0])
 		self._device = UtilDeviceParameterComponent(parameter_provider = self._parameter_provider)
 		self._device.layer = Layer(parameter_controls = self._encoder_matrix)
 		self._device.set_enabled(False)
@@ -1287,7 +1304,13 @@ class Util(ControlSurface):
 		self._device_navigation.bank_selection.layer = Layer(option_buttons = self._device_select_matrix, select_buttons = self._chain_select_matrix, priority = 6)
 		self._device_navigation.bank_selection.scroll_left_layer = Layer(button = self._button[56], priority = 6)
 		self._device_navigation.bank_selection.scroll_right_layer = Layer(button = self._button[63], priority = 6)
+		# self._device_navigation.bank_inc_dec_layer = AddLayerMode(self._device_navigation.bank_selection, Layer(next_bank_button = self._button[44], priority = 6))
 		self._device_navigation.set_enabled(False)
+
+		# self._device_bank_incdec = BankIncDecComponent(device_bank_registry = self._device_bank_registry, banking_info = self._banking_info)
+		# self._device_bank_incdec.layer = Layer(next_bank_button = self._button[44])
+		# self._device_bank_incdec.set_enabled(False)
+
 
 	def _setup_mod(self):
 
@@ -1355,7 +1378,23 @@ class Util(ControlSurface):
 
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode(u'disabled', [])
-		self._main_modes.add_mode(u'Main', [self._preset_tagger_selector, self._modswitcher, self._recorder, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
+		self._main_modes.add_mode(u'Main', [self._preset_tagger_selector,
+											self._modswitcher,
+											self._recorder,
+											self._device,
+											self._device_navigation,
+											self._parameter_provider,
+											self._session_ring,
+											self._transport,
+											self._view_control,
+											self._undo_redo,
+											self._track_creator,
+											self._mixer,
+											self._mixer._selected_strip,
+											self._session,
+											self._session_navigation,
+											self._autoarm])
+
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = u'disabled'
 		# self._main_modes.layer = Layer(Main_button = self._button[44], Mod_button = self._button[45])
@@ -1371,13 +1410,13 @@ class Util(ControlSurface):
 		bytes = list(midi_event_bytes)
 		self.notify_pipe('midi', *bytes)
 
-	def receive_note(self, num, val):
+	def receive_note(self, num, val, chan=0):
 		# debug('receive_note', num, val)
-		self.receive_midi(tuple([144, num, val]))
+		self.receive_midi(tuple([144+chan, num, val]))
 
-	def receive_cc(self, num, val):
+	def receive_cc(self, num, val, chan=0):
 		debug('receive_cc', num, val)
-		self.receive_midi(tuple([176, num, val]))
+		self.receive_midi(tuple([176+chan, num, val]))
 
 	def refresh_state(self, *a, **k):
 		super(Util, self).refresh_state(*a, **k)

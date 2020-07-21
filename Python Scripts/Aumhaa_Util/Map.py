@@ -6,8 +6,10 @@ from ableton.v2.control_surface.elements.color import Color
 from aumhaa.v2.livid.colors import *
 
 CHANNEL = 0
+SECONDARY_CHANNEL = 1
 
 UTIL_BUTTONS = range(128)
+SECONDARY_CHANNEL_UTIL_BUTTONS = range(128)
 
 COLOR_MAP = [1,2,3,4,5,6,7]
 

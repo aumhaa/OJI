@@ -9,9 +9,10 @@ from ableton.v2.control_surface import DecoratorFactory, device_to_appoint
 from ableton.v2.control_surface.components import DeviceNavigationComponent as DeviceNavigationComponentBase, FlattenedDeviceChain, ItemSlot, ItemProvider, is_empty_rack, nested_device_parent
 from ableton.v2.control_surface.control import control_list, StepEncoderControl
 from ableton.v2.control_surface.mode import Component, ModesComponent, NullModes, DelayMode
+from ableton.v2.control_surface.control import ButtonControl
 
 from pushbase.device_chain_utils import is_first_device_on_pad
-from Push2.bank_selection_component import BankSelectionComponent
+from Push2.bank_selection_component import BankSelectionComponent, BankProvider
 from Push2.chain_selection_component import ChainSelectionComponent
 from Push2.colors import DISPLAY_BUTTON_SHADE_LEVEL, IndexedColor
 from Push2.device_util import is_drum_pad, find_chain_or_track
@@ -69,6 +70,8 @@ def drum_rack_for_pad(drum_pad):
 class SpecialBankSelectionComponent(BankSelectionComponent):
 
 	color_class_name = u'BankSelection'
+	next_bank_button = ButtonControl()
+	previous_bank_button = ButtonControl()
 
 	def _create_slot(self, index, item, nesting_level):
 		items = self._item_provider.items[self.item_offset:]
@@ -92,10 +95,29 @@ class SpecialBankSelectionComponent(BankSelectionComponent):
 			self._update_button_colors()
 
 	def _color_for_button(self, button_index, is_selected):
-		debug('color_for_button:', button_index, is_selected)
+		# debug('color_for_button:', button_index, is_selected)
 		if is_selected:
 			return self.color_class_name + u'.ItemSelected'
 		return self.color_class_name + u'.ItemNotSelected'
+
+	def set_previous_bank_button(self, button):
+		self.previous_bank_button.set_control_element(button)
+
+	def set_next_bank_button(self, button):
+		self.next_bank_button.set_control_element(button)
+
+	@next_bank_button.pressed
+	def next_bank_button(self, button):
+		debug('BankSelection._on_next_bank_button_pressed')
+		self._bank_provider._bank_registry.set_device_bank(self._bank_provider._device, min(len(self._bank_provider.items), self._bank_provider._bank_registry.get_device_bank(self._bank_provider._device) + 1))
+
+
+	@previous_bank_button.pressed
+	def previous_bank_button(self, button):
+		debug('BankSelection._on_previous_bank_button_pressed')
+		self._bank_provider._bank_registry.set_device_bank(self._bank_provider._device, max(0, self._bank_provider._bank_registry.get_device_bank(self._bank_provider._device) - 1))
+
+
 
 
 
@@ -371,14 +393,14 @@ class DeviceNavigationComponent(DeviceNavigationComponentBase):
 	def item_names(self):
 		items = ['-' for index in range(16)]
 		if self._modes.selected_mode == u'default' or self._modes.selected_mode == u'chain_selection':
-			new_items = [(item.name).decode('utf-8', 'ignore').replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.items]
+			new_items = [unicode(item.name).replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.items]
 			items[:len(new_items)] = new_items
 			#debug('mode is default, names are:', items)
 		if self._modes.selected_mode == u'chain_selection':
-			items[8:] = [(item.name).decode('utf-8', 'ignore').replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.chain_selection.items]
+			items[8:] = [unicode(item.name).replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.chain_selection.items]
 			#debug('mode is chain_selection, names are:', items)
 		elif self._modes.selected_mode == u'bank_selection':
-			items[8:] = [(item.name).decode('utf-8', 'ignore').replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.bank_selection.items]
+			items[8:] = [unicode(item.name).replace(' ', '_') if hasattr(item, 'name') else '-' for item in self.bank_selection.items]
 			#debug('mode is bank_selection, names are:', items)
 		#debug('item names are:', items)
 		return items

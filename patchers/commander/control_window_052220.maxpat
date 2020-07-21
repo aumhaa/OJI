@@ -40,6 +40,244 @@
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
 				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"id" : "obj-295",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 1020.76869592622495, 440.5, 44.0, 15.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_invisible" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "modAlt[1]",
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "modAlt",
+							"parameter_type" : 2
+						}
+
+					}
+,
+					"text" : "-",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "modAlt[1]"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"id" : "obj-310",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 966.114956740980006, 440.5, 44.0, 15.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_invisible" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "modShift[1]",
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "modShift",
+							"parameter_type" : 2
+						}
+
+					}
+,
+					"text" : "-",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "modShift[1]"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"id" : "obj-311",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 911.461217555734947, 440.5, 44.0, 15.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_invisible" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "mod_mode[1]",
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "mod_mode",
+							"parameter_type" : 2
+						}
+
+					}
+,
+					"text" : "-",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "mod_mode[1]"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"id" : "obj-312",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 856.474145037156518, 440.5, 44.0, 15.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_invisible" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "main_mode[1]",
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "main_mode",
+							"parameter_type" : 2
+						}
+
+					}
+,
+					"text" : "-",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "main_mode[1]"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"id" : "obj-313",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 802.153739185244945, 440.5, 44.0, 15.0 ],
+					"presentation" : 1,
+					"presentation_rect" : [ 676.5, 198.0, 44.0, 31.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_invisible" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "record[1]",
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "record",
+							"parameter_type" : 2
+						}
+
+					}
+,
+					"text" : "Bank>",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "record[1]"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"id" : "obj-314",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 747.5, 440.5, 44.0, 15.0 ],
+					"presentation" : 1,
+					"presentation_rect" : [ 146.0, 198.0, 41.0, 31.0 ],
+					"saved_attribute_attributes" : 					{
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_invisible" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "metro_toggle[1]",
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "metro_toggle",
+							"parameter_type" : 2
+						}
+
+					}
+,
+					"text" : "<Bank",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "metro_toggle[1]"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-315",
+					"maxclass" : "message",
+					"numinlets" : 2,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 747.5, 492.5, 55.0, 22.0 ],
+					"text" : "$1 127 1"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-316",
+					"maxclass" : "newobj",
+					"numinlets" : 6,
+					"numoutlets" : 1,
+					"outlettype" : [ "list" ],
+					"patching_rect" : [ 747.5, 464.5, 292.268695926224837, 22.0 ],
+					"text" : "funnel 6"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-294",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 747.5, 524.5, 195.0, 22.0 ],
+					"text" : "prepend call_function receive_note"
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"id" : "obj-296",
 					"maxclass" : "message",
 					"numinlets" : 2,
@@ -748,7 +986,7 @@
 
 					}
 ,
-					"text" : "MainMode",
+					"text" : "Bank",
 					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
 					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
 					"texton" : "Metro",
@@ -9023,6 +9261,21 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-43", 0 ],
+					"midpoints" : [ 757.0, 880.25, 33.5, 880.25 ],
+					"source" : [ "obj-294", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-316", 5 ],
+					"source" : [ "obj-295", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "obj-11", 0 ],
 					"order" : 0,
 					"source" : [ "obj-296", 0 ]
@@ -9165,6 +9418,55 @@
 				"patchline" : 				{
 					"destination" : [ "obj-5", 23 ],
 					"source" : [ "obj-31", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-316", 4 ],
+					"source" : [ "obj-310", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-316", 3 ],
+					"source" : [ "obj-311", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-316", 2 ],
+					"source" : [ "obj-312", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-316", 1 ],
+					"source" : [ "obj-313", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-316", 0 ],
+					"source" : [ "obj-314", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-294", 0 ],
+					"source" : [ "obj-315", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-315", 0 ],
+					"source" : [ "obj-316", 0 ]
 				}
 
 			}
@@ -9702,10 +10004,16 @@
 			"obj-291" : [ "mod_button[33]", "mod_button", 0 ],
 			"obj-292" : [ "mod_button[32]", "mod_button", 0 ],
 			"obj-293" : [ "redo[2]", "redo", 0 ],
+			"obj-295" : [ "modAlt[1]", "modAlt", 0 ],
 			"obj-298" : [ "main_mode", "main_mode", 0 ],
 			"obj-299" : [ "mod_mode", "mod_mode", 0 ],
 			"obj-30" : [ "toggle_detail_clip_loop", "toggle_detail_clip_loop", 0 ],
 			"obj-31" : [ "select_first_armed_track", "select_first_armed_track", 0 ],
+			"obj-310" : [ "modShift[1]", "modShift", 0 ],
+			"obj-311" : [ "mod_mode[1]", "mod_mode", 0 ],
+			"obj-312" : [ "main_mode[1]", "main_mode", 0 ],
+			"obj-313" : [ "record[1]", "record", 0 ],
+			"obj-314" : [ "metro_toggle[1]", "metro_toggle", 0 ],
 			"obj-32" : [ "fire_next_clip_abs", "fire_next_clip_abs", 0 ],
 			"obj-33" : [ "fire_prev_clip_abs", "fire_prev_clip_abs", 0 ],
 			"obj-34" : [ "prev_track", "prev_track", 0 ],
