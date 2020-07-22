@@ -13,7 +13,7 @@ aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var NODE_DEBUG = false;
 var SHOW_DICTS = false;
 var EDITOR_OPEN = false;
@@ -1916,6 +1916,7 @@ SpecialCellBlockChooserComponent.prototype._init = function(){
   this._obj.message('cols', 2);
   this._obj.message('col', 0, 'width', 165);
   this._obj.message('grid', 1);
+  this._obj.message('col', 1, 'width', 30);
   this._obj.message('col', 1, 'jus', 0);
 }
 
