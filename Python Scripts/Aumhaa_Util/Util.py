@@ -132,7 +132,7 @@ class SpecialEncoderElement(EncoderElement):
 		parameter = self._parameter_to_map_to
 		if liveobj_valid(parameter):
 			try:
-				value = unicdoe(parameter.str_for_value(parameter.value))
+				value = unicode(parameter.str_for_value(parameter.value)).replace(' ', '_')
 				return value
 			except:
 				return u'-'
@@ -256,7 +256,7 @@ class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
 
 	@listenable_property
 	def current_parameters(self):
-		return map(lambda p: p and hasattr(p.parameter, 'str_for_value') and unicode(p.parameter.str_for_value(p.parameter.value)) or u'---', self._parameter_provider.parameters)
+		return map(lambda p: p and hasattr(p.parameter, 'str_for_value') and unicode(p.parameter.str_for_value(p.parameter.value)).replace(' ', '_') or u'---', self._parameter_provider.parameters)
 
 	@listenable_property
 	def current_parameter_names(self):
