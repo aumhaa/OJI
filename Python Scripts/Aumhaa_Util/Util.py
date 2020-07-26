@@ -737,6 +737,14 @@ class UtilSessionComponent(SessionComponent):
 		return None
 
 
+	def get_first_empty_clipslot(self, track):
+		clip_slots = track.clip_slots
+		for slot in clip_slots:
+			if not slot.has_clip:
+				return slot
+		return None
+
+
 	def get_clip_slot_by_delta_bool(self, current_clip_slot, track, d_value, bool_callable):
 		clip_slots = track.clip_slots
 		max_clip_slots = len(clip_slots)
@@ -839,7 +847,7 @@ class UtilSessionComponent(SessionComponent):
 		armed_tracks = self.armed_tracks()
 		selected_track = self.song.view.selected_track
 		if selected_track in armed_tracks:
-			clip_slot = self.get_first_available_clip(selected_track)
+			clip_slot = self.get_first_empty_clipslot(selected_track)
 			if clip_slot:
 				clip_slot.fire()
 			else:
@@ -850,11 +858,11 @@ class UtilSessionComponent(SessionComponent):
 			if len(tracks) > selected_index:
 				for track in tracks[selected_index:]:
 					if track.can_be_armed and track.arm is True:
-						clip_slot = self.get_first_available_clip(track)
+						clip_slot = self.get_first_empty_clipslot(track)
 						if clip_slot:
 							clip_slot.fire()
 						else:
-							self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
+							self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=True)
 						break
 
 
@@ -863,7 +871,11 @@ class UtilSessionComponent(SessionComponent):
 		armed_tracks = self.armed_tracks()
 		# debug('armed_tracks:', len(armed_tracks))
 		for track in armed_tracks:
-			self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
+			clip_slot = self.get_first_empty_clipslot(track)
+			if clip_slot:
+				clip_slot.fire()
+			else:
+				self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
 
 
 	def set_util_select_playing_clipslot_button(self, button):
