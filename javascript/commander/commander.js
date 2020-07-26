@@ -51,6 +51,9 @@ var BROWSER_BUTTON_LABELS = [
 	'-'
 ];
 
+var main_preset_folder = undefined;
+var sub_preset_folder = undefined;
+
 if(typeof(String.prototype.trim) === "undefined")
 {
 	String.prototype.trim = function()
@@ -157,8 +160,6 @@ function setup_controls(){
 	script['ShiftButton'] = new ButtonClass('shift', 'Shift', function(){});
 	script['AltButton'] = new ButtonClass('alt', 'Alt', function(){});
 
-
-
 	var path = control_surface.path;
 
 	for(var x=0;x<8;x++)
@@ -186,6 +187,28 @@ function setup_controls(){
 			}
 			ControlRegistry.register_control((id), gridRaw[index]);
 		}
+	}
+
+	script.presetButtons = [];
+	//afterthought here, there should be a better, more systematic way to deal with these.
+	function make_presetButton_callback(index){
+		var callback = function(args)
+		{
+			debug('callback closure:', index, args);
+			if((args[0]=='value')&&(args[1]!='bang')&&(args[1]>0)){
+				debug('loading....', index, main_preset_folder, sub_preset_folder);
+				finder.call('load_preset', index, sub_preset_folder, main_preset_folder);
+			}
+		}
+		return callback;
+	}
+	for(var i=0;i<8;i++){
+		var name = 'Button2_'+(i+10);
+		var control = finder.call('get_control', name);
+		debug('control is:', control);
+		presetButtons[i] = new LiveAPI(make_presetButton_callback(i), control);
+		presetButtons[i].property = 'value';
+		finder.call('grab_control', name);
 	}
 }
 
@@ -391,7 +414,7 @@ function setup_modes(){
 }
 
 function pipe_callback(args){
-	//debug('args', args);
+	// debug('args', args);
 	if((args[1]=='midi')&&(args[2]==144)){
 		if(args[3] < 64){
 			if(controls[control_names[args[3]]]){
@@ -456,7 +479,7 @@ function get_control_names(){
 function make_callback(name){
 	var callback = function(args)
 	{
-		debug('callback closure:', name, args);
+		//debug('callback closure:', name, args);
 		outlet(0, name, args);
 	}
 	return callback;
@@ -559,7 +582,13 @@ function mod_button_IN(num, val){
 	// debug('mod_button_IN', num, val);
 }
 
+function set_main_preset_folder(name){
+	main_preset_folder = name;
+}
 
+function set_sub_preset_folder(name){
+	sub_preset_folder = name;
+}
 
 function ModButton(id, name, _send, args){
 	var self = this;

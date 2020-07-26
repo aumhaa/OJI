@@ -236,12 +236,6 @@ class MaxParameterProxy(Component):
 			return value
 
 
-def str_for_value(value):
-	try:
-		return str(value).replace(' ', '_')
-	except:
-		return False
-
 class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
 	controls = ControlList(MappedSensitivitySettingControl, 16)
 
@@ -636,7 +630,7 @@ class UtilSessionComponent(SessionComponent):
 	def util_capture_new_scene_button(self, button):
 		self._on_util_capture_new_scene_button_pressed(button)
 
-	def _on_util_capture_new_scene_button_pressed(self, button):
+	def _on_util_capture_new_scene_button_pressed(self, button=None):
 		if self.is_enabled() and self._prepare_new_action():
 			song = self.song
 			view = song.view
@@ -735,6 +729,14 @@ class UtilSessionComponent(SessionComponent):
 		self.fire_next_available_clip_slot_on_all_armed_tracks()
 
 
+	def get_first_available_clip(self, track):
+		clip_slots = track.clip_slots
+		for slot in clip_slots:
+			if slot.has_clip:
+				return slot
+		return None
+
+
 	def get_clip_slot_by_delta_bool(self, current_clip_slot, track, d_value, bool_callable):
 		clip_slots = track.clip_slots
 		max_clip_slots = len(clip_slots)
@@ -754,9 +756,15 @@ class UtilSessionComponent(SessionComponent):
 				found = True
 
 
-	def fire_clip_slot_by_delta(self, d_value, available):
+	def fire_clip_slot_by_delta(self, d_value, available=False, create=False):
 		current_clip_slot = self.song.view.highlighted_clip_slot
 		track = self.song.view.selected_track
+		if d_value is 1 and create is True:
+			clip_slots = track.clip_slots
+			if clip_slots[-1] == current_clip_slot:
+				# self._on_util_capture_new_scene_button_pressed()
+				debug('creating new scene...')
+				self.song.create_scene(-1)
 
 		if available:
 			if track.arm:
@@ -771,13 +779,15 @@ class UtilSessionComponent(SessionComponent):
 			self.song.view.highlighted_clip_slot = clip_slot
 
 
-	def fire_clip_slot_by_delta_with_explicit_track(self, d_value, available, track):
+	def fire_clip_slot_by_delta_with_explicit_track(self, d_value, track, available=False, create=False):
 		current_scene = self.song.view.selected_scene
 		scenes = list(self.song.scenes)
 		current_scene_index = scenes.index(current_scene)
 		current_clip_slot = track.clip_slots[current_scene_index]
-
-		#debug('fire_clip_slot_by_delta_with_explicit_track:', track)
+		if d_value is 1 and create is True:
+			clip_slots = track.clip_slots
+			if clip_slots[-1] == current_clip_slot:
+				self.song.create_scene(-1)
 
 		if available:
 			if track.arm:
@@ -787,41 +797,64 @@ class UtilSessionComponent(SessionComponent):
 		else:
 			clip_slot = self.get_clip_slot_by_delta_bool(current_clip_slot, track, d_value, lambda x: True)
 
-		#debug('clipslot:', clip_slot)
 		if clip_slot:
 			clip_slot.fire()
 
 
 	def fire_next_clip_slot(self):
 		# debug('fire_next_clip_slot')
-		self.fire_clip_slot_by_delta(1, False)
+		self.fire_clip_slot_by_delta(1, available=False)
 
 	def fire_next_available_clip_slot(self):
 		# debug('fire_next_available_clip_slot')
-		self.fire_clip_slot_by_delta(1, True)
+		self.fire_clip_slot_by_delta(1, available=True, create=True)
 
 	def fire_previous_clip_slot(self):
 		# debug('fire_previous_clip_slot')
-		self.fire_clip_slot_by_delta(-1, False)
+		self.fire_clip_slot_by_delta(-1, available=False)
 
 	def fire_previous_available_clip_slot(self):
 		# debug('fire_previous_available_clip_slot')
-		self.fire_clip_slot_by_delta(-1, True)
+		self.fire_clip_slot_by_delta(-1, available=True)
 
-	def fire_next_available_clip_slot_on_single_armed_track(self):
+	def _fire_next_available_clip_slot_on_single_armed_track(self):
 		# debug('fire_next_available_clip_slot_on_single_armed_track')
 		tracks = self.get_tracks()
 		armed_tracks = self.armed_tracks()
 		selected_track = self.song.view.selected_track
 		if selected_track in armed_tracks:
-			self.fire_next_available_clip_slot()
+			self.fire_clip_slot_by_delta(1, available=True, create=True)
 		else:
 			selected_index = tracks.index(selected_track) if selected_track in tracks else 0
 			# debug('selected_index:', selected_index)
 			if len(tracks) > selected_index:
 				for track in tracks[selected_index:]:
 					if track.can_be_armed and track.arm is True:
-						self.fire_clip_slot_by_delta_with_explicit_track(1, True, track)
+						self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
+						break
+
+		#fire_first_available_clip_slot_on_single_armed_track
+	def fire_next_available_clip_slot_on_single_armed_track(self):
+		tracks = self.get_tracks()
+		armed_tracks = self.armed_tracks()
+		selected_track = self.song.view.selected_track
+		if selected_track in armed_tracks:
+			clip_slot = self.get_first_available_clip(selected_track)
+			if clip_slot:
+				clip_slot.fire()
+			else:
+				self.fire_next_available_clip_slot()
+
+		else:
+			selected_index = tracks.index(selected_track) if selected_track in tracks else 0
+			if len(tracks) > selected_index:
+				for track in tracks[selected_index:]:
+					if track.can_be_armed and track.arm is True:
+						clip_slot = self.get_first_available_clip(track)
+						if clip_slot:
+							clip_slot.fire()
+						else:
+							self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
 						break
 
 
@@ -830,7 +863,7 @@ class UtilSessionComponent(SessionComponent):
 		armed_tracks = self.armed_tracks()
 		# debug('armed_tracks:', len(armed_tracks))
 		for track in armed_tracks:
-			self.fire_clip_slot_by_delta_with_explicit_track(1, True, track)
+			self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
 
 
 	def set_util_select_playing_clipslot_button(self, button):
@@ -1032,7 +1065,6 @@ class UtilModHandler(ModHandler):
 		self._is_locked = value > 0
 
 
-
 class UtilNavigationBox(NavigationBox):
 
 
@@ -1187,7 +1219,7 @@ class Util(ControlSurface):
 		resource = PrioritizedResource
 		color_map = COLOR_MAP
 		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
-		self._button2 = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = SECONDARY_CHANNEL, identifier = SECONDARY_CHANNEL_UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(6)]
+		self._button2 = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = SECONDARY_CHANNEL, identifier = SECONDARY_CHANNEL_UTIL_BUTTONS[index], name = 'Button2_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(20)]
 
 		self._fader = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 		self._dial = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 17, map_mode = Live.MidiMap.MapMode.absolute, name = 'Dial', resource_type = resource)
@@ -1415,7 +1447,7 @@ class Util(ControlSurface):
 		self.receive_midi(tuple([144+chan, num, val]))
 
 	def receive_cc(self, num, val, chan=0):
-		debug('receive_cc', num, val)
+		# debug('receive_cc', num, val)
 		self.receive_midi(tuple([176+chan, num, val]))
 
 	def refresh_state(self, *a, **k):
