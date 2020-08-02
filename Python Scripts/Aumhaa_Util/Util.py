@@ -787,7 +787,7 @@ class UtilSessionComponent(SessionComponent):
 			self.song.view.highlighted_clip_slot = clip_slot
 
 
-	def fire_clip_slot_by_delta_with_explicit_track(self, d_value, track, available=False, create=False):
+	def fire_clip_slot_by_delta_with_explicit_track(self, d_value, track, available=False, create=False, select=False):
 		current_scene = self.song.view.selected_scene
 		scenes = list(self.song.scenes)
 		current_scene_index = scenes.index(current_scene)
@@ -807,6 +807,8 @@ class UtilSessionComponent(SessionComponent):
 
 		if clip_slot:
 			clip_slot.fire()
+			if select:
+				self.song.view.highlighted_clip_slot = clip_slot
 
 
 	def fire_next_clip_slot(self):
@@ -838,7 +840,7 @@ class UtilSessionComponent(SessionComponent):
 			if len(tracks) > selected_index:
 				for track in tracks[selected_index:]:
 					if track.can_be_armed and track.arm is True:
-						self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
+						self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=True, select=True)
 						break
 
 		#fire_first_available_clip_slot_on_single_armed_track
@@ -850,6 +852,7 @@ class UtilSessionComponent(SessionComponent):
 			clip_slot = self.get_first_empty_clipslot(selected_track)
 			if clip_slot:
 				clip_slot.fire()
+				self.song.view.highlighted_clip_slot = clip_slot
 			else:
 				self.fire_next_available_clip_slot()
 
@@ -861,8 +864,9 @@ class UtilSessionComponent(SessionComponent):
 						clip_slot = self.get_first_empty_clipslot(track)
 						if clip_slot:
 							clip_slot.fire()
+							self.song.view.highlighted_clip_slot = clip_slot
 						else:
-							self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=True)
+							self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=True, select=True)
 						break
 
 
@@ -874,6 +878,7 @@ class UtilSessionComponent(SessionComponent):
 			clip_slot = self.get_first_empty_clipslot(track)
 			if clip_slot:
 				clip_slot.fire()
+				#self.song.view.highlighted_clip_slot = clip_slot
 			else:
 				self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
 
