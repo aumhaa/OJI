@@ -610,7 +610,7 @@ class UtilSessionComponent(SessionComponent):
 	util_fire_prev_button = ButtonControl()
 	util_fire_next_absolute_button = ButtonControl()
 	util_fire_prev_absolute_button = ButtonControl()
-	util_fire_next_on_single_armed_button = ButtonControl()
+	util_fire_next_on_single_armed_button = ButtonControl(color = "Session.FireNextArm")
 	util_fire_next_on_all_armed_button = ButtonControl()
 	util_select_playing_clipslot_button = ButtonControl()
 	util_stop_clip_button = ButtonControl()
@@ -1160,7 +1160,6 @@ class PresetTaggerSelectorComponent(Component):
 		self._PT_locked = False
 		super(PresetTaggerSelectorComponent, self).__init__(*a, **k)
 
-
 	@PT_button.pressed
 	def PT_button(self, button):
 		if not self._PT_locked:
@@ -1173,7 +1172,45 @@ class PresetTaggerSelectorComponent(Component):
 			self._modhandler.set_lock(False)
 			self._modhandler._on_device_changed()
 			self.PT_button.color = 'DefaultButton.Off'
+			self.select_first_armed_track()
 
+	def get_tracks(self):
+		tracks = [track for track in self.song.tracks]
+		for track in self.song.return_tracks:
+			tracks.append(track)
+		return tracks
+
+	def armed_tracks(self):
+		tracks = []
+		for t in self.get_tracks():
+			if liveobj_valid(t) and t.can_be_armed:
+				if t.arm:
+					tracks.append(t)
+		return tracks
+
+	def select_first_armed_track(self):
+		debug('select_first_armed_track')
+		armed_tracks = self.armed_tracks()
+		if len(armed_tracks):
+			self.song.view.selected_track = armed_tracks[0]
+
+
+class DeviceDeleteComponent(Component):
+
+
+	delete_button = ButtonControl()
+
+	def __init__(self, device_provider, *a, **k):
+		self.device_provider = device_provider
+		super(DeviceDeleteComponent, self).__init__(*a, **k)
+
+	@delete_button.pressed
+	def delete_button(self, button):
+		device = self.device_provider.device
+		if liveobj_valid(device):
+			device_parent = device.canonical_parent
+			device_index = list(device_parent.devices).index(device)
+			device_parent.delete_device(device_index)
 
 
 class Util(ControlSurface):
@@ -1202,6 +1239,7 @@ class Util(ControlSurface):
 			self._setup_transport()
 			self._setup_session_recording_component()
 			self._setup_device_controls()
+			self._setup_device_deleter()
 			self._setup_mod()
 			self._setup_preset_tagger()
 			self._setup_audiolooper()
@@ -1231,12 +1269,12 @@ class Util(ControlSurface):
 
 	def _setup_controls(self):
 		def is_momentary(id):
-			return id > 34 and id not in (42,43,44,45,46,47)
+			return id > 34 and id not in (42,43,44,45,46,47,64,65,66)
 		optimized = True
 		resource = PrioritizedResource
 		color_map = COLOR_MAP
-		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(127)]
-		self._button2 = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = SECONDARY_CHANNEL, identifier = SECONDARY_CHANNEL_UTIL_BUTTONS[index], name = 'Button2_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(20)]
+		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(128)]
+		self._button2 = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = True, msg_type = MIDI_NOTE_TYPE, channel = SECONDARY_CHANNEL, identifier = SECONDARY_CHANNEL_UTIL_BUTTONS[index], name = 'Button2_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(128)]
 
 		self._fader = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 0, map_mode = Live.MidiMap.MapMode.absolute, name = 'Fader', resource_type = resource)
 		self._dial = SpecialEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = 17, map_mode = Live.MidiMap.MapMode.absolute, name = 'Dial', resource_type = resource)
@@ -1246,12 +1284,11 @@ class Util(ControlSurface):
 		self._encoder = [SpecialEncoderElement(name = 'Encoder_'+str(index), msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = index, map_mode = Live.MidiMap.MapMode.absolute) for index in range(1,17)]
 		self._encoder_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder]) #, self._encoder[8:]])
 
-		self._keys = ButtonMatrixElement(name = 'ModKeys', rows = [self._button[64:72]])
-		self._grid = ButtonMatrixElement(name = 'ModGrid', rows = [self._button[72:80],
-																	self._button[80:88],
-																	self._button[88:96],
-																	self._button[96:104]])
-
+		self._keys = ButtonMatrixElement(name = 'ModKeys', rows = [self._button2[0:8]])
+		self._grid = ButtonMatrixElement(name = 'ModGrid', rows = [self._button2[8:16],
+																	self._button2[16:24],
+																	self._button2[24:32],
+																	self._button2[32:40]])
 
 	def _setup_autoarm(self):
 		self._autoarm = UtilAutoArmComponent(name='Auto_Arm')
@@ -1320,7 +1357,7 @@ class Util(ControlSurface):
 		self._clip_creator = ClipCreator()
 		self._clip_creator.name = 'ClipCreator'
 		self._recorder = FixedLengthSessionRecordingComponent(length_values = LENGTH_VALUES, clip_creator = self._clip_creator, view_controller = ViewControlComponent())
-		self._recorder.layer = Layer(record_button = self._button[43])
+		self._recorder.layer = Layer(record_button = self._button[43], scene_list_new_button = self._button[68])
 		#self._recorder.alt_layer = LayerMode(self._recorder, Layer(priority = 6, new_button = self._button[5], record_button = self._button[6]))
 		# self._recorder.alt_layer = LayerMode(self._recorder, Layer(priority = 6, length_buttons = self._nav_buttons.submatrix[1:4,:]))
 		self._recorder.set_enabled(False)
@@ -1334,7 +1371,7 @@ class Util(ControlSurface):
 													device_bank_registry = self._device_bank_registry,
 													banking_info = self._banking_info,
 													name = u"DeviceComponent")
-		self._parameter_provider.layer = Layer(bank_up_button = self._button2[1], bank_down_button = self._button2[0])
+		self._parameter_provider.layer = Layer(priority = 6, bank_down_button = self._button[64], bank_up_button = self._button[65])
 		self._device = UtilDeviceParameterComponent(parameter_provider = self._parameter_provider)
 		self._device.layer = Layer(parameter_controls = self._encoder_matrix)
 		self._device.set_enabled(False)
@@ -1344,7 +1381,7 @@ class Util(ControlSurface):
 																banking_info = self._banking_info,
 																device_component = self._parameter_provider,
 																track_list_component = self._track_list_component)
-		self._device_navigation.layer = Layer(select_buttons = self._device_select_matrix)
+		self._device_navigation.layer = Layer(select_buttons = self._device_select_matrix, disable_button = self._button[67])
 		self._device_navigation.scroll_left_layer = Layer(button = self._button[48], priority = 6)
 		self._device_navigation.scroll_right_layer = Layer(button = self._button[55], priority = 6)
 		self._device_navigation.chain_selection.layer = Layer(select_buttons = self._chain_select_matrix, priority = 6)
@@ -1359,6 +1396,11 @@ class Util(ControlSurface):
 		# self._device_bank_incdec = BankIncDecComponent(device_bank_registry = self._device_bank_registry, banking_info = self._banking_info)
 		# self._device_bank_incdec.layer = Layer(next_bank_button = self._button[44])
 		# self._device_bank_incdec.set_enabled(False)
+
+
+	def _setup_device_deleter(self):
+		self._device_deleter = DeviceDeleteComponent(device_provider = self._device_provider)
+		self._device_deleter.layer = Layer(delete_button = self._button[66], priority = 6)
 
 
 	def _setup_mod(self):
@@ -1442,7 +1484,8 @@ class Util(ControlSurface):
 											self._mixer._selected_strip,
 											self._session,
 											self._session_navigation,
-											self._autoarm])
+											self._autoarm,
+											self._device_deleter])
 
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = u'disabled'

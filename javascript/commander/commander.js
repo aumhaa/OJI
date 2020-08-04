@@ -8,6 +8,7 @@ util.inject(this, util);
 var api_util = require('aumhaa_LiveAPI_util');
 
 var control_names = require('commander_map').control_names;
+var control_names2 = require('commander_map').control_names2;
 var COLORS = {white:[.7, .7, .7],
 							off:[0, 0, 0],
 							red:[.7, 0, 0],
@@ -104,7 +105,7 @@ function setup_patcher(){
 	for(var i=0;i<8;i++){
 		device_select_buttons.push(controls['track['+i+']']);
 	}
-	debug('device_select_buttons:', device_select_buttons.length);
+	//debug('device_select_buttons:', device_select_buttons.length);
 	script.paramDial = [];
 	script.paramName = [];
 	script.paramValue = [];
@@ -133,8 +134,8 @@ function setup_controls(){
 	var make_textbutton_callback = function(id){
 		var callback = function(args){
 			if((args[0]=='text')&&(args[1]!='id')){
-				if(controls[control_names[id]]){
-					controls[control_names[id]].message('text', args.slice(1).join());
+				if(controls[control_names2[id]]){
+					controls[control_names2[id]].message('text', args.slice(1).join());
 				}
 			}
 		}
@@ -152,6 +153,7 @@ function setup_controls(){
 	}
 
 	script['ControlRegistry'] = new ControlRegistry('ControlRegistry');
+	//script['ControlRegistry2'] = new ControlRegistry('ControlRegistry2');
 	script['grid'] = [];
 	script['gridRaw'] = [];
 	script['key'] = [];
@@ -168,13 +170,13 @@ function setup_controls(){
 		for(var y=0;y<5;y++)
 		{
 			var index = x+(y*8);
-			var id = index + 64;
+			var id = index; // + 64;
 			var apiObj = new LiveAPI(make_textbutton_callback(id), path);
-			apiUtil.set_control_by_name(apiObj, 'Button_'+id);
+			apiUtil.set_control_by_name(apiObj, 'Button2_'+id);
 			if(apiObj.id != 0){
 				apiObj.property = 'text';
 			}
-			var maxObj = controls[control_names[id]];
+			var maxObj = controls[control_names2[id]];
  			gridRaw[index]= new ModButton(id, 'modButton_'+index, make_send_func(id, maxObj), {'maxObj':maxObj, 'apiObj':apiObj});
 			if(y > 0){
 
@@ -203,7 +205,7 @@ function setup_controls(){
 		return callback;
 	}
 	for(var i=0;i<8;i++){
-		var name = 'Button2_'+(i+10);
+		var name = 'Button_'+(i+120);
 		var control = finder.call('get_control', name);
 		debug('control is:', control);
 		presetButtons[i] = new LiveAPI(make_presetButton_callback(i), control);
@@ -416,15 +418,16 @@ function setup_modes(){
 function pipe_callback(args){
 	// debug('args', args);
 	if((args[1]=='midi')&&(args[2]==144)){
-		if(args[3] < 64){
-			if(controls[control_names[args[3]]]){
-				controls[control_names[args[3]]].message('activebgcolor', colors[args[4]]);
-			}
+		if(controls[control_names[args[3]]]){
+			controls[control_names[args[3]]].message('activebgcolor', colors[args[4]]);
 		}
-		else if(args[3] < 112){
-			// debug('sending:', args[3]-64, args[4], gridRaw[args[3]-64] ? gridRaw[args[3]-64]._name : 'null');
-			gridRaw[args[3]-64].send(args[4]);
+	}
+	else if((args[1]=='midi')&&(args[2]==145)){
+		// debug('sending:', args[3], args[4], gridRaw[args[3]] ? gridRaw[args[3]]._name : 'null');
+		try{
+			gridRaw[args[3]].send(args[4]);
 		}
+		catch(e){}
 	}
 }
 
@@ -578,7 +581,7 @@ function _cue_value_in(val){
 }
 
 function mod_button_IN(num, val){
-	Alive&&ControlRegistry.receive(num, val);
+	Alive&&ControlRegistry.receive(num-64, val);
 	// debug('mod_button_IN', num, val);
 }
 

@@ -280,6 +280,7 @@ class MoveDeviceComponent(Component):
 class DeviceNavigationComponent(DeviceNavigationComponentBase):
 	__events__ = (u'drum_pad_selection', u'mute_solo_stop_cancel_action_performed')
 	color_class_name = u'DeviceNavigation'
+	disable_button = ButtonControl()
 
 	def __init__(self, device_bank_registry = None, banking_info = None, delete_handler = None, track_list_component = None, *a, **k):
 		assert banking_info is not None
@@ -337,21 +338,29 @@ class DeviceNavigationComponent(DeviceNavigationComponentBase):
 		self.chain_selection._update_button_colors()
 		self.bank_selection._update_button_colors()
 
+	# @disable_button.pressed
+	# def disable_button(self, button):
+	# 	debug('disable_button pressed', button)
+
 	def _in_device_enabling_mode(self):
-		return self._track_list.selected_mode == u'mute'
+		#return self.disable_button.is_pressed()
+		# debug('disable_button:', self.disable_button)
+		# debug('disable_button._is_pressed:', self.disable_button._is_pressed)
+		return self.disable_button._is_pressed
+		# return False
 
 	def _on_select_button_pressed(self, button):
 		device_or_pad = self.items[button.index].item
-		# if self._in_device_enabling_mode():
-		# 	self._toggle_device(device_or_pad)
-		# 	self.notify_mute_solo_stop_cancel_action_performed()
-		# else:
-		self._last_pressed_button_index = button.index
-		if not self._delete_handler or not self._delete_handler.is_deleting:
-			self._selected_on_previous_press = device_or_pad if self.selected_object != device_or_pad else None
-			self._was_in_chain_mode = self._modes.selected_mode == u'chain_selection'
-			debug('was_in_chain_mode:', self._was_in_chain_mode)
-			self._select_item(device_or_pad)
+		if self._in_device_enabling_mode():
+			self._toggle_device(device_or_pad)
+			self.notify_mute_solo_stop_cancel_action_performed()
+		else:
+			self._last_pressed_button_index = button.index
+			if not self._delete_handler or not self._delete_handler.is_deleting:
+				self._selected_on_previous_press = device_or_pad if self.selected_object != device_or_pad else None
+				self._was_in_chain_mode = self._modes.selected_mode == u'chain_selection'
+				debug('was_in_chain_mode:', self._was_in_chain_mode)
+				self._select_item(device_or_pad)
 
 	def _on_select_button_released_immediately(self, button):
 		if not self._in_device_enabling_mode():
@@ -372,6 +381,13 @@ class DeviceNavigationComponent(DeviceNavigationComponentBase):
 			self._modes.selected_mode = u'default'
 			self._last_pressed_button_index = -1
 			self._end_move_device()
+
+	# @select_buttons.double_clicked
+	# def select_buttons(self, button):
+	# 	self._on_select_button_double_clicked(button)
+	#
+	# def _on_select_button_double_clicked(self, button):
+	# 	debug('_on_select_button_double_clicked', button)
 
 	@dispatch(Live.DrumPad.DrumPad)
 	def _toggle_device(self, drum_pad):

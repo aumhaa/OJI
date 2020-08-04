@@ -84,6 +84,8 @@ function init(){
   setup_preview();
   setup_controls();
   setup_modes();
+  setup_mainfx_button();
+  setup_tagmode_button();
   setup_mod();
   setup_nodescript();
   NODE_DEBUG&&node_debug.front();
@@ -401,14 +403,14 @@ function setup_tests(){
 function setup_modes(){
 
 	//Page 1:  tagPage
-	script['tagPage'] = new Page('tagPage');
+	script.tagPage = new Page('tagPage');
 	tagPage.enter_mode = function()
 	{
 		debug('tagPage entered');
     KeyButtons[0]._send_text('<');
     KeyButtons[1]._send_text('>');
     KeyButtons[6]._send_text('FileAccess');
-    KeyButtons[7]._send_text('TagMode');
+    mainFxButton.set_control(KeyButtons[2]);
     tagChooser.offset.set_inc_dec_buttons(KeyButtons[1], KeyButtons[0]);
     tagChooser.assign_grid(Grid);
     fileInfo.fileAccessButton.set_control(KeyButtons[6]);
@@ -421,7 +423,6 @@ function setup_modes(){
     KeyButtons[0]._send_text(' ');
     KeyButtons[1]._send_text(' ');
     KeyButtons[6]._send_text(' ');
-    KeyButtons[7]._send_text(' ');
 		debug('tagPage exited');
 	}
 	tagPage.update_mode = function()
@@ -442,26 +443,30 @@ function setup_modes(){
 	}
 
   //Page 2:  filterPage
-	script['filterPage'] = new Page('filterPage');
+	script.filterPage = new Page('filterPage');
 	filterPage.enter_mode = function()
 	{
 		debug('filterPage entered');
     filterChooser.assign_grid(Grid);
     filterChooser.offset.set_inc_dec_buttons(KeyButtons[1], KeyButtons[0]);
-    TagFilter._filterMode.set_control(KeyButtons[6]);
+    TagFilter._filterMode.set_control(KeyButtons[5]);
+    mainFxButton.set_control(KeyButtons[2]);
+    TagFilter.ClearFilter.set_control(KeyButtons[3]);
+    tagModeButton.set_control(KeyButtons[6]);
     KeyButtons[0]._send_text('<');
     KeyButtons[1]._send_text('>');
-    KeyButtons[7]._send_text('FilterMode');
 	}
 	filterPage.exit_mode = function()
 	{
     TagFilter._filterMode.set_control();
+    TagFilter.ClearFilter.set_control();
     filterChooser.offset.set_inc_dec_buttons();
+    mainFxButton.set_control();
+    tagModeButton.set_control();
     filterChooser.assign_grid();
     KeyButtons[0]._send_text(' ');
     KeyButtons[1]._send_text(' ');
-    KeyButtons[6]._send_text(' ');
-    KeyButtons[7]._send_text(' ');
+    KeyButtons[5]._send_text(' ');
 		debug('filterPage exited');
 	}
 	filterPage.update_mode = function()
@@ -482,26 +487,30 @@ function setup_modes(){
 	}
 
   //Page 2:  selectPage
-	script['selectPage'] = new Page('selectPage');
+	script.selectPage = new Page('selectPage');
   selectPage.enter_mode = function()
 	{
 		debug('selectPage entered');
     targetChooser.assign_grid(Grid);
     targetChooser.offset.set_inc_dec_buttons(KeyButtons[1], KeyButtons[0]);
     //TagFilter._filterMode.set_control(KeyButtons[6]);
+    TagFilter.ClearFilter.set_control(KeyButtons[3]);
+    mainFxButton.set_control(KeyButtons[2]);
+    tagModeButton.set_control(KeyButtons[6]);
     KeyButtons[0]._send_text('<');
     KeyButtons[1]._send_text('>');
-    KeyButtons[7]._send_text('SelectMode');
 	}
 	selectPage.exit_mode = function()
 	{
     //TagFilter._filterMode.set_control();
+    TagFilter.ClearFilter.set_control();
     targetChooser.offset.set_inc_dec_buttons();
+    mainFxButton.set_control();
+    tagModeButton.set_control();
     targetChooser.assign_grid();
     KeyButtons[0]._send_text(' ');
     KeyButtons[1]._send_text(' ');
     //KeyButtons[6]._send_text(' ');
-    KeyButtons[7]._send_text(' ');
 		debug('selectPage exited');
 	}
 	filterPage.update_mode = function()
@@ -521,16 +530,62 @@ function setup_modes(){
 		}
 	}
 
-	script["MainModes"] = new PageStack(3, 'Main Mode', {mode_colors:[2,4,6]});
+	script.MainModes = new SpecialPageStack(3, 'MainMode', {
+    mode_colors:[2,4,6],
+    mode_labels:['TagMode', 'FilterMode', 'SelectMode']
+  });
 	MainModes.add_mode(0, tagPage);
   MainModes.add_mode(1, filterPage);
   MainModes.add_mode(2, selectPage);
   MainModes.add_listener(function(obj){
     debug('new mode is:', obj._value);
   });
-
-
+  MainModes.mode_cycle_value = function(button){
+    if(button.pressed()){
+      MainModes.change_mode(MainModes._value == 1 ? 2 : 1);
+    }
+    MainModes.notify();
+  }
 }
+
+function setup_mainfx_button(){
+  script.mainFxButton = new TextMomentaryParameter('MainFXButton', {
+    value:0,
+    onValue:1,
+    offValue:0,
+    textOnValue:'mainfx',
+    textOffValue:'mainfx'
+  });
+  mainFxButton.add_listener(function(obj){
+    //debug('MainFXButton.pressed');
+    if(obj._control.pressed()){
+      TagFilter.clear_filter();
+      if(TagFilter.tag_list.indexOf('mainfx')>-1){
+        debug('setting mainfx');
+        TagFilter._selected_tags.receive(['mainfx']);
+        MainModes.change_mode(2);
+      }
+    }
+  });
+}
+
+function setup_tagmode_button(){
+  script.tagModeButton = new TextMomentaryParameter('TagModeButton', {
+    value:0,
+    onValue:1,
+    offValue:0,
+    textOnValue:'TagMode',
+    textOffValue:'TagMode'
+  });
+  tagModeButton.add_listener(function(obj){
+    debug('TagMode.pressed');
+    if(obj._control.pressed()){
+      MainModes.change_mode(0);
+    }
+  });
+}
+
+
 
 function initialize_nodescript(){
   NSProxy.initialize().then(function(res){
@@ -1373,7 +1428,20 @@ function TagFilterComponent(name, args){
   this.last_found_tags = [];
   this._selected_tags = new ArrayParameter(this._name + '_SelectedTags', {value:[]});
   this._tagList = new ArrayParameter(this._name + '_TagList', {value:[]});
-  this._filterMode = new TextToggleParameter(this._name + '_FilterMode', {value:true, onValue:6, offValue:5, textOnValue:'OR', textOffValue:'AND'});
+  this._filterMode = new TextToggleParameter(this._name + '_FilterMode', {
+    value:true,
+    onValue:6,
+    offValue:5,
+    textOnValue:'OR',
+    textOffValue:'AND'
+  });
+  this.ClearFilter = new TextMomentaryParameter(this._name + '_ClearFilterControl', {
+    onValue:2,
+    offValue:2,
+    textOnValue:'ClearFilter',
+    textOffValue:'ClearFilter'
+  });
+  this.ClearFilter.add_listener(function(obj){obj._control._value&&self.clear_filter();});
   this.add_bound_properties(this, ['input', 'refresh', '_filterMode', 'refresh_filtered_chooser_selection']);
   TagFilterComponent.super_.call(this, name, args);
   this._init.apply(this);
@@ -1889,11 +1957,106 @@ function TextToggleParameter(name, args){
 
 util.inherits(TextToggleParameter, ToggledParameter);
 
+TextToggleParameter.prototype.set_control = function(control){
+  if(this._control){
+    this._control._send_text(' ');
+  }
+  TextToggleParameter.super_.prototype.set_control.call(this, control);
+}
+
 TextToggleParameter.prototype.update_control = function(value){
   TextToggleParameter.super_.prototype.update_control.call(this, value);
 	if(this._control){
     this._control._send_text(this._value > 0 ? this._textOnValue : this._textOffValue);
   }
+}
+
+
+
+function TextMomentaryParameter(name, args){
+  var self = this;
+  this._textOnValue = 'On';
+  this._textOffValue = 'Off';
+  this.add_bound_properties(this, []);
+  TextMomentaryParameter.super_.call(this, name, args);
+}
+
+util.inherits(TextMomentaryParameter, MomentaryParameter);
+
+TextMomentaryParameter.prototype.set_control = function(control){
+  if(this._control){
+    this._control._send_text(' ');
+  }
+  TextMomentaryParameter.super_.prototype.set_control.call(this, control);
+}
+
+TextMomentaryParameter.prototype.update_control = function(value){
+  TextMomentaryParameter.super_.prototype.update_control.call(this, value);
+	if(this._control){
+    this._control._send_text(this._value > 0 ? this._textOnValue : this._textOffValue);
+  }
+}
+
+
+
+function TextModeClass(number_of_modes, name, args){
+  this.require_dependencies(this, ['_mode_labels']);
+  TextModeClass.super_.call(this, number_of_modes, name, args);
+}
+
+util.inherits(TextModeClass, ModeClass);
+
+TextModeClass.prototype.update = function(){
+  TextModeClass.super_.prototype.update.call(this);
+  if(this.mode_cycle_button){
+    this.mode_cycle_button._send_text(this._mode_labels[this._value] ? this._mode_labels[this._value] : ' ');
+  }
+}
+
+TextModeClass.prototype.set_mode_buttons = function(buttons){
+  TextModeClass.super_prototype.set_mode_buttons.call(this, buttons);
+	for (var i in this.mode_buttons){
+		this.mode_buttons[i]._send_text(this._mode_labels[i] ? this._mode_labels[i] : ' ');
+	}
+}
+
+
+
+function SpecialPageStack(number_of_modes, name, args){
+	this.add_bound_properties(this, ['current_page', 'restore_mode']);
+	this._pages = new Array(number_of_modes);
+	PageStack.super_.call(this, number_of_modes, name, args);
+	this._value = -1;
+}
+
+util.inherits(SpecialPageStack, TextModeClass);
+
+SpecialPageStack.prototype.add_mode = function(mode, page){
+	if ((isClass(page, 'Page')) && (mode < this._mode_callbacks.length)){
+		this._pages[mode] = page;
+	}
+	else{
+		debug('Invalid add_mode assignment for', this._name, mode, ':', page);
+	}
+}
+
+SpecialPageStack.prototype.change_mode = function(value, force){
+	if((-1 < value)&&(value < this._mode_callbacks.length)){
+		if((this._value != value)||(force)){
+			this._pages[this._value]&&this._pages[this._value].exit_mode();
+			this._value = value;
+			this._pages[this._value]&&this._pages[this._value].enter_mode();
+			this.update();
+		}
+	}
+}
+
+SpecialPageStack.prototype.current_page = function(){
+	return this._pages[this.current_mode()];
+}
+
+SpecialPageStack.prototype.restore_mode = function(){
+	this.change_mode(this._value, true);
 }
 
 

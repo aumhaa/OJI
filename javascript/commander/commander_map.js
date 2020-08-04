@@ -64,6 +64,13 @@ var control_names = [
 								"track[5]",
 								"track[6]",
 								"track[7]",
+								"device_bank_left",
+								"device_bank_right",
+								"delete",
+								"disable"
+							];
+
+var control_names2 = [
 								"mod_button[0]",
 								"mod_button[1]",
 								"mod_button[2]",
@@ -114,6 +121,10 @@ var control_names = [
 								"mod_button[47]"
 							];
 
+// for(var i=0;i<128;i++){
+// 	control_names2[i] = i<64 ? undefined : "mod_button["+(i-64)+"]";
+// }
+
 // "volume_slider",
 // "enter",
 // "dir_left",
@@ -122,3 +133,4 @@ var control_names = [
 // "dir_down",
 
 exports.control_names = control_names;
+exports.control_names2 = control_names2;

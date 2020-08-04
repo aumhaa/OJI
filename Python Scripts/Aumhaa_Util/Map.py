@@ -84,6 +84,7 @@ class UtilColors:
 		NavigationButtonOff = LividRGB.YELLOW
 		ZoomOn = LividRGB.WHITE
 		ZoomOff = LividRGB.WHITE
+		FireNextArm = LividRGB.RED
 
 
 	class Zooming:
@@ -122,7 +123,7 @@ class UtilColors:
 
 	class Mixer:
 		SoloOn = LividRGB.BLUE
-		SoloOff = LividRGB.CYAN
+		SoloOff = LividRGB.WHITE
 		MuteOn = LividRGB.YELLOW
 		MuteOff = LividRGB.WHITE
 		ArmSelected = LividRGB.RED
