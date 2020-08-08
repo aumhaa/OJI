@@ -7828,8 +7828,8 @@
 									"maxclass" : "newobj",
 									"numinlets" : 1,
 									"numoutlets" : 0,
-									"patching_rect" : [ 50.0, 162.0, 66.0, 22.0 ],
-									"text" : "11strokes2"
+									"patching_rect" : [ 50.0, 162.0, 60.0, 22.0 ],
+									"text" : "11strokes"
 								}
 
 							}
@@ -10346,7 +10346,7 @@
 				"implicit" : 1
 			}
 , 			{
-				"name" : "11strokes2.mxo",
+				"name" : "11strokes.mxo",
 				"type" : "iLaX"
 			}
 , 			{
