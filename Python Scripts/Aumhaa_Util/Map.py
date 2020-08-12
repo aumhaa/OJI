@@ -101,6 +101,8 @@ class UtilColors:
 		SelectedPage = LividRGB.WHITE
 		InsideLoop = LividRGB.CYAN
 		PlayheadRecord = LividRGB.RED
+		Bank = LividRGB.MAGENTA
+		ShiftLoop = LividRGB.CYAN
 
 
 	class Transport:

@@ -30,7 +30,7 @@ from ableton.v2.control_surface.control import ControlList, MappedSensitivitySet
 from ableton.v2.control_surface.banking_util import *
 from ableton.v2.control_surface.device_parameter_bank import DeviceParameterBank
 
-from pushbase.loop_selector_component import LoopSelectorComponent
+
 # from Push2.device_navigation import DeviceNavigationComponent
 # from Push2.track_list import TrackListComponent
 from Push2.track_selection import SessionRingTrackProvider
@@ -46,6 +46,7 @@ from aumhaa.v2.control_surface.elements.mono_encoder import *
 from aumhaa.v2.control_surface.mono_modes import SendLividSysexMode, SendSysexMode, CancellableBehaviourWithRelease, ColoredCancellableBehaviourWithRelease, MomentaryBehaviour, BicoloredMomentaryBehaviour, DefaultedBehaviour
 from aumhaa.v2.control_surface.components.fixed_length_recorder import FixedLengthSessionRecordingComponent
 from aumhaa.v2.base import initialize_debug
+from .loop_selector_component import LoopSelectorComponent
 from .parameter_mapping_sensitivities import parameter_mapping_sensitivity, fine_grain_parameter_mapping_sensitivity
 from .track_list import TrackListComponent
 from .device_navigation import DeviceNavigationComponent as UtilDeviceNavigationComponent
@@ -1456,7 +1457,11 @@ class Util(ControlSurface):
 
 	def _setup_audiolooper(self):
 		self._audiolooper = LoopSelectorComponent(follow_detail_clip=True, measure_length=4.0, name='Loop_Selector', default_size = 32)
-		self._audiolooper.layer = Layer(loop_selector_matrix = self._grid)
+		self._audiolooper.layer = Layer(priority = 6, loop_selector_matrix=self._grid,
+														prev_page_button=self._button2[6],
+														next_page_button=self._button2[7],
+														shift_loop_left_button=self._button2[0],
+														shift_loop_right_button=self._button2[1])
 		self._audiolooper.set_enabled(False)
 
 	def _setup_main_modes(self):
