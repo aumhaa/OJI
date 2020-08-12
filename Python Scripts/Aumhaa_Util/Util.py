@@ -1461,7 +1461,8 @@ class Util(ControlSurface):
 														prev_page_button=self._button2[6],
 														next_page_button=self._button2[7],
 														shift_loop_left_button=self._button2[0],
-														shift_loop_right_button=self._button2[1])
+														shift_loop_right_button=self._button2[1],
+														latest_loop_button=self._button2[2])
 		self._audiolooper.set_enabled(False)
 
 	def _setup_main_modes(self):

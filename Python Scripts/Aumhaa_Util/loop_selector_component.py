@@ -130,6 +130,7 @@ class LoopSelectorComponent(Component, Messenger):
 	prev_page_button = ButtonControl(color="LoopSelector.Bank")
 	shift_loop_right_button = ButtonControl(color="LoopSelector.ShiftLoop")
 	shift_loop_left_button = ButtonControl(color="LoopSelector.ShiftLoop")
+	latest_loop_button = ButtonControl(color="LoopSelector.LatestLoop")
 	delete_button = ButtonControl()
 	select_button = ButtonControl()
 	loop_selector_matrix = control_matrix(PadControl, sensitivity_profile=u'loop', mode=PlayableControl.Mode.listenable)
@@ -582,6 +583,19 @@ class LoopSelectorComponent(Component, Messenger):
 			loop_length = clip.end_marker - clip.loop_start
 			loop_start = max(0, clip.loop_start - loop_length)
 			loop_end = max(loop_length, clip.end_marker - loop_length)
+			set_loop(clip, loop_start, loop_end)
+			self._sequencer_clip.view.show_loop()
+			self._try_select_page(self.pos_to_page(clip.loop_start))
+
+	@latest_loop_button.pressed
+	def latest_loop_button(self, button):
+		debug('latest_loop_button.pressed')
+		clip = self._sequencer_clip
+		if liveobj_valid(clip):
+			# debug('clip.loop_start:', clip.loop_start, 'loop_end', clip.loop_end, 'length', clip.length, 'end_time:', clip.end_time, 'start_marker:', clip.start_marker,  'start_time:', clip.start_time)
+			loop_length = 16
+			loop_end = clip.length
+			loop_start = max(0, loop_end - loop_length)
 			set_loop(clip, loop_start, loop_end)
 			self._sequencer_clip.view.show_loop()
 			self._try_select_page(self.pos_to_page(clip.loop_start))

@@ -102,7 +102,8 @@ class UtilColors:
 		InsideLoop = LividRGB.CYAN
 		PlayheadRecord = LividRGB.RED
 		Bank = LividRGB.MAGENTA
-		ShiftLoop = LividRGB.CYAN
+		ShiftLoop = LividRGB.WHITE
+		LatestLoop = LividRGB.YELLOW
 
 
 	class Transport:
