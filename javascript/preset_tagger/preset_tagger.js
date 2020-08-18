@@ -211,6 +211,7 @@ function setup_batch_editor(){
 
   var search_filter_text = obj.subpatcher().getnamed('filefilter');
   var tag_buffer_text = obj.subpatcher().getnamed('tagbuffer');
+  var recursive_toggle = obj.subpatcher().getnamed('batch_recursive_toggle');
   var pcontrol = this.patcher.getnamed('batch_editor_pcontrol');
   var thispatcher = obj.subpatcher().getnamed('thispatcher');
   var window_position=  obj.subpatcher().getnamed('window_position');
@@ -243,7 +244,8 @@ function setup_batch_editor(){
   script.FilenameFilter = new FilenameFilterComponent('FilenameFilter', {
     batch_display:batch_display,
     search_filter_text:search_filter_text,
-    tag_buffer_text:tag_buffer_text
+    tag_buffer_text:tag_buffer_text,
+    recursive_toggle_button:recursive_toggle
   });
   script.toFilenameFilter = FilenameFilter.input;
 }
@@ -680,6 +682,7 @@ function activate(){
     editor.open();
     EditorButton.message(1);
   };
+  batchEditor.lock();
   if(BATCH_OPEN){
     batchEditor.open();
     BatchButton.message(1);
@@ -1763,6 +1766,7 @@ function FilenameFilterComponent(name, args){
   this._search_filters = new ArrayParameter(this._name + '_SearchFilters', {value:[]});
   this._filtered_files = new ArrayParameter(this._name + '_FilteredFiles', {value:[]});
   this._tag_buffer = new ArrayParameter(this._name + '_TagBuffer', {value:[]});
+  this._recursive_toggle = new ToggledParameter(this._name + '_RecursiveToggle', {value:false});
   this.add_bound_properties(this, [
     'input',
     'refresh',
@@ -1771,6 +1775,7 @@ function FilenameFilterComponent(name, args){
     '_tag_buffer',
     '_tag_buffer_text',
     '_search_filter_text',
+    '_recursive_toggle',
     'refresh_filtered_chooser_selection'
   ]);
   TagFilterComponent.super_.call(this, name, args);
@@ -1794,16 +1799,23 @@ FilenameFilterComponent.prototype.__defineGetter__('tag_buffer', function(){
   return this._tag_buffer._value
 });
 
+FilenameFilterComponent.prototype.__defineGetter__('recursive_toggle', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._recursive_toggle._value
+});
+
 FilenameFilterComponent.prototype._init = function(args){
   // debug('TagFilterComponent._init');
   var self = this;
   this._search_filters.add_listener(this.refresh);
   this._search_filters.add_listener(function(){
     self._search_filter_text.message('set', self.search_filters.join(' '));
-  })
+  });
   this._tag_buffer.add_listener(function(){
     self._tag_buffer_text.message('set', self.tag_buffer.join(' '));
-  })
+  });
+  this._recursive_toggle_button.message('set', 0);
+  this._recursive_toggle.add_listener(this.refresh);
 }
 
 FilenameFilterComponent.prototype.refresh = function(){
@@ -1863,10 +1875,11 @@ FilenameFilterComponent.prototype.display_filtered_files = function(){
       var shortname = file.shortname;
       for(var j in filters){
         var rgx = RegExp(filters[j], 'gi');
-        var ret = rgx.test(shortpath);
+        var test_path = this.recursive_toggle ? shortpath : shortname;
+        var ret = rgx.test(test_path);
         if(ret){
           this.filtered_hash_list[shortname] = {file:path, entry:entry};
-          debug(shortname, ret);
+          // debug(shortname, ret);
           batch_display.append(shortname);
           entry += 1;
           break;
@@ -1875,29 +1888,6 @@ FilenameFilterComponent.prototype.display_filtered_files = function(){
     }
   }
   // this.emit('FilteredHashListUpdated', this.filtered_hash_list);
-}
-
-FilenameFilterComponent.prototype.refresh_filtered_chooser_selection = function(){
-  //update the currently selected item in the filter chooser pane
-  var selected_file = fileInfo.selected_file;
-  // debug('selected_file:', selected_file == null ? 'null' : selected_file);
-  if((selected_file)&&(selected_file in libraryObj)){
-    var selected_shortname = libraryObj[selected_file].shortname;
-    if(selected_shortname in this.filtered_hash_list){
-      var entry = parseInt(this.filtered_hash_list[selected_shortname].entry);;
-      file_chooser.set(entry);
-      //if filtering isn't enabled, we want to display this in the 2nd commander pane
-      if(this.selected_tags.length>0){
-        messnamed('from_preset_tagger_deferred', 'files', 'set', entry);
-      }
-    }
-    else{
-      file_chooser.set();
-    }
-  }
-  else{
-    file_chooser.set();
-  }
 }
 
 FilenameFilterComponent.prototype.update = function(){
@@ -1934,6 +1924,11 @@ FilenameFilterComponent.prototype.Apply = function(){
   //     console.log(command_with_condi);
   //   });
   // });
+}
+
+FilenameFilterComponent.prototype.Recursive = function(val){
+  debug('Recursive():', val);
+  this._recursive_toggle.set_value(val);  //this calls refresh
 }
 
 
