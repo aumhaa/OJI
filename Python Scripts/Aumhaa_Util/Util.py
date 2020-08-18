@@ -1214,6 +1214,25 @@ class DeviceDeleteComponent(Component):
 			device_parent.delete_device(device_index)
 
 
+class HotswapComponent(Component):
+
+	hotswap_button = ButtonControl()
+
+	def __init__(self, device_provider, *a, **k):
+		self.device_provider = device_provider
+		super(HotswapComponent, self).__init__(*a, **k)
+
+	@hotswap_button.pressed
+	def hotswap_button(self, button):
+		debug('hotswap button pressed')
+		device = self.device_provider.device
+		browser = Live.Application.get_application().browser
+		if not browser.hotswap_target == None:
+			browser.hotswap_target = None
+		elif liveobj_valid(device):
+			browser.hotswap_target = device
+
+
 class Util(ControlSurface):
 
 	device_provider_class = ModDeviceProvider
@@ -1241,6 +1260,7 @@ class Util(ControlSurface):
 			self._setup_session_recording_component()
 			self._setup_device_controls()
 			self._setup_device_deleter()
+			self._setup_hotswap()
 			self._setup_mod()
 			self._setup_preset_tagger()
 			self._setup_audiolooper()
@@ -1270,7 +1290,7 @@ class Util(ControlSurface):
 
 	def _setup_controls(self):
 		def is_momentary(id):
-			return id > 34 and id not in (42,43,44,45,46,47,64,65,66)
+			return id > 34 and id not in (42,43,44,45,46,47,64,65,66,69)
 		optimized = True
 		resource = PrioritizedResource
 		color_map = COLOR_MAP
@@ -1403,6 +1423,10 @@ class Util(ControlSurface):
 		self._device_deleter = DeviceDeleteComponent(device_provider = self._device_provider)
 		self._device_deleter.layer = Layer(delete_button = self._button[66], priority = 6)
 
+	def _setup_hotswap(self):
+		self._hotswap = HotswapComponent(self._device_provider)
+		self._hotswap.layer = Layer(priority = 6, hotswap_button = self._button[69])
+		self._hotswap.set_enabled(False)
 
 	def _setup_mod(self):
 
@@ -1491,7 +1515,8 @@ class Util(ControlSurface):
 											self._session,
 											self._session_navigation,
 											self._autoarm,
-											self._device_deleter])
+											self._device_deleter,
+											self._hotswap])
 
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = u'disabled'
@@ -1538,6 +1563,16 @@ class Util(ControlSurface):
 	def modhandler_set_lock(self, val):
 		if not self.modhandler is None:
 			self.modhandler.set_lock(val)
+
+	def hotswap_enable(self, value):
+		browser = Live.Application.get_application().browser
+		if value:
+			device = self._device_provider.device
+			if liveobj_valid(device):
+				browser.hotswap_target = device
+		else:
+			browser.hotswap_target = None
+
 
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
 		debug('load_preset()', 'target:', target, 'folder:', folder, 'directory:', directory)
