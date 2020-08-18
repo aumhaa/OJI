@@ -818,7 +818,9 @@ function set_library(){
     else {
       library_updated();
     }
-  });
+  }).catch(function(e){
+    util.report_error(e);
+  })
 }
 
 //FileTreeComponent
@@ -840,6 +842,7 @@ function set_global_path(){
     debug('set_global_path error:', e.message);
   });
 }
+
 
 
 function PreviewPlayerComponent(name, args){
@@ -901,6 +904,7 @@ PreviewPlayerComponent.prototype._preview = function(obj){
     // this._sfplayObj.message('seek', 0, 20000);
   }
 }
+
 
 
 function FileInfoComponent(name, args){
@@ -1266,7 +1270,9 @@ FileTreeComponent.prototype.refresh_child_node = function(){
   // this.current_child_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
 }
 
+FileTreeComponent.prototype.all_files_in_folder = function(path){
 
+}
 
 function retrieve_parent(obj, parents){
   //parents = [].concat(parents);
@@ -1423,6 +1429,7 @@ FileTaggerComponent.prototype.clear_tags = function(){
   NSProxy.asyncCall('clear_tags', fileInfo.selected_file);
 }
 
+//this is done in-house now ;)
 FileTaggerComponent.prototype.set_folder_tags = function(){
   // FileTree.set_folder_tags();
   if(FileTree.current_parent_node.type == 'folder'){
@@ -1430,6 +1437,26 @@ FileTaggerComponent.prototype.set_folder_tags = function(){
   }
 }
 
+FileTaggerComponent.prototype.set_folder_tags = function(){
+  if(FileTree.current_parent_node.type == 'folder'){
+    var filenames = recurse_folder(FileTree.current_parent_node, []);
+    var tag = this.tag_buffer;
+    // debug('filepaths are:', filenames);
+    Promise.each(filenames, function(filename) {
+      return NSProxy.asyncCall('apply_tag', filename, tag).then(function(ret){
+        debug('success:', ret);
+      }).catch(function(e){
+        debug('fail:', util.report_error(e));
+      })
+    }).then(function(res){
+      debug('done:', res);
+    }).catch(function(e){
+      util.report_error(e);
+    });
+  }
+}
+
+//this is done in-house now ;)
 FileTaggerComponent.prototype.remove_folder_tags = function(){
   // FileTree.remove_folder_tags();
   if(FileTree.current_parent_node.type == 'folder'){
@@ -1437,10 +1464,48 @@ FileTaggerComponent.prototype.remove_folder_tags = function(){
   }
 }
 
+FileTaggerComponent.prototype.remove_folder_tags = function(){
+  if(FileTree.current_parent_node.type == 'folder'){
+    var filenames = recurse_folder(FileTree.current_parent_node, []);
+    var tag = this.tag_buffer;
+    // debug('filepaths are:', filenames);
+    Promise.each(filenames, function(filename) {
+      return NSProxy.asyncCall('remove_tag', filename, tag).then(function(ret){
+        debug('success:', ret);
+      }).catch(function(e){
+        debug('fail:', util.report_error(e));
+      })
+    }).then(function(res){
+      debug('done:', res);
+    }).catch(function(e){
+      util.report_error(e);
+    });
+  }
+}
+
+//this is done in-house now ;)
 FileTaggerComponent.prototype.clear_folder_tags = function(){
   // FileTree.clear_folder_tags();
   if(FileTree.current_parent_node.type == 'folder'){
     NSProxy.asyncCall('clear_folder_tags', FileTree.current_parent_node.path);
+  }
+}
+
+FileTaggerComponent.prototype.clear_folder_tags = function(){
+  if(FileTree.current_parent_node.type == 'folder'){
+    var filenames = recurse_folder(FileTree.current_parent_node, []);
+    var tag = this.tag_buffer;
+    Promise.each(filenames, function(filename) {
+      return NSProxy.asyncCall('clear_tags', filename, tag).then(function(ret){
+        debug('success:', ret);
+      }).catch(function(e){
+        debug('fail:', util.report_error(e));
+      })
+    }).then(function(res){
+      debug('done:', res);
+    }).catch(function(e){
+      util.report_error(e);
+    });
   }
 }
 
@@ -1477,6 +1542,20 @@ FileTaggerComponent.prototype.chooser_double = function(index, shortname){
   NSProxy.asyncCall('open_preset', path);
 }
 
+function recurse_folder(parentNode, paths){
+  // debug('recurse_folder', parentNode.name);
+  for(var i in parentNode.children){
+    debug('here');
+    var child = parentNode.children[i];
+    if(child.type == 'folder'){
+      paths = recurse_folder(child, paths);
+    }
+    else{
+      paths.push(child.path);
+    }
+  }
+  return paths
+}
 
 
 /**
@@ -2344,6 +2423,12 @@ SpecialCellBlockChooserComponent.prototype._refresh = function(){
       this._obj.message('set', 1, parseInt(i), val);
     }
   }
+}
+
+SpecialCellBlockChooserComponent.prototype.append = function(){
+  var args = arrayfromargs(arguments);
+  SpecialCellBlockChooserComponent.super_.prototype.append.apply(this, args);
+  this._obj.message('col', 1, 'width', this._contents.length>this._row_height ? 12 : 30);
 }
 
 SpecialCellBlockChooserComponent.prototype.set_active_tag_notifier = function(obj){
