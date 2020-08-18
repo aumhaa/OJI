@@ -204,7 +204,7 @@ function setup_batch_editor(){
   script.batch_display = new CellBlockChooserComponent('BatchDisplay', {
     obj:obj.subpatcher().getnamed('batch_display'),
     row_height:16,
-    multiSelect:true,
+    multiSelect:false,
     reselect:true
   });
   script.toBatchDisplay = batch_display.input;
@@ -227,7 +227,8 @@ function setup_batch_editor(){
     'noclose':true,
     'nogrow':true,
     'notitle':false,
-    'float':false
+    'float':false,
+    'batch_display':batch_display
   });
   script['batchInput'] = function(){
     var args = arrayfromargs(arguments);
@@ -248,6 +249,15 @@ function setup_batch_editor(){
     recursive_toggle_button:recursive_toggle
   });
   script.toFilenameFilter = FilenameFilter.input;
+
+  batch_display.set_target(function(obj){
+    debug('batch_display input:', obj, obj._value);
+    if(obj._doublepressed){
+      FilenameFilter.input.apply(FilenameFilter, ['select_file'].concat(obj._value));
+    } else {
+      FilenameFilter.input.apply(FilenameFilter, ['select_file'].concat(obj._value));
+    }
+  });
 }
 
 function setup_fileinfo(){
@@ -456,8 +466,8 @@ function setup_tests(){
   // ['catch'](function(e){
   //   debug('test_function failure', e.message);
   // });
-  FileTree.find_file('/Users/amounra/Music/Ableton/User Library/Presets/Audio Effects/Audio Effect Rack Test/@d_12 Instrument FX 043020.adg');
-  debug('tags:', fileInfo.active_tags);
+  // FileTree.find_file('/Users/amounra/Music/Ableton/User Library/Presets/Audio Effects/Audio Effect Rack Test/@d_12 Instrument FX 043020.adg');
+  // debug('tags:', fileInfo.active_tags);
 }
 
 function setup_modes(){
@@ -1270,9 +1280,6 @@ FileTreeComponent.prototype.refresh_child_node = function(){
   // this.current_child_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
 }
 
-FileTreeComponent.prototype.all_files_in_folder = function(path){
-
-}
 
 function retrieve_parent(obj, parents){
   //parents = [].concat(parents);
@@ -1444,9 +1451,9 @@ FileTaggerComponent.prototype.set_folder_tags = function(){
     // debug('filepaths are:', filenames);
     Promise.each(filenames, function(filename) {
       return NSProxy.asyncCall('apply_tag', filename, tag).then(function(ret){
-        debug('success:', ret);
+        // debug('success:', ret);
       }).catch(function(e){
-        debug('fail:', util.report_error(e));
+        // debug('fail:', util.report_error(e));
       })
     }).then(function(res){
       debug('done:', res);
@@ -1471,9 +1478,9 @@ FileTaggerComponent.prototype.remove_folder_tags = function(){
     // debug('filepaths are:', filenames);
     Promise.each(filenames, function(filename) {
       return NSProxy.asyncCall('remove_tag', filename, tag).then(function(ret){
-        debug('success:', ret);
+        // debug('success:', ret);
       }).catch(function(e){
-        debug('fail:', util.report_error(e));
+        // debug('fail:', util.report_error(e));
       })
     }).then(function(res){
       debug('done:', res);
@@ -1497,9 +1504,9 @@ FileTaggerComponent.prototype.clear_folder_tags = function(){
     var tag = this.tag_buffer;
     Promise.each(filenames, function(filename) {
       return NSProxy.asyncCall('clear_tags', filename, tag).then(function(ret){
-        debug('success:', ret);
+        // debug('success:', ret);
       }).catch(function(e){
-        debug('fail:', util.report_error(e));
+        // debug('fail:', util.report_error(e));
       })
     }).then(function(res){
       debug('done:', res);
@@ -1841,7 +1848,7 @@ TagFilterComponent.prototype.detect_found_tags = function(){
 
 function FilenameFilterComponent(name, args){
   var self = this;
-  this.hash_list = {};
+  this.filtered_hash_list = {};
   this._search_filters = new ArrayParameter(this._name + '_SearchFilters', {value:[]});
   this._filtered_files = new ArrayParameter(this._name + '_FilteredFiles', {value:[]});
   this._tag_buffer = new ArrayParameter(this._name + '_TagBuffer', {value:[]});
@@ -1855,7 +1862,10 @@ function FilenameFilterComponent(name, args){
     '_tag_buffer_text',
     '_search_filter_text',
     '_recursive_toggle',
-    'refresh_filtered_chooser_selection'
+    'refresh_filtered_chooser_selection',
+    '_batch_display',
+    'filtered_hash_list',
+    'select_file'
   ]);
   TagFilterComponent.super_.call(this, name, args);
   this._init.apply(this);
@@ -1895,6 +1905,12 @@ FilenameFilterComponent.prototype._init = function(args){
   });
   this._recursive_toggle_button.message('set', 0);
   this._recursive_toggle.add_listener(this.refresh);
+  this._search_filter_text.message('clear');
+  this._tag_buffer_text.message('clear');
+  // this._batch_display.add_listener(function(obj){
+  //   //var args = arrayfromargs(arguments);
+  //   debug('batch_display input:', obj);
+  // })
 }
 
 FilenameFilterComponent.prototype.refresh = function(){
@@ -1904,7 +1920,7 @@ FilenameFilterComponent.prototype.refresh = function(){
 
 FilenameFilterComponent.prototype.input = function(){
   var args = arrayfromargs(arguments);
-  debug('FilenameFilterComponent.input:', args);
+  // debug('FilenameFilterComponent.input:', args);
   try{
     this[args[0]].apply(this, args.slice(1));
   }
@@ -2008,6 +2024,13 @@ FilenameFilterComponent.prototype.Apply = function(){
 FilenameFilterComponent.prototype.Recursive = function(val){
   debug('Recursive():', val);
   this._recursive_toggle.set_value(val);  //this calls refresh
+}
+
+FilenameFilterComponent.prototype.select_file = function(num, shortname){
+  debug(this._name+'.select_file:', num, shortname);
+  if(this.filtered_hash_list[shortname]){
+    FileTree.find_file(this.filtered_hash_list[shortname].file);
+  }
 }
 
 
