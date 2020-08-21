@@ -50,6 +50,7 @@ from .loop_selector_component import LoopSelectorComponent
 from .parameter_mapping_sensitivities import parameter_mapping_sensitivity, fine_grain_parameter_mapping_sensitivity
 from .track_list import TrackListComponent
 from .device_navigation import DeviceNavigationComponent as UtilDeviceNavigationComponent
+from .device_provider import DeviceProvider as SpecialDeviceProvider
 from .Map import *
 
 from aumhaa.v2.base.debug import initialize_debug
@@ -1218,19 +1219,69 @@ class HotswapComponent(Component):
 
 	hotswap_button = ButtonControl()
 
-	def __init__(self, device_provider, *a, **k):
-		self.device_provider = device_provider
+	def __init__(self, device_provider = None, *a, **k):
+		self._drum_group_device = None
+		self._selected_drum_pad = None
 		super(HotswapComponent, self).__init__(*a, **k)
+		self.device_provider = device_provider or SpecialDeviceProvider(song = self.song)
+		self._browser = Live.Application.get_application().browser
+		self.__on_device_changed.subject = self.device_provider
+		# self._on_track_changed.subject = self.__on_selected_device_changed.subject = self.song.view.selected_track.view
 
 	@hotswap_button.pressed
 	def hotswap_button(self, button):
 		debug('hotswap button pressed')
 		device = self.device_provider.device
-		browser = Live.Application.get_application().browser
+		browser = self._browser
 		if not browser.hotswap_target == None:
 			browser.hotswap_target = None
+		elif liveobj_valid(self._selected_drum_pad):
+			browser.hotswap_target = self._selected_drum_pad
 		elif liveobj_valid(device):
 			browser.hotswap_target = device
+
+	def set_drum_group_device(self, drum_group_device):
+		debug('set_drum_group_device', drum_group_device)
+		if drum_group_device and not drum_group_device.can_have_drum_pads:
+			drum_group_device = None
+		if drum_group_device != self._drum_group_device:
+			drum_group_view = drum_group_device.view if drum_group_device else None
+			self.__on_selected_drum_pad_changed.subject = drum_group_view
+			# self.__on_chains_changed.subject = drum_group_device
+			self._drum_group_device = drum_group_device
+			# self._update_drum_pad_listeners()
+			self._update_selected_drum_pad()
+
+	@listens('device')
+	def __on_device_changed(self):
+		device = self.device_provider.device
+		debug('_on_device_changed', device)
+		# if liveobj_valid(device) and not self.browser.hotswap_target == None:
+		# 	self.browser.hotswap_target = device
+		self.set_drum_group_device(device)
+
+	@listens('selected_drum_pad')
+	def __on_selected_drum_pad_changed(self):
+		self._update_selected_drum_pad()
+
+	def _update_selected_drum_pad(self):
+		selected_drum_pad = self._drum_group_device.view.selected_drum_pad if liveobj_valid(self._drum_group_device) else None
+		if liveobj_changed(self._selected_drum_pad, selected_drum_pad):
+			self._selected_drum_pad = selected_drum_pad
+			self._on_selected_drum_pad_changed()
+
+	def _on_selected_drum_pad_changed(self):
+		debug('_on_selected_drum_pad_changed', self._selected_drum_pad)
+
+    # @listens(u'selected_track')
+    # def __on_selected_track_changed(self):
+    #     self.__on_selected_device_changed.subject = self.song.view.selected_track.view
+    #     if self.device_selection_follows_track_selection:
+    #         self.update_device_selection()
+	#
+    # @listens(u'selected_device')
+    # def __on_selected_device_changed(self):
+    #     self._update_appointed_device()
 
 
 class Util(ControlSurface):
@@ -1424,7 +1475,8 @@ class Util(ControlSurface):
 		self._device_deleter.layer = Layer(delete_button = self._button[66], priority = 6)
 
 	def _setup_hotswap(self):
-		self._hotswap = HotswapComponent(self._device_provider)
+		# self._hotswap = HotswapComponent(self._device_provider)
+		self._hotswap = HotswapComponent()
 		self._hotswap.layer = Layer(priority = 6, hotswap_button = self._button[69])
 		self._hotswap.set_enabled(False)
 
