@@ -1994,7 +1994,7 @@ FilenameFilterComponent.prototype.update = function(){
 FilenameFilterComponent.prototype.Apply = function(){
   debug('FilenameFilter.Apply()');
   var filenames = [];
-  var tag = this.tag_buffer;
+  var tag = [].concat(this.tag_buffer).join(' ');
   for(var shortname in this.filtered_hash_list){
     filenames.push(this.filtered_hash_list[shortname].file);
   }
