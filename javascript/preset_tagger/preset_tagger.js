@@ -126,7 +126,8 @@ function setup_patcher(){
   script.waveform = browser_patcher.subpatcher().getnamed('waveform');
   script.BatchButton = this.patcher.getnamed('BatchButton');
   script.batch_patcher = this.patcher.getnamed('batch_editor');
-  restart_button.hidden = 1;
+  restart_button.hidden = 0;
+  restart_button.message('text', 'LOADING');
   if(SHOW_DICTS){
     this.patcher.getnamed('library').message('edit');
     this.patcher.getnamed('filetree').message('edit');
@@ -391,6 +392,7 @@ function setup_nodescript(){
     BatchButton.message(0);
     batchEditor.close();
     restart_button.hidden = 0;
+    restart_button.message('text', 'RESTART');
   }
 
   NSProxy.addTerminationCallback(on_nodescript_terminated);
