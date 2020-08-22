@@ -13,7 +13,7 @@ aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = false;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_DICTS = false;
 var EDITOR_OPEN = false;
@@ -2000,27 +2000,15 @@ FilenameFilterComponent.prototype.Apply = function(){
   }
   Promise.each(filenames, function(filename, index, arrayLength) {
     return NSProxy.asyncCall('apply_tag', filename, tag).then(function(ret){
-      debug('success:', ret);
+      debug('success:', filename, tag, ret);
     }).catch(function(e){
-      debug('fail:', util.report_error(e));
+      debug('fail:', filename, tag, util.report_error(e));
     })
   }).then(function(res){
     debug('done:', res);
   }).catch(function(e){
     util.report_error(e);
   });
-  // Promise.each(command_arr, function(command) {
-  //   return device_run_single_command(command).then(function(command) {
-  //     console.log();
-  //     console.log("finish one command");
-  //     console.log(command);
-  //     return is_device_has_latest_state(command);
-  //   }).then(function(command_with_condi) {
-  //     console.log();
-  //     console.log("has latest state?");
-  //     console.log(command_with_condi);
-  //   });
-  // });
 }
 
 FilenameFilterComponent.prototype.Recursive = function(val){
