@@ -13,7 +13,7 @@ aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var NODE_DEBUG = false;
 var SHOW_DICTS = false;
 var EDITOR_OPEN = false;
@@ -54,6 +54,7 @@ var finder;
 var library_directory = undefined;
 var libraryObj = {};
 var nodeScriptInitialized = false;
+var suppress_rescan = false;
 
 var finder;
 var mod;
@@ -712,6 +713,28 @@ function on_file_changed(){
   }
 }
 
+/**work in progress, this function recieves a request from node to
+reload only the specific file that has changed*/
+function on_specific_file_changed(filename){
+  debug('on_specific_file_changed', filename);
+  if(!suppress_rescan){
+    if(!fileInfo._needs_to_update){
+      fileInfo.report_update(true);
+      FileTree.update_file(filename);
+      TagFilter.refresh();
+      FileTagger.refresh();
+      fileInfo.update();
+    }
+    if(SHOW_DICTS){
+      // this.patcher.getnamed('library').message('wclose');
+      // this.patcher.getnamed('library').message('edit');
+      this.patcher.getnamed('filetree').message('wclose');
+      this.patcher.getnamed('filetree').message('edit');
+    };
+    fileInfo.report_update(false);
+  }
+}
+
 /** called from nodescript instance when it finishes its update*/
 function library_updated(){
   // debug('library_updated triggered...');
@@ -1066,6 +1089,26 @@ FileTreeComponent.prototype.update_files = function(){
   this.find_file(fileInfo.selected_file);
 }
 
+FileTreeComponent.prototype.update_file = function(file_name){
+  debug('FileTree.update_file');
+  var root = this._treeobj.parent;
+  var parents = file_name.toString().replace(root, '').split('/');
+  // debug('parents are:', parents);
+  var dictBranch = get_child_dict(filetreeDict, parents);
+  // debug('dictBranch:', dictBranch, dictBranch instanceof Dict);
+  var newObj = util.dict_to_jsobj(dictBranch);
+  libraryObj[file_name] = {tags:[].concat(newObj.tags), shortname:newObj.name};
+  //debug('newObj is:', JSON.stringify(newObj));
+  // debug('name:', newObj.name);
+  debug('new tags:', newObj.tags);
+  var parent_node = this.parent_node_for_path(file_name);
+  debug('parent_node:', JSON.stringify(parent_node));
+  parent_node.children[newObj.name] = newObj;
+  parent_node = this.parent_node_for_path(file_name);
+  debug('parent_node2:', JSON.stringify(parent_node));
+  // debug('nodes are:', JSON.stringify(file_node), JSON.stringify(parent_node));
+}
+
 FileTreeComponent.prototype.refresh = function(){
   /**refreshes current UI elements with current dir data*/
   debug('REFRESH!!!');
@@ -1282,6 +1325,30 @@ FileTreeComponent.prototype.refresh_child_node = function(){
   // this.current_child_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
 }
 
+FileTreeComponent.prototype.node_for_path = function(path){
+  debug('FileTree.node_for_path:', path);
+  var node = undefined;
+  if(path){
+    var root = this._treeobj.parent;
+    var parents = path.toString().replace(root, '').split('/');
+    var ft_obj = retrieve_child(this._treeobj, parents);
+    node = ft_obj;
+  }
+  return node
+}
+
+FileTreeComponent.prototype.parent_node_for_path = function(path){
+  debug('FileTree.parent_node_for_path:', path);
+  var node = undefined;
+  if(path){
+    var root = this._treeobj.parent;
+    var parents = path.toString().replace(root, '').split('/');
+    var ft_obj = retrieve_child(this._treeobj, parents);
+    var parent_obj = retrieve_parent(this._treeobj, ft_obj.parents);
+    node = parent_obj;
+  }
+  return node
+}
 
 function retrieve_parent(obj, parents){
   //parents = [].concat(parents);
@@ -1312,6 +1379,25 @@ function retrieve_child(obj, parents){
   return new_obj
 }
 
+function get_child_dict(dict, parents){
+  var value = undefined;
+  var parent = parents.shift();
+  debug('parent is:', parent);
+  if (dict == null) return null;
+  var keys = dict.getkeys();
+  debug('keys are:', keys);
+  if(keys.indexOf('children'>-1)){
+    dict = dict.get('children');
+    keys = dict.getkeys();
+    if((keys.indexOf(parent)>-1)||(keys==parent)){
+      value = dict.get(parent);
+      if (value && value instanceof Dict && parents.length) {
+        value = get_child_dict(value, parents);
+      }
+    }
+  }
+  return value
+}
 
 
 /**
@@ -1451,17 +1537,23 @@ FileTaggerComponent.prototype.set_folder_tags = function(){
     var filenames = recurse_folder(FileTree.current_parent_node, []);
     var tag = this.tag_buffer;
     // debug('filepaths are:', filenames);
-    Promise.each(filenames, function(filename) {
-      return NSProxy.asyncCall('apply_tag', filename, tag).then(function(ret){
-        // debug('success:', ret);
-      }).catch(function(e){
-        // debug('fail:', util.report_error(e));
+    suppress_rescan = true;
+    fileInfo.report_update(true);
+    NSProxy.asyncCall('set_block_updates', 1).then(function(){
+      Promise.each(filenames, function(filename) {
+        return NSProxy.asyncCall('apply_tag', filename, tag).then(function(ret){
+          debug('success:', filename);
+        })
+      }).then(function(res){
+        debug('done:', res);
+        NSProxy.asyncCall('set_block_updates', 0);
+        suppress_rescan = false;
+        fileInfo.report_update(false);
+        on_file_changed();
       })
-    }).then(function(res){
-      debug('done:', res);
     }).catch(function(e){
-      util.report_error(e);
-    });
+      NSProxy.asyncCall('set_block_updates', 0);
+    })
   }
 }
 
@@ -1478,17 +1570,23 @@ FileTaggerComponent.prototype.remove_folder_tags = function(){
     var filenames = recurse_folder(FileTree.current_parent_node, []);
     var tag = this.tag_buffer;
     // debug('filepaths are:', filenames);
-    Promise.each(filenames, function(filename) {
-      return NSProxy.asyncCall('remove_tag', filename, tag).then(function(ret){
-        // debug('success:', ret);
-      }).catch(function(e){
-        // debug('fail:', util.report_error(e));
+    suppress_rescan = true;
+    fileInfo.report_update(true);
+    NSProxy.asyncCall('set_block_updates', 1).then(function(){
+      Promise.each(filenames, function(filename) {
+        return NSProxy.asyncCall('remove_tag', filename, tag).then(function(ret){
+          debug('success:', filename);
+        })
+      }).then(function(res){
+        debug('done:', res);
+        NSProxy.asyncCall('set_block_updates', 0);
+        suppress_rescan = false;
+        fileInfo.report_update(false);
+        on_file_changed();
       })
-    }).then(function(res){
-      debug('done:', res);
     }).catch(function(e){
-      util.report_error(e);
-    });
+      NSProxy.asyncCall('set_block_updates', 0);
+    })
   }
 }
 
@@ -1504,17 +1602,23 @@ FileTaggerComponent.prototype.clear_folder_tags = function(){
   if(FileTree.current_parent_node.type == 'folder'){
     var filenames = recurse_folder(FileTree.current_parent_node, []);
     var tag = this.tag_buffer;
-    Promise.each(filenames, function(filename) {
-      return NSProxy.asyncCall('clear_tags', filename, tag).then(function(ret){
-        // debug('success:', ret);
-      }).catch(function(e){
-        // debug('fail:', util.report_error(e));
+    suppress_rescan = true;
+    fileInfo.report_update(true);
+    NSProxy.asyncCall('set_block_updates', 1).then(function(){
+      Promise.each(filenames, function(filename) {
+        return NSProxy.asyncCall('clear_tags', filename, tag).then(function(ret){
+          debug('success:', filename);
+        })
+      }).then(function(res){
+        debug('done:', res);
+        NSProxy.asyncCall('set_block_updates', 0);
+        suppress_rescan = false;
+        fileInfo.report_update(false);
+        on_file_changed();
       })
-    }).then(function(res){
-      debug('done:', res);
     }).catch(function(e){
-      util.report_error(e);
-    });
+      NSProxy.asyncCall('set_block_updates', 0);
+    })
   }
 }
 
@@ -1554,7 +1658,7 @@ FileTaggerComponent.prototype.chooser_double = function(index, shortname){
 function recurse_folder(parentNode, paths){
   // debug('recurse_folder', parentNode.name);
   for(var i in parentNode.children){
-    debug('here');
+    //debug('here');
     var child = parentNode.children[i];
     if(child.type == 'folder'){
       paths = recurse_folder(child, paths);
@@ -1998,17 +2102,21 @@ FilenameFilterComponent.prototype.Apply = function(){
   for(var shortname in this.filtered_hash_list){
     filenames.push(this.filtered_hash_list[shortname].file);
   }
-  Promise.each(filenames, function(filename, index, arrayLength) {
-    return NSProxy.asyncCall('apply_tag', filename, tag).then(function(ret){
-      debug('success:', filename, tag, ret);
-    }).catch(function(e){
-      debug('fail:', filename, tag, util.report_error(e));
+  fileInfo.report_update(true);
+  suppress_rescan = true;
+  NSProxy.asyncCall('set_block_updates', 1).then(function(){
+    Promise.each(filenames, function(filename, index, arrayLength) {
+      return NSProxy.asyncCall('apply_tag', filename, tag).then(function(ret){
+        debug('success:', filename, tag, ret);
+      })
+    }).then(function(res){
+      debug('done:', res);
+      suppress_rescan = false;
+      on_file_changed();
     })
-  }).then(function(res){
-    debug('done:', res);
   }).catch(function(e){
-    util.report_error(e);
-  });
+    NSProxy.asyncCall('set_block_updates', 0)
+  })
 }
 
 FilenameFilterComponent.prototype.Recursive = function(val){

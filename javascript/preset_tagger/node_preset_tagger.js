@@ -288,28 +288,50 @@ class PresetTagger {
 
 	rescan_file = async(file_name) => {
 		debug('rescan_file:', file_name);
-		let node = await this.find_filetree_node(file_name).then( (node) => {
-				debug('node is:', JSON.stringify(node));
-				let old_tags = node.tags;
-				let tags = [];
-				let attrs = xattr.listSync(file_name);
-				if(attrs.indexOf(namespace)>-1){
-					tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
-				}
-				if(!arraysEqual(old_tags, tags)){
-					// debug(old_tags, old_tags.length, tags, tags.length, 'new tags, calling update');
-					this.call_library_update();
-				}
-				else{
-					// debug('tags are the same, no need to call update');
-					return true
-				}
-		}).catch((e) => {
-			// debug('problem with rescan file, calling updated');
-			this.call_library_update();
-		})
+		if(!this.block_updates){
+			let node = await this.find_filetree_node(file_name).then( (node) => {
+					// debug('node is:', JSON.stringify(node));
+					let old_tags = node.tags;
+					let tags = [];
+					let attrs = xattr.listSync(file_name);
+					if(attrs.indexOf(namespace)>-1){
+						tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
+					}
+					if(!arraysEqual(old_tags, tags)){
+						// debug('calling rescan....', old_tags, old_tags.length, tags, tags.length, 'new tags, calling update');
+						let shortname = path.basename(file_name);
+						// debug('shortname:', shortname);
+						this.find_filetree_node_parent(file_name).then((pnode)=>{
+							// debug('pnode is:', JSON.stringify(pnode));
+							this.scan_file(file_name, shortname, pnode).then((ret)=>{
+								// debug('scan file return:', ret);
+								maxApi.setDict(this.filetreeDictId, this.file_tree);
+								maxApi.setDict(this.libraryDictId, this.library_data);
+								this.notify_js_file_changed(file_name);
+							}).catch((e)=>{
+								debug('scan_file error:', e.message);
+								return e
+							})
+						}).catch((e)=>{
+							debug('find_filetree_node_parent error:', e.message);
+							return e
+						})
+						//this.call_library_update();
+					}
+					else{
+						debug('tags are the same, no need to call update');
+						return true
+					}
+			}).catch((e) => {
+				debug('problem with rescan file, requesting js to update from its end');
+				this.call_library_update();
+			})
+		}
 	}
 
+	notify_js_file_changed = async(filename) => {
+		maxApi.outlet('js', 'on_specific_file_changed', filename);
+	}
 
 	call_library_update = () => {
 		if(this.update_task){
@@ -335,7 +357,7 @@ class PresetTagger {
 				parents.shift()
 				for(var i in parents){
 					if(node.children[parents[i]]){
-						//we're walking up the chain by each parent;
+						// we're walking up the chain by each parent;
 						// debug('node:', node, 'parents[i]', i, parents[i]);
 						node = node.children[parents[i]];
 					}
@@ -713,6 +735,10 @@ class PresetTagger {
 		});
 	}
 
+	set_block_updates = async(val) => {
+		this.block_updates = val>0;
+		return true
+	}
 
 	//remove
 	get_libdir = async() => {
