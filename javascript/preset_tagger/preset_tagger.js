@@ -12,7 +12,7 @@ var unique = jsarguments[1];
 aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
-var FORCELOAD = false;
+var FORCELOAD = true;
 var DEBUG = false;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
@@ -56,6 +56,8 @@ var library_directory = undefined;
 var library_base = undefined;
 var libraryObj = {};
 var filetreeDict = new Dict('filetree');
+var filesDict = new Dict();
+var parentDict = new Dict();
 var nodeScriptInitialized = false;
 var suppress_rescan = false;
 var VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
@@ -836,7 +838,7 @@ function from_commander(){
 
 function update_remote_display(){
   // debug()
-  FileTree.refresh();
+  FileTree.refresh_mira();
   // refresh_tagchooser();
   TagFilter.redraw_tagchooser();
   messnamed('from_preset_tagger', 'and_or', 'set', TagFilter.filter_mode_value);
@@ -1111,6 +1113,7 @@ function FileTreeComponent(name, args){
     '_always_select_first_item',
     '_current_root',
     '_current_folder',
+    'refresh',
     'refresh_editor',
     'refresh_mira',
     'selection_list_from_path',
@@ -1203,31 +1206,35 @@ FileTreeComponent.prototype.refresh_editor = function(){
 
 FileTreeComponent.prototype.refresh_mira = function(){
   mira_gate.message(0);
-  messnamed('from_preset_tagger', 'back', 'active', this.current_root == library_directory);
+  messnamed('from_preset_tagger', 'back', 'active', this.current_root != library_directory);
   messnamed('from_preset_tagger', 'parent', 'clear');
+  var found_parent_items = [];
+  var found_child_items = [];
   for(var i in this.parent_list){
-    messnamed('from_preset_tagger', 'parent', 'append', this.parent_list[i].name);
+    // messnamed('from_preset_tagger', 'parent', 'append', this.parent_list[i].name);
+    found_parent_items.push(this.parent_list[i].name);
   }
+  parentDict.parse(JSON.stringify({items:found_parent_items}));
+  messnamed('from_preset_tagger', 'parent', 'dictionary', parentDict.name);
   var selected_index = indexOfNodePath(this.parent_list, this.current_parent_node);
   if(selected_index>-1){
     // this._miraDefer.message('parent', 'set', selected_index);
     messnamed('from_preset_tagger_deferred', 'parent', 'set', selected_index);
   }
-  if(!TagFilter.selected_tags.length>0){
-    messnamed('from_preset_tagger', 'files', 'clear');
-  }
   var current_dir = this.current_parent_path ? this.current_parent_path : {name:'none', children:[], type:'root'};
-  if(current_dir.path != library_directory){
-    for(var i in this.child_list){
-      if(!TagFilter.selected_tags.length>0){
-        messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
+  if(!TagFilter.selected_tags.length){
+    messnamed('from_preset_tagger', 'files', 'clear');
+    if(current_dir.path != library_directory){
+      for(var i in this.child_list){
+        // messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
+        found_child_items.push(this.child_list[i].name);
       }
-    }
-    var selected_index = indexOfNodePath(this.child_list, this.current_child_node);
-    selected_index  = selected_index >-1 ? selected_index : undefined;
-    if(selected_index>-1){
-      // this._miraDefer.message('files', 'set', selected_index);
-      if(!TagFilter.selected_tags.length>0){
+      filesDict.parse(JSON.stringify({items:found_child_items}));
+      messnamed('from_preset_tagger', 'files', 'dictionary', filesDict.name);
+      var selected_index = indexOfNodePath(this.child_list, this.current_child_node);
+      selected_index  = selected_index >-1 ? selected_index : undefined;
+      if(selected_index>-1){
+        // this._miraDefer.message('files', 'set', selected_index);
         messnamed('from_preset_tagger_deferred', 'files', 'set', selected_index);
       }
     }
@@ -1394,6 +1401,9 @@ FileTreeComponent.prototype.selection_list_from_path = function(directory){
    return tree
 }
 
+FileTreeComponent.prototype.refresh = function(){
+  this.refresh_mira();
+}
 
 
 FileTreeComponent.prototype.push_lists = function(){
@@ -1864,6 +1874,9 @@ TagFilterComponent.prototype.tag_selection = function(){
   var tags = arrayfromargs(arguments);
   debug('tag_selection:', tags, tags.length);
   this._selected_tags.set_value(tags);  //this calls refresh
+  if(!this.selected_tags.length){
+    FileTree.refresh_mira();
+  }
 }
 
 TagFilterComponent.prototype.tag_selection_from_commander = function(){
@@ -1875,7 +1888,7 @@ TagFilterComponent.prototype.tag_selection_from_commander = function(){
     commander does doubleduty between filtering and fileTree.*/
   if(!this.selected_tags.length){
     this.clear_filter();
-    FileTree.refresh();
+    FileTree.refresh_mira();
   }
   else{
     this.refresh();
@@ -1899,6 +1912,7 @@ TagFilterComponent.prototype.display_filtered_files = function(){
     messnamed('from_preset_tagger', 'files', 'clear');
   }
   this.filtered_hash_list = {};
+  var found_items = [];
   if(this.selected_tags.length){
     //OR//
     if(this.filter_mode_value){
@@ -1912,7 +1926,8 @@ TagFilterComponent.prototype.display_filtered_files = function(){
             this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
             file_chooser.append(shortname);
             if(this.selected_tags.length>0){
-              messnamed('from_preset_tagger', 'files', 'append', shortname);
+              // messnamed('from_preset_tagger', 'files', 'append', shortname);
+              found_items.push(shortname);
             }
             entry += 1;
             break;
@@ -1937,11 +1952,14 @@ TagFilterComponent.prototype.display_filtered_files = function(){
           this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
           file_chooser.append(shortname);
           if(this.selected_tags.length>0){
-            messnamed('from_preset_tagger', 'files', 'append', shortname);
+            // messnamed('from_preset_tagger', 'files', 'append', shortname);
+            found_items.push(shortname);
           }
         }
       }
     }
+    filesDict.parse(JSON.stringify({items:found_items}));
+    messnamed('from_preset_tagger', 'files', 'dictionary', filesDict.name);
   }
   //NONE//
   else{
@@ -1957,6 +1975,8 @@ TagFilterComponent.prototype.display_filtered_files = function(){
         entry += 1;
       }
     }
+    //this needs to be moved to a generalized spot....we need a notifier as a switch, possibly?
+    FileTree.refresh_mira();
   }
   mira_gate.message(1);
   this.emit('FilteredHashListUpdated', this.filtered_hash_list);
