@@ -59,7 +59,7 @@ var filetreeDict = new Dict('filetree');
 var filesDict = new Dict();
 var parentDict = new Dict();
 var nodeScriptInitialized = false;
-var suppress_rescan = false;
+var suppress_rescan = false;  //currently this is set in batch operations, but its not observed anywhere.
 var VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
 
 var finder;
@@ -999,7 +999,8 @@ function FileInfoComponent(name, args){
     '_flush_task',
     '_needs_to_update',
     'fileAccessButton',
-    '_in_update'
+    '_in_update',
+    'report_update'
   ]);
   FileInfoComponent.super_.call(this, name, args);
 }
@@ -1265,7 +1266,7 @@ FileTreeComponent.prototype.select_folder = function(path){
     this.child_list = this.selection_list_from_path(path);
     this.push_lists();
     this._current_folder.receive(path);
-    fileInfo.report_update(true);
+    fileInfo.report_update(false);
   }
 }
 
