@@ -38,12 +38,16 @@ const updateDict = async (id, updatePath, updateValue) => {
 	if (!id) throw makeError("Missing name for setDict request. Please make sure you provide a (valid) name.", ERROR_CODES.INVALID_PARAMETERS);
 	if (!updatePath) throw makeError("Missing path value for updateDict request.", ERROR_CODES.INVALID_PARAMETERS);
 
-	await maxApi.updateDict(id, updatePath, updateValue);
+	let ret = await maxApi.updateDict(id, updatePath, updateValue);
+	return ret
 	//maxApi.outlet('js', 'refresh_chooser');
 }
 
 const setDict = async(id, value) => {
-	return await maxApi.setDict(id, value);
+	// await maxApi.setDict(id, {});
+	const ret = await maxApi.setDict(id, value);
+	debug('setDict', ret);
+	return ret
 }
 
 const break_patch = () => {
@@ -76,7 +80,7 @@ function arraysEqual(a, b) {
 }
 
 maxApi.addHandler('asyncJS', async(addy, func, ...args) => {
-	debug('asyncJS:', addy, func, args);
+	// debug('asyncJS:', addy, func, args);
 	let response = new Promise(function(response, reject){
 		if(!script[func]){
 			//reject(new Error('No public function: '+func));
@@ -94,7 +98,7 @@ maxApi.addHandler('asyncJS', async(addy, func, ...args) => {
 		}
 	});
 	response.then((r) => {
-		debug('responding:', addy, r);
+		// debug('responding:', addy, r);
 		maxApi.outlet('js', 'asyncResolve', addy, r);
 	}).catch((e) => {
 		// debug('rejecting:', addy, e);
@@ -107,38 +111,33 @@ class PresetTagger {
 	constructor() {
 		let self = this;
 		this._name = 'preset tagger';
-		this.libraryDictId = "library";
 		this.filetreeDictId = "filetree";
+		this.libraryDictId = "library";
 		//this is duplicated in resolve_library_path
-		try {
-		  this.libraryDict = maxApi.getDict(this.libraryDictId);
-			debug('getting libraryDict');
-			debugger;
-		}
-		catch (err) {
-			debug('library dict init error', err.message);
-		}
-		try {
-			debug('getting filetreeDict');
-		  this.filetreeDict = maxApi.getDict(this.filetreeDictId);
-		}
-		catch (err) {
-			debug('filetree dict init error', err.message);
-		}
+		// try {
+		// 	debug('getting filetreeDict');
+		//   this.filetreeDict = maxApi.getDict(this.filetreeDictId);
+		// }
+		// catch (err) {
+		// 	debug('filetree dict init error', err.message);
+		// }
+		this.filetreeDict = {};
 
 		this.library_dir = '';
-		// this.filetreeDict = filetreeDict;
-		// this.filetreeDictId = filetreeDictId;
 		this.default_prefs = default_prefs;
 		this.prefFile_path = prefFile_path;
 		this.selected_file = undefined;
 		this.selected_tag = [];
-		this.library_data = {};
 		this.file_tree = {};
+		this.library_data = {};
 		this.watcher = {close: () => {} };
 		this.library_base = '';
 		this.update_task = undefined;
 		this.block_updates = false;
+		this.flush_task = undefined;
+		this.file_update_queue = [];
+
+		this.MAX_UPDATE_THRESH = 10;
 	}
 
 	/** redundant, does the same as next func*/
@@ -154,21 +153,14 @@ class PresetTagger {
 		*/
 		debug('resolve_library_path');
 		let errors = [];
-		try {
-		  this.libraryDict = maxApi.getDict(this.libraryDictId);
-		}
-		catch (err) {
-			debugger;
-			debug('library dict init error', err);
-			errors.push(err.message.toString());
-		}
-		try {
-		  this.filetreeDict = maxApi.getDict(this.filetreeDictId);
-		}
-		catch (err) {
-			debug('filetree dict init error', err);
-			errors.push(err.message.toString());
-		}
+		let ret_dir = false;
+		// try {
+		//   this.filetreeDict = maxApi.getDict(this.filetreeDictId);
+		// }
+		// catch (err) {
+		// 	debug('filetree dict init error', err);
+		// 	errors.push(err.message.toString());
+		// }
 		// debug('prefFile_path:', prefFile_path);
 		try{
 			let obj = this.default_prefs;
@@ -185,7 +177,13 @@ class PresetTagger {
 				});
 			}
 			if( (fs.existsSync(obj.preferences.path)) && (fs.lstatSync(obj.preferences.path).isDirectory()) ){
-				this.set_library_internal(obj.preferences.path);
+				try{
+					ret_dir = await this.set_library_internal(obj.preferences.path);
+					debug('set_lib_internal:', ret_dir);
+				}
+				catch(e){
+					debug('set_lib_internal error:', e.message);
+				}
 			}
 			else{
 				return Promise.reject(new Error('no library path'));
@@ -203,7 +201,7 @@ class PresetTagger {
 		if(errors.length){
 			return Promise.resolve(new Error(errors.join('...')));
 		}
-		return true
+		return ret_dir  //this has to return the library_directory
 	}
 
 	//redundant?
@@ -267,7 +265,7 @@ class PresetTagger {
 			await this.watcher.close();
 			this.library_dir = dir;
 			this.library_base = dir.split(path.basename(dir))[0];
-			this.scan_library();
+			await this.scan_library();
 			this.watcher = await fs.watch(dir, {recursive:true}, this.on_file_changed);
 			return this.library_dir
 		}
@@ -277,72 +275,80 @@ class PresetTagger {
 	/**library watcher, paused on batch calls*/
 	on_file_changed = (event, file_name) => {
 		/** callback function for when file changes that is contained in the watched library*/
-		let file_path = path.join(this.library_dir, file_name).toString();
-		if( ((fs.existsSync(file_path)) &&
-		(VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1)) ||
-		(event == 'rename') ){
-			// this.call_library_update();
-			this.rescan_file(file_path);
+		if(!this.block_updates){
+			let file_path = path.join(this.library_dir, file_name).toString();
+			if( ((fs.existsSync(file_path)) &&
+			(VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1)) ||
+			(event == 'rename') ){
+				// this.call_library_update();
+				// this.rescan_file(file_path);
+				this.file_update_queue.push(file_path);
+				let delay = this.file_update_queue.length > this.MAX_UPDATE_THRESH ? 500 : 20;
+				if(this.flush_task){
+					clearTimeout(this.flush_task);
+				}
+				this.flush_task = setTimeout(() => {
+					this.flush_update_queue();
+				}, delay);
+			}
+		}
+	}
+
+	flush_update_queue = async() => {
+		debug('flush_update_queue');
+		if(this.file_update_queue.length<this.MAX_UPDATE_THRESH){
+			for(const index in this.file_update_queue){
+				this.rescan_file(this.file_update_queue[index]);
+			}
+			this.file_update_queue = [];
+		}
+		else{
+			this.call_library_update();
 		}
 	}
 
 	rescan_file = async(file_name) => {
-		debug('rescan_file:', file_name);
-		if(!this.block_updates){
-			let node = await this.find_filetree_node(file_name).then( (node) => {
-					// debug('node is:', JSON.stringify(node));
-					let old_tags = node.tags;
-					let tags = [];
-					let attrs = xattr.listSync(file_name);
-					if(attrs.indexOf(namespace)>-1){
-						tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
-					}
-					if(!arraysEqual(old_tags, tags)){
-						// debug('calling rescan....', old_tags, old_tags.length, tags, tags.length, 'new tags, calling update');
-						let shortname = path.basename(file_name);
-						// debug('shortname:', shortname);
-						this.find_filetree_node_parent(file_name).then((pnode)=>{
-							// debug('pnode is:', JSON.stringify(pnode));
-							this.scan_file(file_name, shortname, pnode).then((ret)=>{
-								// debug('scan file return:', ret);
-								maxApi.setDict(this.filetreeDictId, this.file_tree);
-								maxApi.setDict(this.libraryDictId, this.library_data);
-								this.notify_js_file_changed(file_name);
-							}).catch((e)=>{
-								debug('scan_file error:', e.message);
-								return e
-							})
-						}).catch((e)=>{
-							debug('find_filetree_node_parent error:', e.message);
-							return e
-						})
-						//this.call_library_update();
-					}
-					else{
-						debug('tags are the same, no need to call update');
-						return true
-					}
-			}).catch((e) => {
-				debug('problem with rescan file, requesting js to update from its end');
-				this.call_library_update();
-			})
+		// debug('rescan_file:', file_name);
+		try{
+				let old_tags = this.library_data[file_name].tags;
+				let tags = [];
+				let attrs = xattr.listSync(file_name);
+				if(attrs.indexOf(namespace)>-1){
+					tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
+				}
+				if(!arraysEqual(old_tags, tags)){
+					// debug('calling rescan....', old_tags, old_tags.length, tags, tags.length, 'new tags, calling update');
+					debug('rescan_file:', file_name, 'tags:', tags);
+					let shortname = path.basename(file_name);
+					await this.scan_file(file_name, shortname);
+					this.notify_js_file_changed(file_name, this.library_data[file_name].tags);
+					maxApi.outlet.apply(maxApi, ['dict', 'replace', file_name+'::tags'].concat(this.library_data[file_name].tags));
+				}
+				else{
+					// debug('tags are the same, no need to call update');
+					return true
+				}
+		}
+		catch(e){
+			debug('problem with rescan file, requesting js to update from its end');
+			this.call_library_update();
 		}
 	}
 
-	notify_js_file_changed = async(filename) => {
-		maxApi.outlet('js', 'on_specific_file_changed', filename);
+	notify_js_file_changed = async(filename, tags) => {
+		// maxApi.outlet('js', 'on_specific_file_changed', filename, tags);
+		maxApi.outlet.apply(maxApi, ['js', 'on_specific_file_changed', filename].concat(tags));
 	}
 
+	/**we use this to tell js we need to update, it will call the update from there when it's ready*/
 	call_library_update = () => {
 		if(this.update_task){
 			clearTimeout(this.update_task);
 		}
 		this.update_task = setTimeout(() => {
-			// this.scan_library_internal().then(() => {
-			// 	maxApi.outlet('js', 'library_updated');
-			// })
+			this.file_update_queue = [];
 			maxApi.outlet('js', 'on_file_changed');
-		}, 10);
+		}, 20);
 	}
 
 	find_filetree_node = async(file_path) => {
@@ -410,24 +416,32 @@ class PresetTagger {
 	scan_library_internal = async() => {
 		if( (fs.existsSync(this.library_dir)) && (fs.lstatSync(this.library_dir).isDirectory()) ){
 			// debug('this.library_dir is:', this.library_dir);
-			this.library_data = {};
-			// setDict(this.libraryDictId, this.library_data);
-			// this.setDict(this.libraryDictId, this.library_data);
 			this.file_tree = {name:'root',
-								root:path.basename(this.library_dir),
-								root_path:this.library_dir,
-								parents:[],
-								parent: this.library_dir.replace(path.basename(this.library_dir)+'/', ''),
-								children:{}};
-			this.scan_folder(this.library_dir, this.file_tree);
-			// setDict(this.libraryDictId, this.library_data);
-			// setDict(this.filetreeDictId, this.file_tree);
-			maxApi.setDict(this.filetreeDictId, this.file_tree);
-			maxApi.setDict(this.libraryDictId, this.library_data);
-			debug('returning from set_library_internal');
-			return true;
+				root:path.basename(this.library_dir),
+				root_path:this.library_dir,
+				parents:[],
+				parent: this.library_dir.replace(path.basename(this.library_dir)+'/', ''),
+				children:{}
+			};
+			try{
+				await this.scan_folder(this.library_dir, this.file_tree);
+				debug('returned from scan...', this.filetreeDictId, this.file_tree);
+			}
+			catch(e){
+				return Promise.reject(e)
+			}
+			try{
+				// await setDict(this.filetreeDictId, this.file_tree);
+				await setDict(this.libraryDictId, this.library_data);
+				return true
+			}
+			catch(e){
+				return Promise.reject(e)
+			}
 		}
-		return Promise.reject(new Error('scan failed, library dir is invalid'));
+		else{
+			return Promise.reject(new Error('scan failed, library dir is invalid'));
+		}
 	}
 
 	/**helper method for scan_library...combine*/
@@ -441,15 +455,32 @@ class PresetTagger {
 																parents: dir_name == this.library_dir ? [] : dir_name.replace(this.library_base, '').replace(shortname, '').split('/').slice(0, -1),
 																parent:dir_name.split(shortname)[0],
 																children:{}};
-		directoryFiles.forEach(filename => {
+		for(const filename of directoryFiles){
 			let file_path = path.join(dir_name, filename).toString();
 			if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isDirectory()) ){
-				this.scan_folder(file_path, filetree_node.children[shortname]);
+				await this.scan_folder(file_path, filetree_node.children[shortname]);
 			}
 			else if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
-				this.scan_file(file_path, filename, filetree_node.children[shortname]);
+				await this.scan_file(file_path, filename, filetree_node.children[shortname]);
 			}
-		});
+		}
+		return true
+	}
+
+	/**helper method for scan_library...combine*/
+	scan_folder = async(dir_name) => {
+		// debug('scan_folder:', dir_name, typeof filetree_node);
+		let directoryFiles = fs.readdirSync(dir_name);
+		let shortname = path.basename(dir_name);
+		for(const filename of directoryFiles){
+			let file_path = path.join(dir_name, filename).toString();
+			if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isDirectory()) ){
+				await this.scan_folder(file_path);
+			}
+			else if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
+				await this.scan_file(file_path, filename);
+			}
+		}
 		return true
 	}
 
@@ -468,6 +499,19 @@ class PresetTagger {
 																parent:file_name.split(shortname)[0],
 																parents: file_name.replace(this.library_base, '').replace(shortname, '').split('/').slice(0, -1),
 																tags: tags};
+		}
+		return true
+	}
+
+	scan_file = async(file_name, shortname) => {
+		// debug('scan_file', file_name);
+		if( (fs.existsSync(file_name)) && (VALID_FILE_TYPES.indexOf(path.extname(file_name))>-1)){
+			let tags = [];
+			let attrs = xattr.listSync(file_name);
+			if(attrs.indexOf(namespace)>-1){
+				tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).filter(Boolean).sort();
+			}
+			this.library_data[file_name] = {'tags':tags, 'shortname':shortname};
 		}
 		return true
 	}
@@ -547,10 +591,9 @@ class PresetTagger {
 		return Promise.reject(new Error('invalid path or tag'));
 	}
 
-
 	/**apply tag(s) to the target file*/
 	apply_tag = async (target_file, ...tags) => {
-		// debug('apply_tag:', target_file, tags);
+		debug('apply_tag:', target_file, tags);
 		if( (target_file!=undefined) &&
 		 (tags.length>0) &&
 		 (fs.existsSync(target_file)) &&
@@ -574,6 +617,7 @@ class PresetTagger {
 				new_tags = sep_tags.concat(new_tags).join(' ');
 				xattr.setSync(target_file, namespace, new_tags);
 			}
+			// debug('returning true...');
 			return true
 		}
 		return Promise.reject(new Error('invalid path or tag'));
@@ -736,9 +780,14 @@ class PresetTagger {
 	}
 
 	set_block_updates = async(val) => {
+		// if(this.block_updates!=val){
 		this.block_updates = val>0;
+		// !this.block_updates&&this.call_library_update();
+		// }
 		return true
 	}
+
+	set_block_updates = async(val) => {}
 
 	//remove
 	get_libdir = async() => {
@@ -797,136 +846,37 @@ let script = new PresetTagger();
 	// 	}
 	// }
 
-	// /** This is use with on_file_changed, above, and is somehow causing problems */
 	// rescan_file = async(file_name) => {
 	// 	debug('rescan_file:', file_name);
-	// 	let node = false;
-	// 	try{
-	// 		if( (VALID_FILE_TYPES.indexOf(path.extname(file_name))>-1) ){
-	// 			//let shortname = path.basename(file_name);
-	// 			this.find_filetree_node(file_name).then( (node) => {
-	// 					// debug('going to scan folder:', node.path, node);
-	// 					this.scan_folder(node.path, node).then(() => {
-	// 						this.call_library_update();
-	// 					})
-	// 					// all setDict calls need to be queued and defered.
-	// 					// setDict(this.libraryDictId, this.library_data);
-	// 					// setDict(this.filetreeDictId, this.file_tree);
-	// 					// this.call_library_update();
-	// 			});
-	// 			return true
+	// 	if(!this.block_updates){
+	// 		try{
+	// 				let node = await this.find_filetree_node(file_name);
+	// 				// debug('node is:', JSON.stringify(node));
+	// 				let old_tags = node.tags;
+	// 				let tags = [];
+	// 				let attrs = xattr.listSync(file_name);
+	// 				if(attrs.indexOf(namespace)>-1){
+	// 					tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
+	// 				}
+	// 				if(!arraysEqual(old_tags, tags)){
+	// 					debug('calling rescan....', old_tags, old_tags.length, tags, tags.length, 'new tags, calling update');
+	// 					let shortname = path.basename(file_name);
+	// 					let pnode = await this.find_filetree_node_parent(file_name);
+	// 					let ret = await this.scan_file(file_name, shortname, pnode);
+	// 					// let dictpath = 'children.'+node.parents.join('.children.');
+	// 					// debug('path is:', dictpath);
+	// 					// await setDict(this.filetreeDictId, this.file_tree);
+	// 					await setDict(this.libraryDictId, this.library_data);
+	// 					this.notify_js_file_changed(file_name);
+	// 				}
+	// 				else{
+	// 					debug('tags are the same, no need to call update');
+	// 					return true
+	// 				}
+	// 		}
+	// 		catch(e){
+	// 			debug('problem with rescan file, requesting js to update from its end');
+	// 			this.call_library_update();
 	// 		}
 	// 	}
-	// 	catch(e){
-	// 		debug('rescan_file error:', e.message);
-	// 		return e
-	// 	}
-	// 	return false
 	// }
-
-
-
-	// /**set tags for all files contained in a target folder */
-	// apply_folder_tags = async(dir_name, ...tags) => {
-	// 	debug('apply_folder_tags:', dir_name, tags);
-	// 	if( (tags.length > 0) &&
-	// 	 (fs.existsSync(dir_name)) &&
-	// 	 (fs.lstatSync(dir_name).isDirectory()) ) {
-	// 		// debug('set_folder_tags:', dir_name, tags);
-	// 		this.block_updates = true;
-	// 		let directoryFiles = fs.readdirSync(dir_name);
-	// 		let tag_buf = tags;
-	// 		directoryFiles.forEach( target_file => {
-	// 			let file_path = path.join(dir_name, target_file).toString();
-	// 			// this.apply_tag(file_path, tag_buf);
-	// 			// for some reason this crashes node.  Can't figure out why.
-	// 			if( (file_path!=undefined) &&
-	// 			 (tags.length>0) &&
-	// 			 (fs.existsSync(file_path)) &&
-	// 			 (fs.lstatSync(file_path).isFile()) &&
-	// 			 (VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1) ) {
-	// 			   let attrs = xattr.listSync(file_path);
-	// 			   if(attrs.indexOf(namespace)==-1){
-	// 				   xattr.setSync(file_path, namespace, tag_buf.join(' '));
-	// 			   }
-	// 			   else{
-	// 				   let tags = xattr.getSync(file_path, namespace).toString();
-	// 				   let sep_tags = [].concat(tags.split(' '));
-	// 				   let new_tags = [];
-	// 				   for(var i in tag_buf){
-	// 					   if(sep_tags.indexOf(tag_buf[i])==-1){
-	// 						   new_tags.push(tag_buf[i]);
-	// 					   }
-	// 				   }
-	// 				   new_tags = sep_tags.concat(new_tags).join(' ');
-	// 				   xattr.setSync(file_path, namespace, new_tags);
-	// 			   }
-	// 		   }
-	// 		});
-	// 		this.block_updates = false;
-	// 		return true
-	// 	}
-	// 	return Promise.reject(new Error('invalid path or tag'));
-	// }
-
-		// /**remove tags for all files contained in a target folder */
-	// remove_folder_tags = (dir_name, ...tags) => {
-	// 	// debug('remove_folder_tags:', dir_name, tags);
-	// 	if( (tags.length > 0) &&
-	// 	 (fs.existsSync(dir_name)) &&
-	// 	 (fs.lstatSync(dir_name).isDirectory()) ) {
-	// 		this.block_updates = true;
-	// 		let directoryFiles = fs.readdirSync(dir_name);
-	// 		let tag_buf = tags;
-	// 		directoryFiles.forEach(target_file => {
-	// 			let file_path = path.join(dir_name, target_file).toString();
-	// 			// this.remove_tag(file_path, tag_buf);
-	// 			if( (file_path!=undefined) &&
-	// 			 (fs.existsSync(file_path)) &&
-	// 			 (fs.lstatSync(file_path).isFile()) &&
-	// 			 (VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1) ) {
-	// 			   let attrs = xattr.listSync(file_path);
-	// 			   if(attrs.indexOf(namespace)>-1){
-	// 				   let tags = xattr.getSync(file_path, namespace).toString();
-	// 				   let sep_tags = [].concat(tags.split(' '));
-	// 				   let new_tags = [];
-	// 				   for(var i in sep_tags){
-	// 					   var index = tag_buf.indexOf(sep_tags[i]);
-	// 					   if(index==-1){
-	// 						   new_tags.push(sep_tags[i]);
-	// 					   }
-	// 				   }
-	// 				   new_tags = new_tags.join(' ');
-	// 				   xattr.setSync(file_path, namespace, new_tags);
-	// 			   }
-	// 		   }
-	// 		});
-	// 		this.block_updates = false;
-	// 		return true
-	// 	}
-	// 	return Promise.reject(new Error('invalid path or tag'));
-	// }
-
-		// /**clear all tags for all files contained in a target folder */
-		// clear_folder_tags = async(dir_name) => {
-		// 	// debug('clear_folder_tags', dir_name);
-		// 	if( (fs.existsSync(dir_name)) &&
-		// 	 (fs.lstatSync(dir_name).isDirectory()) ){
-		// 		this.block_updates = true;
-		// 		let directoryFiles = fs.readdirSync(dir_name);
-		// 		directoryFiles.forEach( target_file => {
-		// 			let file_path = path.join(dir_name, target_file).toString();
-		// 			//this.clear_tags(file_path);
-		// 			if( (file_path!=undefined) &&
-		// 			 (fs.existsSync(file_path)) &&
-		// 			 (fs.lstatSync(file_path).isFile()) &&
-		// 			 (xattr.listSync(file_path).indexOf(namespace)>-1) &&
-		// 			 (VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1) ) {
-		// 			   xattr.removeSync(file_path, namespace);
-		// 			}
-		// 		});
-		// 		this.block_updates = false;
-		// 		return true
-		// 	}
-		// 	return Promise.reject(new Error('invalid path or tag'));
-		// }
