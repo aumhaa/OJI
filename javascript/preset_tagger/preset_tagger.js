@@ -12,13 +12,15 @@ var unique = jsarguments[1];
 aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
-var FORCELOAD = false;
-var DEBUG = false;
+var FORCELOAD = true;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
 var EDITOR_OPEN = false;
 var BATCH_OPEN = false;
+var MOD_DEBUG = false;
+
 aumhaa.init(this);
 var script = this;
 
@@ -359,7 +361,9 @@ function setup_mod(){
   }
   mod = new ModProxy(script, ['Send', 'SendDirect', 'restart']);
   found_mod = new Mod(script, script._name, unique, false, {'name':'PT', 'init_callback':init_callback});
-	// found_mod.debug = debug;
+  if(MOD_DEBUG){
+    found_mod.debug = debug;
+  }
   var mod_callback = function(args){
   	if((args[0]=='value')&&(args[1]!='bang'))
   	{
@@ -1813,6 +1817,13 @@ function TagFilterComponent(name, args){
     textOnValue:'OR',
     textOffValue:'AND'
   });
+  this._showAllTags = new TextToggleParameter(this._name + '_ShowAllTags', {
+    value:false,
+    onValue:6,
+    offValue:5,
+    textOnValue:'AllTags',
+    textOffValue:'ValidTags'
+  });
   this.ClearFilter = new TextMomentaryParameter(this._name + '_ClearFilterControl', {
     onValue:2,
     offValue:2,
@@ -1820,7 +1831,15 @@ function TagFilterComponent(name, args){
     textOffValue:'ClearFilter'
   });
   this.ClearFilter.add_listener(function(obj){obj._control._value&&self.clear_filter();});
-  this.add_bound_properties(this, ['input', 'refresh', '_filterMode', 'refresh_filtered_chooser_selection']);
+  this.add_bound_properties(this, [
+    'input',
+    'refresh',
+    '_filterMode',
+    'refresh_filtered_chooser_selection',
+    '_showAllTags',
+    'last_found_tags',
+    'found_tags'
+  ]);
   TagFilterComponent.super_.call(this, name, args);
   this._init.apply(this);
 }
@@ -1840,6 +1859,11 @@ TagFilterComponent.prototype.__defineGetter__('tag_list', function(){
 TagFilterComponent.prototype.__defineGetter__('filter_mode_value', function(){
   // debug('selected tags:', this._selected_tags);
   return this._filterMode._value
+});
+
+TagFilterComponent.prototype.__defineGetter__('show_all_value', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._showAllTags._value
 });
 
 TagFilterComponent.prototype._init = function(args){
@@ -2068,9 +2092,23 @@ TagFilterComponent.prototype.redraw_tagchooser = function(){
 TagFilterComponent.prototype.detect_found_tags = function(){
   this.last_found_tags = this.found_tags.slice();
   this.found_tags = [];
-  //debug('last_found_tags:', last_found_tags);
+  // debug('last_found_tags:', this.last_found_tags);
+  var hide_invalid_choices = ((!this.filter_mode_value) && (!this.show_all_value) && (this.selected_tags.length));
+  // debug('hide_invalid_choices:', hide_invalid_choices);
+
+  var selected_tags = this.selected_tags;
+  var selected_tags_length = selected_tags.length;
+
+  var valid_tags_from_file = function(file_tags){
+    var present_tags = file_tags.filter(function(tag){
+      return selected_tags.indexOf(tag) > -1;
+    })
+    return present_tags.length >= selected_tags_length ? file_tags : []
+  }
+
   for(var i in libraryObj){
-    var tags = [].concat(libraryObj[i].tags);
+    var tags = [].concat(libraryObj[i].tags)
+    tags = hide_invalid_choices ? valid_tags_from_file(tags) : tags;
     for(var t in tags){
       if((this.found_tags.indexOf(tags[t])==-1)&&(tags[t])){
         this.found_tags.push(tags[t]);
@@ -2748,6 +2786,9 @@ function Batch(val){
 }
 
 
+function dissolve(){
+  mod.dissolve();
+}
 
 
 forceload(this);
