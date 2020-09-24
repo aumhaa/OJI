@@ -1460,7 +1460,7 @@ function recurse_folder(path, paths){
   var f = new Folder(path);
   while(!f.end){
     if(f.filetype == 'fold'){
-      paths = recurse_folder(f.pathname, paths);
+      paths = recurse_folder(pathJoin([f.pathname, f.filename]), paths);
     }
     else{
       paths.push(pathJoin([f.pathname, f.filename]));
