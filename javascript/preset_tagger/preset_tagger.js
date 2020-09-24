@@ -1085,7 +1085,7 @@ FileInfoComponent.prototype.report_update = function(val){
     debug('report_update false');
     current_selected_file.message('bgfillcolor', .2, .5, 1, 1);
     this.fileAccessButton.set_value(0);
-    this._filepath.notify();
+    // this._filepath.notify();  //this was causing a double _preview.  Not sure what ill effects removing it will have.
     this.refresh();
   }
 }
