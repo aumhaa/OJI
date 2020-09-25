@@ -355,7 +355,7 @@ function setup_mod(){
     debug('mod.init_callback');
     if(val){
        mod = found_mod;
-       MainModes.change_mode(2);
+       MainModes.change_mode(1);
        MainModes.set_mode_cycle_button(KeyButtons[7]);
     }
   }
@@ -2381,7 +2381,7 @@ TagDisplayComponent.prototype._button_press = function(button){
     var controls = this._grid.controls();
     var index = controls.indexOf(button);
     var tag = this._tag_choices[index+offset];
-    this._toggle_tag(tag);
+    tag&&this._toggle_tag(tag);
 	}
 }
 

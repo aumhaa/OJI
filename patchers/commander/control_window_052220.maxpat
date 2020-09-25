@@ -1394,7 +1394,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 682.961217555734947, 330.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 75.0, 357.0, 44.0, 42.0 ],
+					"presentation_rect" : [ 72.0, 333.375, 44.0, 42.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_enum" : [ "val1", "val2" ],
@@ -3868,7 +3868,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 213.0, 404.290322580645011, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 403.0, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 390.75, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_defer" : 1,
@@ -3904,7 +3904,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 223.5, 425.806451612903061, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 438.0, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 425.75, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_defer" : 1,
@@ -4377,7 +4377,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 1419.5, 689.5, 21.0, 57.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 76.5, 143.0, 38.0, 171.0 ],
+					"presentation_rect" : [ 75.0, 112.024780250000049, 38.0, 171.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_defer" : 1,
@@ -4410,7 +4410,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 339.0, 662.483870967741609, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 473.0, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 472.75, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_defer" : 1,
@@ -4483,7 +4483,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 297.0, 576.41935483870941, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 508.0, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 507.75, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_defer" : 1,
@@ -4771,7 +4771,7 @@
 					"parameter_enable" : 1,
 					"patching_rect" : [ 24.0, 17.0, 44.0, 15.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 65.5, 106.0, 60.0, 33.0 ],
+					"presentation_rect" : [ 65.5, 287.024780250000049, 60.0, 33.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_defer" : 1,
