@@ -50,8 +50,11 @@ install them.  You may need to start over with a freshly loaded device after
 installing them.
 
 After the installation has completed, you should see some new folders in
-~/Documents/Max 8/Packages/OJI/javascript/preset_tagger/node_preset_tagger/node_modules.
-If not, installation hasn't worked right.
+~/Documents/Max 8/Packages/OJI/javascript/node_dependencies/node_modules.
+If not, installation hasn't worked right.  In that case, you'll need to use the patch in
+~/Documents/Max 8/Packages/OJI/javascript/node_dependencies/OJI_node_installer.amxd
+to install the dependencies manually.  Just open the patch and hit the install button,
+wait a bit to wait for everything to download.
 
 The device should automatically start after installation.
 

@@ -74,7 +74,7 @@ var ModProxy = ModProxyComponent.bind(script);
 var BROWSERXSIZE = 796;
 var BROWSERYSIZE = 360;
 var BATCHXSIZE = 203;
-var BATCHYSIZE  = 480;
+var BATCHYSIZE  = 550;
 var MULTITAG_DELAY = 250;
 
 function anything(){}
@@ -2300,6 +2300,40 @@ FilenameFilterComponent.prototype.select_file = function(num, shortname){
   if(this.filtered_hash_list[shortname]){
     FileTree.find_file(this.filtered_hash_list[shortname].file);
   }
+}
+
+FilenameFilterComponent.prototype.convert_tagnames = function(oldtag, newtag){
+  // debug(this._name+'.convert_tagnames:', oldtag, newtag);
+  var filenames = [];
+  for(var path in libraryObj){
+    var file = libraryObj[path];
+    var tags = [].concat(file.tags);
+    if(tags.indexOf(oldtag)>-1){
+      filenames.push(path);
+    }
+  }
+  // debug('filenames:', filenames);
+  suppress_rescan = true;
+  fileInfo.report_update(true);
+  NSProxy.asyncCall('set_block_updates', 1).then(function(){
+    Promise.each(filenames, function(filename) {
+      return NSProxy.asyncCall('remove_tag', filename, oldtag).then(function(ret){
+      })
+    }).then(function(res){
+      // debug('done removing tags:', res);
+      Promise.each(filenames, function(filename) {
+        return NSProxy.asyncCall('apply_tag', filename, newtag).then(function(ret){
+        })
+      }).then(function(res){
+        // debug('done adding tags:', res);
+        NSProxy.asyncCall('set_block_updates', 0);
+        suppress_rescan = false;
+        fileInfo.report_update(false);
+      })
+    })
+  }).catch(function(e){
+    NSProxy.asyncCall('set_block_updates', 0);
+  })
 }
 
 
