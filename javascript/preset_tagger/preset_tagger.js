@@ -13,7 +13,7 @@ aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = false;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -75,6 +75,8 @@ var BROWSERXSIZE = 796;
 var BROWSERYSIZE = 360;
 var BATCHXSIZE = 203;
 var BATCHYSIZE  = 550;
+var PREFSXSIZE = 100;
+var PREFSYSIZE  = 200;
 var MULTITAG_DELAY = 250;
 
 function anything(){}
@@ -87,6 +89,7 @@ function init(){
   setup_patcher();
   setup_browser();
   setup_batch_editor();
+  setup_preferences();
   setup_fileinfo();
   setup_filetree();
   setup_filetagger();
@@ -95,6 +98,7 @@ function init(){
   setup_filterchooser();
   setup_targetchooser();
   setup_preview();
+  setup_favorites();
   setup_controls();
   setup_modes();
   setup_mainfx_button();
@@ -117,11 +121,15 @@ function setup_library(){
 function setup_patcher(){
   script.node_script = this.patcher.getnamed('node_script');
   script.browser_patcher = this.patcher.getnamed('browser');
+  script.prefs_patcher = this.patcher.getnamed('modPT_preferences');
+  script.batch_patcher = this.patcher.getnamed('batch_editor');
   script.current_selected_file = browser_patcher.subpatcher().getnamed('current_selected_file');
   script.selected_file_tags = browser_patcher.subpatcher().getnamed('selected_file_tags');
   script.tag_buffer_display = browser_patcher.subpatcher().getnamed('tag_buffer_display');
   script.libPath = this.patcher.getnamed('libPath');
   script.EditorButton = this.patcher.getnamed('Editor');
+  script.BatchButton = this.patcher.getnamed('BatchButton');
+  script.PrefsButton = this.patcher.getnamed('PrefsButton');
   script.ParentBackButton = browser_patcher.subpatcher().getnamed('parent_back_button');
   script.ChildrenBackButton = browser_patcher.subpatcher().getnamed('children_back_button');
   script.mira_gate = this.patcher.getnamed('mira_gate');
@@ -131,10 +139,9 @@ function setup_patcher(){
   script.preview_button = browser_patcher.subpatcher().getnamed('preview_button');
   script.bufferObj = this.patcher.getnamed('preview_buffer');
   script.playObj = this.patcher.getnamed('preview_play');
-  script.sfplayObj = this.patcher.getnamed('preview_sfplay');
   script.waveform = browser_patcher.subpatcher().getnamed('waveform');
-  script.BatchButton = this.patcher.getnamed('BatchButton');
-  script.batch_patcher = this.patcher.getnamed('batch_editor');
+  script.favorites_pattr = this.patcher.getnamed('favorites');
+
   restart_button.hidden = 0;
   restart_button.message('text', 'LOADING');
 
@@ -176,13 +183,9 @@ function setup_browser(){
   script.toTagChooser = tag_chooser.input;
 
   var obj = browser_patcher;
-	var pcontrol = this.patcher.getnamed('editor_pcontrol');
-	var thispatcher = obj.subpatcher().getnamed('thispatcher');
 	var window_position = obj.subpatcher().getnamed('window_position');
   script.editor = new FloatingWindowModule('Editor', {
     'window_position':window_position,
-    'thispatcher':thispatcher,
-    'pcontrol':pcontrol,
     'obj':obj,
     'sizeX':BROWSERXSIZE,
     'sizeY':BROWSERYSIZE,
@@ -222,13 +225,9 @@ function setup_batch_editor(){
   var search_filter_text = obj.subpatcher().getnamed('filefilter');
   var tag_buffer_text = obj.subpatcher().getnamed('tagbuffer');
   var recursive_toggle = obj.subpatcher().getnamed('batch_recursive_toggle');
-  var pcontrol = this.patcher.getnamed('batch_editor_pcontrol');
-  var thispatcher = obj.subpatcher().getnamed('thispatcher');
-  var window_position=  obj.subpatcher().getnamed('window_position');
+  var window_position = obj.subpatcher().getnamed('window_position');
   script.batchEditor = new FloatingWindowModule('BatchEditor', {
     'window_position':window_position,
-    'thispatcher':thispatcher,
-    'pcontrol':pcontrol,
     'obj':obj,
     'sizeX':BATCHXSIZE,
     'sizeY':BATCHYSIZE,
@@ -269,6 +268,37 @@ function setup_batch_editor(){
       FilenameFilter.input.apply(FilenameFilter, ['select_file'].concat(obj._value));
     }
   });
+}
+
+function setup_preferences(){
+  var obj = prefs_patcher;
+  var window_position =  obj.subpatcher().getnamed('window_position');
+  script.prefsWindow = new FloatingWindowModule('PrefsWindow', {
+    'window_position':window_position,
+    'obj':obj,
+    'sizeX':PREFSXSIZE,
+    'sizeY':PREFSYSIZE,
+    'nominimize':true,
+    'nozoom':false,
+    'noclose':true,
+    'nogrow':true,
+    'notitle':false,
+    'float':false
+  });
+  prefsWindow.lock();
+  debug('prefsWindow.lock');
+  script['prefsInput'] = function(){
+    var args = arrayfromargs(arguments);
+    if(args[0]=='close'){
+      PrefsButton.message('set', 0);
+    }
+    try{
+      prefsWindow[args[0]].apply(prefsWindow, args.slice(1));
+    }
+    catch(err){
+      util.report_error(err);
+    }
+  }
 }
 
 function setup_fileinfo(){
@@ -346,8 +376,13 @@ function setup_targetchooser(){
 }
 
 function setup_preview(){
-  this.previewPlayer = new PreviewPlayerComponent('PreviewPlayer', {waveform:waveform, bufferObj:bufferObj, playObj:playObj, sfplayObj:sfplayObj});
+  this.previewPlayer = new PreviewPlayerComponent('PreviewPlayer', {waveform:waveform, bufferObj:bufferObj, playObj:playObj});
   script.toPreviewPlayer = previewPlayer.input;
+}
+
+function setup_favorites(){
+  script.faves = new FavoritesComponent('Favorites', {pattr:favorites_pattr});
+  faves._favorites.add_listener(tag_chooser._refresh);
 }
 
 function setup_mod(){
@@ -355,7 +390,7 @@ function setup_mod(){
     debug('mod.init_callback');
     if(val){
        mod = found_mod;
-       MainModes.change_mode(1);
+       MainModes.change_mode(2);
        MainModes.set_mode_cycle_button(KeyButtons[7]);
     }
   }
@@ -718,6 +753,8 @@ function activate(){
 }
 
 
+
+/** These functions are called directly from Nodescript **/
 /** called from nodescript instance when it starts its update*/
 function on_file_changed(){
   if(!fileInfo._needs_to_update){
@@ -725,6 +762,15 @@ function on_file_changed(){
     // scan_library();
     refresh_libraryObj();
   }
+}
+
+/** Called from on_file_changed (only)...probably should be condensed. */
+function refresh_libraryObj(){
+  NSProxy.asyncCall('scan_library').then(function(res){
+    library_updated_light();
+  }).catch(function(e){
+    debug('scan_library error:', e.message);
+  })
 }
 
 /** this function recieves a request from node to
@@ -766,6 +812,7 @@ function library_updated(){
 }
 
 /** called from nodescript instance when it finishes its update*/
+//wazzup, we still need both these??  if so they want better names....
 function library_updated_light(){
   debug('library_updated_light triggered...');
   libraryObj = dict_to_jsobj(libraryDict);
@@ -782,6 +829,8 @@ function library_updated_light(){
 
 
 
+/** These function are called directly from Commander **/
+/** inter-maxpat message from top pane of commander device */
 function from_commander(){
   var args = arrayfromargs(arguments);
   debug('from_commander:', args);
@@ -824,7 +873,7 @@ function from_commander(){
         FileTagger.set_selection_mode(args[1]);
         break;
       case 'update_remote_display':
-        debug('sending command....');
+        // debug('sending command....');
         update_remote_display();
         break;
       // case 'Next':
@@ -840,14 +889,17 @@ function from_commander(){
   }
 }
 
+/** called on commander load?  */
 function update_remote_display(){
-  // debug()
   FileTree.refresh_mira();
   // refresh_tagchooser();
   TagFilter.redraw_tagchooser();
   messnamed('from_preset_tagger', 'and_or', 'set', TagFilter.filter_mode_value);
 }
 
+
+
+//convenience functions from patcher
 function unlock_editor(){
   editor.unlock();
 }
@@ -862,14 +914,6 @@ function restart(){
 function scan_library(){
   NSProxy.asyncCall('scan_library').then(function(res){
     library_updated();
-  }).catch(function(e){
-    debug('scan_library error:', e.message);
-  })
-}
-
-function refresh_libraryObj(){
-  NSProxy.asyncCall('scan_library').then(function(res){
-    library_updated_light();
   }).catch(function(e){
     debug('scan_library error:', e.message);
   })
@@ -912,6 +956,7 @@ function set_global_path(){
   });
 }
 
+
 //SHOW_LIB_DICT turns this on
 function show_lib_dict(){
   SHOW_LIB_DICT&& this.patcher.getnamed('library').message('wclose');
@@ -922,6 +967,44 @@ function show_lib_dict(){
 function show_tree_dict(){
   SHOW_TREE_DICT&&this.patcher.getnamed('filetree').message('wclose');
   SHOW_TREE_DICT&&this.patcher.getnamed('filetree').message('edit');
+}
+
+
+
+function FavoritesComponent(name, args){
+  this._favorites = new ArrayParameter(this._name+'_Favorites', {value:[]});
+  this.add_bound_properties(this, [
+    '_favorites',
+    'toggle_favorite'
+  ]);
+  this._init.call(this);
+}
+
+util.inherits(FavoritesComponent, Bindable);
+
+FavoritesComponent.prototype._init = function(){
+  var favorites = [].concat(favorites_pattr.getvalueof());
+  this._favorites._value = favorites;
+  debug('faves value is:', this.favorites);
+}
+
+FavoritesComponent.prototype.__defineGetter__('favorites', function(){
+  return this._favorites._value;
+})
+
+FavoritesComponent.prototype.toggle_favorite = function(tag){
+  debug('toggle_favorite', tag);
+  var current_favorites = this.favorites;
+  var index = current_favorites.indexOf(tag);
+  if(index>-1){
+    current_favorites.splice(index, 1)
+  }
+  else{
+    current_favorites.push(tag);
+  }
+  this._favorites.receive(current_favorites);
+  favorites_pattr.message(current_favorites);
+  debug('faves are now:', favorites_pattr.getvalueof());
 }
 
 
@@ -953,6 +1036,10 @@ PreviewPlayerComponent.prototype.input = function(){
   }
 }
 
+PreviewPlayerComponent.prototype.preview_current = function(){
+  this._preview(fileInfo._filepath);
+}
+
 PreviewPlayerComponent.prototype.preview = function(filename){
   this._togglePreview._Callback({_value:1});
   if(this._togglePreview._value){
@@ -972,12 +1059,13 @@ PreviewPlayerComponent.prototype.preview = function(filename){
 
 PreviewPlayerComponent.prototype._preview = function(obj){
   var file = fileInfo.selected_file;
-  // debug('preview', obj._value);
+  debug('preview', obj._value);
   var f = new File(file, 'read');
   var type = f.filetype;
   f.close()
   if((type=='AIFF')||(type=='WAVE')){
     this._bufferObj.message('sizeinsamps', 20000);
+    this._bufferObj.message('')
     this._bufferObj.message('read', file);
     //this._bufferObj.message('open');
     // this._sfplayObj.message('open', file);
@@ -1046,9 +1134,12 @@ FileInfoComponent.prototype._flush_changed_tags = function(){
 FileInfoComponent.prototype.select_file = function(filepath){
   this._needs_to_update&&this._flush_changed_tags();
   if(!this._in_update){
-    this._filepath.set_value(filepath);
-    // this._active_tags.set_value(filepath in libraryObj ? libraryObj[filepath].tags : []);
-    this.update();
+    if(filepath!=this.selected_file){
+      debug('_filepath.set_value:', filepath, this.selected_file);
+      this._filepath.set_value(filepath);
+      // this._active_tags.set_value(filepath in libraryObj ? libraryObj[filepath].tags : []);
+      this.update();
+    }
   }
   else{
     this._filepath._value = filepath;
@@ -1410,150 +1501,16 @@ FileTreeComponent.prototype.refresh = function(){
   this.refresh_mira();
 }
 
-
+//this is mostly just to view data structures during development
 FileTreeComponent.prototype.push_lists = function(){
   // this._dict.parse(JSON.stringify({parent_list:this.parent_list, child_list:this.child_list}));
   // show_tree_dict();
 }
 
 
-
-function parentPath(path){
-  return path.substring(0, path.lastIndexOf(basename(path)))
-}
-
-function indexOfNodePath(arr, path){
-  // debug('indexOfNodePath: path:', path);
-  var ret = -1;
-  if(arr&&path&&path.name){
-    var arr_names = arr.map(function(obj){return obj.name});
-    // debug('path name:', path.name, 'arr names:', arr_names);
-    var name = path.name;
-    ret = arr.reduce(function(acc, obj, index){
-      var result = acc + parseInt(Math.floor(obj.name == name)*(index+1));
-      // debug('result:', obj.name, name, result);
-      return result
-    }, 0) -1;
-  }
-  // debug('index is:', ret, 'ran:', (arr&&path&&path.name));
-  return ret
-}
-
-function basename(path){
-  // debug('basename:', path);
-  var path_array = path.split('/');
-  var len = path_array.length;
-  if(path_array[len-1].length==0){
-    return path_array[len-2];
-  }
-  return path_array[len-1];
-}
-
-function pathJoin(parts, sep){
-   var separator = sep || '/';
-   var replace   = new RegExp(separator+'{1,}', 'g');
-   return parts.join(separator).replace(replace, separator);
-}
-
-function recurse_folder(path, paths){
-  // debug('recurse_folder', parentNode.name);
-  var f = new Folder(path);
-  while(!f.end){
-    if(f.filetype == 'fold'){
-      paths = recurse_folder(pathJoin([f.pathname, f.filename]), paths);
-    }
-    else{
-      paths.push(pathJoin([f.pathname, f.filename]));
-    }
-    f.next();
-  }
-  f.close();
-  return paths
-}
-
-function parents_from_path(path){
-  path = path ? path : library_directory;
-  return path == library_directory ? [] : path.replace(library_base, '').replace(basename(path), '').split('/').slice(0, -1).filter(function(i){return i!=''});
-}
-
-function endsWith(str, char){
-  if(str){
-    return str[str.length-1] == char
-  }
-  return false
-}
-
-
-function retrieve_parent(obj, parents){
-  //parents = [].concat(parents);
-  if((!parents)||(!parents.length)){
-    return obj.children[Object.keys(obj.children)[0]];
-  }
-  parents = [].concat(parents);
-  // debug('here', obj.name, parents, typeof parents);
-  var new_obj = obj.children[parents.shift()];
-  if(parents.length){
-    new_obj = retrieve_parent(new_obj, parents);
-  }
-  return new_obj;
-}
-
-function retrieve_child(obj, parents){
-  // debug('retrieve_child', obj, parents);
-  //parents = [].concat(parents);
-  if((!parents)||(!parents.length)||(!obj)||(!obj.children)){
-    //debug('returning null');
-    return undefined
-  }
-  parents = [].concat(parents);
-  var new_obj = obj.children[parents.shift()];
-  if(parents.length){
-    new_obj = retrieve_child(new_obj, parents);
-  }
-  return new_obj
-}
-
-function get_child_dict(dict, parents){
-  var value = undefined;
-  var parent = parents.shift();
-  // debug('parent is:', parent);
-  if (dict == null) return null;
-  var keys = dict.getkeys();
-  // debug('keys are:', keys);
-  if(keys.indexOf('children'>-1)){
-    dict = dict.get('children');
-    keys = dict.getkeys();
-    if((keys.indexOf(parent)>-1)||(keys==parent)){
-      value = dict.get(parent);
-      if (value && value instanceof Dict && parents.length) {
-        value = get_child_dict(value, parents);
-      }
-    }
-  }
-  return value
-}
-
-function old_recurse_folder(parentNode, paths){
-  // debug('recurse_folder', parentNode.name);
-  for(var i in parentNode.children){
-    //debug('here');
-    var child = parentNode.children[i];
-    if(child.type == 'folder'){
-      paths = recurse_folder(child, paths);
-    }
-    else{
-      paths.push(child.path);
-    }
-  }
-  return paths
-}
-
-
-
-
 /**
 *  Component deals with all tagging tasks.
-*  Basically everything in right two windows,
+*  Basically everything in right two windows of editor,
 *  as well as all actions in the bottom section.
 */
 function FileTaggerComponent(name, args){
@@ -2719,15 +2676,24 @@ util.inherits(SpecialCellBlockChooserComponent, CellBlockChooserComponent);
 
 SpecialCellBlockChooserComponent.prototype._init = function(){
   SpecialCellBlockChooserComponent.super_.prototype._init.call(this);
-  this._obj.message('cols', 2);
-  this._obj.message('col', 0, 'width', 165);
+  this._obj.message('cols', 3);
+  this._obj.message('col', 0, 'width', 150);
   this._obj.message('grid', 1);
-  this._obj.message('col', 1, 'width', 30);
+  this._obj.message('col', 1, 'width', 15);
   this._obj.message('col', 1, 'jus', 0);
+  this._obj.message('col', 2, 'width', 30);
+  this._obj.message('col', 2, 'jus', 0);
 }
 
 SpecialCellBlockChooserComponent.prototype.input = function(col, row, item){
   if(col==1){
+    if(this._contents[row]){
+      debug('SpecialCellBlockChooserComponent.input.fave:', row, item);
+      // this.set_tag.set_value(this._contents[row].value);
+      faves.toggle_favorite(this._contents[row].value);
+    }
+  }
+  else if(col==2){
     if(this._contents[row]){
       // debug('SpecialCellBlockChooserComponent.input.marker:', row, item);
       this.set_tag.set_value(this._contents[row].value);
@@ -2746,6 +2712,14 @@ SpecialCellBlockChooserComponent.prototype._refresh = function(){
     for(var i in this._contents){
       var is_marked = marked.indexOf(this._contents[i].value)>-1;
       var val = is_marked ? 'X' : ' ';
+      this._obj.message('set', 2, parseInt(i), val);
+    }
+  }
+  if(Alive){
+    var current_faves = faves.favorites;
+    for(var i in this._contents){
+      var is_marked = current_faves.indexOf(this._contents[i].value)>-1;
+      var val = is_marked ? 'F' : ' ';
       this._obj.message('set', 1, parseInt(i), val);
     }
   }
@@ -2754,7 +2728,7 @@ SpecialCellBlockChooserComponent.prototype._refresh = function(){
 SpecialCellBlockChooserComponent.prototype.append = function(){
   var args = arrayfromargs(arguments);
   SpecialCellBlockChooserComponent.super_.prototype.append.apply(this, args);
-  this._obj.message('col', 1, 'width', this._contents.length>this._row_height ? 12 : 30);
+  this._obj.message('col', 2, 'width', this._contents.length>this._row_height ? 12 : 30);
 }
 
 SpecialCellBlockChooserComponent.prototype.set_active_tag_notifier = function(obj){
@@ -2768,6 +2742,11 @@ SpecialCellBlockChooserComponent.prototype.set_active_tag_notifier = function(ob
 
 
 //Remote key functions//
+function Audition(){
+  debug('Audition');
+  previewPlayer.preview_current();
+}
+
 function AddTag(val){
   // debug('AddTag', val);
   FileTagger.set_tag();
@@ -2800,7 +2779,7 @@ function Editor(val){
 }
 
 function OpenPreset(){
-  debug('OpenPreset');
+  // debug('OpenPreset');
   NSProxy.asyncCall('open_preset', fileInfo.selected_file);
 }
 
@@ -2819,36 +2798,164 @@ function Batch(val){
   }
 }
 
-
-function dissolve(){
-  mod.dissolve();
+function Prefs(val){
+  if(Alive){
+    if(prefsWindow){
+      if(val){
+        prefsWindow.open();
+      }
+      else{
+        prefsWindow.close();
+      }
+    }
+  }
 }
 
 
+function dissolve(){
+  if(mod){mod.dissolve();}
+  if(found_mod){found_mod.dissolve();}
+  // for(var p in this){
+  //   this[p] = null;
+  //   delete this[p];
+  // }
+}
+
+
+function parentPath(path){
+  return path.substring(0, path.lastIndexOf(basename(path)))
+}
+
+function indexOfNodePath(arr, path){
+  // debug('indexOfNodePath: path:', path);
+  var ret = -1;
+  if(arr&&path&&path.name){
+    var arr_names = arr.map(function(obj){return obj.name});
+    // debug('path name:', path.name, 'arr names:', arr_names);
+    var name = path.name;
+    ret = arr.reduce(function(acc, obj, index){
+      var result = acc + parseInt(Math.floor(obj.name == name)*(index+1));
+      // debug('result:', obj.name, name, result);
+      return result
+    }, 0) -1;
+  }
+  // debug('index is:', ret, 'ran:', (arr&&path&&path.name));
+  return ret
+}
+
+function basename(path){
+  // debug('basename:', path);
+  var path_array = path.split('/');
+  var len = path_array.length;
+  if(path_array[len-1].length==0){
+    return path_array[len-2];
+  }
+  return path_array[len-1];
+}
+
+function pathJoin(parts, sep){
+   var separator = sep || '/';
+   var replace   = new RegExp(separator+'{1,}', 'g');
+   return parts.join(separator).replace(replace, separator);
+}
+
+function recurse_folder(path, paths){
+  // debug('recurse_folder', path);
+  var f = new Folder(path);
+  while(!f.end){
+    if(f.filetype == 'fold'){
+      paths = recurse_folder(pathJoin([f.pathname, f.filename]), paths);
+    }
+    else{
+      paths.push(pathJoin([f.pathname, f.filename]));
+    }
+    f.next();
+  }
+  f.close();
+  return paths
+}
+
+function parents_from_path(path){
+  path = path ? path : library_directory;
+  return path == library_directory ? [] : path.replace(library_base, '').replace(basename(path), '').split('/').slice(0, -1).filter(function(i){return i!=''});
+}
+
+function endsWith(str, char){
+  if(str){
+    return str[str.length-1] == char
+  }
+  return false
+}
+
+
+function retrieve_parent(obj, parents){
+  //parents = [].concat(parents);
+  if((!parents)||(!parents.length)){
+    return obj.children[Object.keys(obj.children)[0]];
+  }
+  parents = [].concat(parents);
+  // debug('here', obj.name, parents, typeof parents);
+  var new_obj = obj.children[parents.shift()];
+  if(parents.length){
+    new_obj = retrieve_parent(new_obj, parents);
+  }
+  return new_obj;
+}
+
+function retrieve_child(obj, parents){
+  // debug('retrieve_child', obj, parents);
+  //parents = [].concat(parents);
+  if((!parents)||(!parents.length)||(!obj)||(!obj.children)){
+    //debug('returning null');
+    return undefined
+  }
+  parents = [].concat(parents);
+  var new_obj = obj.children[parents.shift()];
+  if(parents.length){
+    new_obj = retrieve_child(new_obj, parents);
+  }
+  return new_obj
+}
+
+function get_child_dict(dict, parents){
+  var value = undefined;
+  var parent = parents.shift();
+  // debug('parent is:', parent);
+  if (dict == null) return null;
+  var keys = dict.getkeys();
+  // debug('keys are:', keys);
+  if(keys.indexOf('children'>-1)){
+    dict = dict.get('children');
+    keys = dict.getkeys();
+    if((keys.indexOf(parent)>-1)||(keys==parent)){
+      value = dict.get(parent);
+      if (value && value instanceof Dict && parents.length) {
+        value = get_child_dict(value, parents);
+      }
+    }
+  }
+  return value
+}
+
+function old_recurse_folder(parentNode, paths){
+  // debug('recurse_folder', parentNode.name);
+  for(var i in parentNode.children){
+    //debug('here');
+    var child = parentNode.children[i];
+    if(child.type == 'folder'){
+      paths = recurse_folder(child, paths);
+    }
+    else{
+      paths.push(child.path);
+    }
+  }
+  return paths
+}
+
+
+function notifydeleted(){
+  debug('notifydeleted');
+  dissolve();
+}
+
 forceload(this);
-
-
-
-// //this is done in-house now ;)
-// FileTaggerComponent.prototype.set_folder_tags = function(){
-//   // FileTree.set_folder_tags();
-//   if(FileTree.current_parent_path.type == 'folder'){
-//     NSProxy.asyncCall('apply_folder_tags', FileTree.current_parent_node.path, this.tag_buffer);
-//   }
-// }
-//
-// //this is done in-house now ;)
-// FileTaggerComponent.prototype.remove_folder_tags = function(){
-//   // FileTree.remove_folder_tags();
-//   if(FileTree.current_parent_path.type == 'folder'){
-//     NSProxy.asyncCall('remove_folder_tags', FileTree.current_parent_node.path, this.tag_buffer);
-//   }
-// }
-//
-// //this is done in-house now ;)
-// FileTaggerComponent.prototype.clear_folder_tags = function(){
-//   // FileTree.clear_folder_tags();
-//   if(FileTree.current_parent_path.type == 'folder'){
-//     NSProxy.asyncCall('clear_folder_tags', FileTree.current_parent_node.path);
-//   }
-// }

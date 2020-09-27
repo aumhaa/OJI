@@ -340,7 +340,8 @@ class PresetTagger {
 		maxApi.outlet.apply(maxApi, ['js', 'on_specific_file_changed', filename].concat(tags));
 	}
 
-	/**we use this to tell js we need to update, it will call the update from there when it's ready*/
+	/**we use this to tell js we need to update, it will call the update
+	from there when it's ready as an async function*/
 	call_library_update = () => {
 		if(this.update_task){
 			clearTimeout(this.update_task);
@@ -351,62 +352,6 @@ class PresetTagger {
 		}, 20);
 	}
 
-	find_filetree_node = async(file_path) => {
-		try{
-			let relative_path = file_path.replace(path.basename(this.library_dir)+'/', '');
-			let shortname = path.basename(file_path);
-			let parents = relative_path.replace(shortname, '').split('/');
-			let base = path.basename(this.library_dir);
-			let node = this.file_tree.children[base];
-			//this gets to FileTree.children[]
-			if(parents.length){
-				parents.shift()
-				for(var i in parents){
-					if(node.children[parents[i]]){
-						// we're walking up the chain by each parent;
-						// debug('node:', node, 'parents[i]', i, parents[i]);
-						node = node.children[parents[i]];
-					}
-				}
-				// debug('node path:', node.path);
-				node = node.children[shortname];
-				return node
-			}
-		}
-		catch(e){
-			debug('find_filetree_node error:', e.message);
-			return e
-		}
-	}
-
-	find_filetree_node_parent = async(file_path) => {
-		try{
-			let relative_path = file_path.replace(path.basename(this.library_dir)+'/', '');
-			let shortname = path.basename(file_path);
-			let parents = relative_path.replace(shortname, '').split('/');
-			let base = path.basename(this.library_dir);
-			let node = this.file_tree.children[base];
-			//this gets to FileTree.children[]
-			if(parents.length){
-				parents.shift()
-				for(var i in parents){
-					if(node.children[parents[i]]){
-						//we're walking up the chain by each parent;
-						// debug('node:', node, 'parents[i]', i, parents[i]);
-						node = node.children[parents[i]];
-					}
-				}
-				// debug('node path:', node.path);
-				return node
-			}
-		}
-		catch(e){
-			debug('find_filetree_node error:', e.message);
-			return e
-		}
-	}
-
-	/**combine with scan_library_internal and use await*/
 	scan_library = async() => {
 		// debug('scan_library');
 		let ret = await this.scan_library_internal();
@@ -444,30 +389,6 @@ class PresetTagger {
 		}
 	}
 
-	/**helper method for scan_library...combine*/
-	scan_folder = async(dir_name, filetree_node) => {
-		// debug('scan_folder:', dir_name, typeof filetree_node);
-		let directoryFiles = fs.readdirSync(dir_name);
-		let shortname = path.basename(dir_name);
-		filetree_node.children[shortname] = {name: shortname,
-																path: dir_name,
-																type:dir_name == this.library_dir ? 'root':'folder',
-																parents: dir_name == this.library_dir ? [] : dir_name.replace(this.library_base, '').replace(shortname, '').split('/').slice(0, -1),
-																parent:dir_name.split(shortname)[0],
-																children:{}};
-		for(const filename of directoryFiles){
-			let file_path = path.join(dir_name, filename).toString();
-			if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isDirectory()) ){
-				await this.scan_folder(file_path, filetree_node.children[shortname]);
-			}
-			else if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
-				await this.scan_file(file_path, filename, filetree_node.children[shortname]);
-			}
-		}
-		return true
-	}
-
-	/**helper method for scan_library...combine*/
 	scan_folder = async(dir_name) => {
 		// debug('scan_folder:', dir_name, typeof filetree_node);
 		let directoryFiles = fs.readdirSync(dir_name);
@@ -480,25 +401,6 @@ class PresetTagger {
 			else if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
 				await this.scan_file(file_path, filename);
 			}
-		}
-		return true
-	}
-
-	/**helper method for scan_library...combine*/
-	scan_file = async(file_name, shortname, filetree_node) => {
-		// debug('scan_file', file_name);
-		if( (fs.existsSync(file_name)) && (VALID_FILE_TYPES.indexOf(path.extname(file_name))>-1)){
-			let tags = [];
-			let attrs = xattr.listSync(file_name);
-			if(attrs.indexOf(namespace)>-1){
-				tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
-			}
-			this.library_data[file_name] = {'tags':tags, 'shortname':shortname};
-			filetree_node.children[shortname] = {name:shortname,
-																path:file_name, type:'file',
-																parent:file_name.split(shortname)[0],
-																parents: file_name.replace(this.library_base, '').replace(shortname, '').split('/').slice(0, -1),
-																tags: tags};
 		}
 		return true
 	}
@@ -664,99 +566,6 @@ class PresetTagger {
 		return Promise.reject(new Error('invalid path'))
 	}
 
-	/**set tags for all files contained in a target folder */
-	apply_folder_tags = async(dir_name, ...tags) => {
-		// debug('apply_folder_tags:', dir_name, tags);
-		if( (tags.length > 0) &&
-		 (fs.existsSync(dir_name)) &&
-		 (fs.lstatSync(dir_name).isDirectory()) ) {
-			// debug('set_folder_tags:', dir_name, tags);
-			// this.block_updates = true;
-			let directoryFiles = fs.readdirSync(dir_name);
-			// this needs to be a separate function, and should both ensure and flatten
-			let tag_buf = [].concat(tags);
-			let file_actions = [];
-			directoryFiles.forEach( target_file => {
-				let file_path = path.join(dir_name, target_file).toString();
-				let action = this.apply_tag.apply(this, [file_path].concat(tag_buf));
-				file_actions.push(action);
-			});
-
-			Promise.all(file_actions).then( (res) =>{
-				debug('response is:', res);
-			}).catch((e) => {
-				debug('apply_folder_tags error is:', e.message);
-			}).finally(() => {
-				debug('unblocking updates.');
-				this.block_updates = false;
-				// this.scan_library_internal();
-			})
-			// this.block_updates = false;
-			debug('returning true');
-			return true
-		}
-		return Promise.reject(new Error('invalid path or tag'));
-	}
-
-	/**remove tags for all files contained in a target folder */
-	remove_folder_tags = (dir_name, ...tags) => {
-		// debug('remove_folder_tags:', dir_name, tags, tags.length);
-		if( (tags.length > 0) &&
-			(fs.existsSync(dir_name)) &&
-			(fs.lstatSync(dir_name).isDirectory()) ) {
-			// this.block_updates = true;
-			let directoryFiles = fs.readdirSync(dir_name);
-			// this needs to be a separate function, and should both ensure and flatten
-			let tag_buf = [].concat(tags);
-			let file_actions = [];
-			directoryFiles.forEach(target_file => {
-				let file_path = path.join(dir_name, target_file).toString();
-				let action = this.remove_tag.apply(this, [file_path].concat(tag_buf));
-				file_actions.push(action);
-			});
-
-			Promise.all(file_actions).then( (res) =>{
-				debug('response is:', res);
-			}).catch((e) => {
-				debug('remove_folder_tags error is:', e.message);
-			}).finally(() => {
-				debug('unblocking updates.');
-				this.block_updates = false;
-				// this.scan_library_internal();
-			})
-			return true
-		}
-		return Promise.reject(new Error('invalid path or tag'));
-	}
-
-	/**clear all tags for all files contained in a target folder */
-	clear_folder_tags = async(dir_name) => {
-		// debug('clear_folder_tags', dir_name);
-		if( (fs.existsSync(dir_name)) &&
-			(fs.lstatSync(dir_name).isDirectory()) ){
-			// this.block_updates = true;
-			let directoryFiles = fs.readdirSync(dir_name);
-			let file_actions = [];
-			directoryFiles.forEach( target_file => {
-				let file_path = path.join(dir_name, target_file).toString();
-				let action = this.clear_tags(file_path);
-				file_actions.push(action);
-			});
-
-			Promise.all(file_actions).then( (res) =>{
-				debug('response is:', res);
-			}).catch((e) => {
-				debug('clear_folder_tags error is:', e.message);
-			}).finally(() => {
-				debug('unblocking updates.');
-				this.block_updates = false;
-				// this.scan_library_internal();
-			})
-			return true
-		}
-		return Promise.reject(new Error('invalid path or tag'));
-	}
-
 	//open
 	open_preset = async(filepath) => {
 		// debug('open_preset', filepath);
@@ -779,104 +588,8 @@ class PresetTagger {
 		});
 	}
 
-	set_block_updates = async(val) => {
-		// if(this.block_updates!=val){
-		this.block_updates = val>0;
-		// !this.block_updates&&this.call_library_update();
-		// }
-		return true
-	}
-
 	set_block_updates = async(val) => {}
-
-	//remove
-	get_libdir = async() => {
-		//needs to be changed to __getter__ item
-		debug('getting libdir....', this.library_dir);
-		return this.library_dir;
-	}
-
-	//remove and send with command
-	select_file = async(file) => {
-		if( (fs.existsSync(file)) && (fs.lstatSync(file).isFile()) ){
-			debug('select_file', file);
-			this.selected_file = file;
-		}
-	}
-
-	/**remove and send tagbuffer with command
-	*/
-	select_tag = async(...args) => {
-		debug('select_tag', args);
-		this.selected_tag = [].concat(args);
-	}
 
 }
 
 let script = new PresetTagger();
-
-
-
-	// /**library watcher, paused on batch calls*/
-	// *  there's something wrong with the way this method is gathering file info...when it tries to
-	// *  write the FileTree dict, it's crashing Max/Live.
-	// on_file_changed = (event, file_name) => {
-	// 	/** callback function for when file changes that is contained in the watched library*/
-	// 	// debug('on_file_changed:', event, file_name, 'block_updates:', this.block_updates);
-	// 	if(!this.block_updates){
-	// 		let file_path = path.join(this.library_dir, file_name).toString();
-	// 		if( ((fs.existsSync(file_path)) &&
-	// 		(VALID_FILE_TYPES.indexOf(path.extname(file_path))>-1)) ||
-	// 		(event == 'rename') ){
-	// 			// this.block_updates = true;
-	// 			// debug('on_file_changed:', event, file_name);
-	// 			this.rescan_file(file_name).then( () => {
-	// 				maxApi.outlet('js', 'library_updated');
-	// 			}).catch( (e) => {
-	// 				debug('filewatch scan unsuccessful, scanning all instead...', e.message);
-	// 				// this.scan_library_internal().then( () => {
-	// 				// 	debug('scan internal finished, updating js library');
-	// 				// 	maxApi.outlet('js', 'library_updated');
-	// 				// });
-	// 			}).finally(() =>{
-	// 				// debug('unblocking updates');
-	// 				this.block_updates = false;
-	// 			})
-	// 		}
-	// 	}
-	// }
-
-	// rescan_file = async(file_name) => {
-	// 	debug('rescan_file:', file_name);
-	// 	if(!this.block_updates){
-	// 		try{
-	// 				let node = await this.find_filetree_node(file_name);
-	// 				// debug('node is:', JSON.stringify(node));
-	// 				let old_tags = node.tags;
-	// 				let tags = [];
-	// 				let attrs = xattr.listSync(file_name);
-	// 				if(attrs.indexOf(namespace)>-1){
-	// 					tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).sort();
-	// 				}
-	// 				if(!arraysEqual(old_tags, tags)){
-	// 					debug('calling rescan....', old_tags, old_tags.length, tags, tags.length, 'new tags, calling update');
-	// 					let shortname = path.basename(file_name);
-	// 					let pnode = await this.find_filetree_node_parent(file_name);
-	// 					let ret = await this.scan_file(file_name, shortname, pnode);
-	// 					// let dictpath = 'children.'+node.parents.join('.children.');
-	// 					// debug('path is:', dictpath);
-	// 					// await setDict(this.filetreeDictId, this.file_tree);
-	// 					await setDict(this.libraryDictId, this.library_data);
-	// 					this.notify_js_file_changed(file_name);
-	// 				}
-	// 				else{
-	// 					debug('tags are the same, no need to call update');
-	// 					return true
-	// 				}
-	// 		}
-	// 		catch(e){
-	// 			debug('problem with rescan file, requesting js to update from its end');
-	// 			this.call_library_update();
-	// 		}
-	// 	}
-	// }
