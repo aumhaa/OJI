@@ -13,13 +13,14 @@ aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = false;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
 var EDITOR_OPEN = false;
 var BATCH_OPEN = false;
 var MOD_DEBUG = false;
+var EDITOR_FLOAT = true;
 
 aumhaa.init(this);
 var script = this;
@@ -78,6 +79,7 @@ var BATCHYSIZE  = 550;
 var PREFSXSIZE = 100;
 var PREFSYSIZE  = 200;
 var MULTITAG_DELAY = 250;
+var MAX_MIRA_DROPDOWN_LENGTH = 1000;
 
 function anything(){}
 
@@ -194,7 +196,7 @@ function setup_browser(){
     'noclose':true,
     'nogrow':true,
     'notitle':false,
-    'float':false
+    'float':EDITOR_FLOAT
   });
   editor.lock();
   script.browserInput = function(){
@@ -1939,6 +1941,9 @@ TagFilterComponent.prototype.display_filtered_files = function(){
           }
         }
       }
+    }
+    if(found_items.length > MAX_MIRA_DROPDOWN_LENGTH){
+      found_items = found_items.slice(0, MAX_MIRA_DROPDOWN_LENGTH);
     }
     filesDict.parse(JSON.stringify({items:found_items}));
     messnamed('from_preset_tagger', 'files', 'dictionary', filesDict.name);
