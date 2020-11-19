@@ -21,6 +21,7 @@ var EDITOR_OPEN = false;
 var BATCH_OPEN = false;
 var MOD_DEBUG = false;
 var EDITOR_FLOAT = true;
+var INITIAL_FILTER_MODE = true;
 
 aumhaa.init(this);
 var script = this;
@@ -105,6 +106,7 @@ function init(){
   setup_modes();
   setup_mainfx_button();
   setup_tagmode_button();
+  setup_audition_button();
   setup_mod();
   setup_nodescript();
   NODE_DEBUG&&node_debug.front();
@@ -706,6 +708,9 @@ function setup_tagmode_button(){
   });
 }
 
+function setup_audition_button(){
+  ShiftButton.add_listener(function(){Audition();});
+}
 
 
 function initialize_nodescript(){
@@ -1797,7 +1802,8 @@ function TagFilterComponent(name, args){
     'refresh_filtered_chooser_selection',
     '_showAllTags',
     'last_found_tags',
-    'found_tags'
+    'found_tags',
+    'update_mira_filter_mode_button'
   ]);
   TagFilterComponent.super_.call(this, name, args);
   this._init.apply(this);
@@ -1830,6 +1836,9 @@ TagFilterComponent.prototype._init = function(args){
   this._selected_tags.add_listener(this.refresh);
   this._filterMode.add_listener(this.refresh);
   fileInfo._filepath.add_listener(this.refresh_filtered_chooser_selection);
+  this._filterMode.on('NotifyTarget', this.update_mira_filter_mode_button);
+  this._filterMode.update_control();
+  this.update_mira_filter_mode_button();
 }
 
 TagFilterComponent.prototype.refresh = function(){
@@ -2081,6 +2090,10 @@ TagFilterComponent.prototype.detect_found_tags = function(){
   this._tagList.set_value(this.found_tags);
 }
 
+TagFilterComponent.prototype.update_mira_filter_mode_button = function(){
+  debug('sending_mira_filter_mode_button value:', this.filter_mode_value);
+  messnamed('from_preset_tagger', 'and_or', 'set', this.filter_mode_value);
+}
 
 
 function FilenameFilterComponent(name, args){
