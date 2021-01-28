@@ -60,6 +60,7 @@ var library_directory = undefined;
 var library_base = undefined;
 var libraryObj = {};
 var filetreeDict = new Dict('filetree');
+var snapshotDict = new Dict('snapshot');
 var filesDict = new Dict();
 var parentDict = new Dict();
 var nodeScriptInitialized = false;
@@ -932,6 +933,15 @@ function set_library(){
   debug('set_library:', args);
   NSProxy.asyncCall('set_library', args).then(function(res){
     debug('SET_LIBRARY response:', res);
+    library_directory = res;
+    library_base = library_directory.split(basename(library_directory))[0];
+    //clear the selected file
+    fileInfo.clear_selected_file();
+    //reset the filetree to the root folder
+    FileTree.current_parent_node = undefined;
+    FileTree.current_child_node = undefined;
+    FileTree.init_nodes();
+    FileTree.select_folder(library_directory);
     if(!Alive){
       activate();
     }
@@ -951,6 +961,34 @@ function restore_snapshot(){
     debug('restore_snapshot response:', res);
     library_updated();
   });
+}
+
+//FileTreeComponent
+function merge_snapshot(){
+  var args = arrayfromargs(arguments);
+  debug('merge_snapshot:', args);
+  NSProxy.asyncCall('merg_snapshot', args).then(function(res){
+    debug('merge_snapshot response:', res);
+    library_updated();
+  });
+}
+
+//FileTreeComponent
+function save_snapshot(){
+  var args = arrayfromargs(arguments);
+  debug('save_snapshot:', args);
+  var snapshotData = {};
+  //var snapshotData = JSON.parse(JSON.stringify(libraryObj
+  // var libraryObj = JSON.stringify(libraryObj);
+  for(var i in libraryObj){
+    //debug('entry:', i, JSON.stringify(libraryObj[i]));
+    if((libraryObj[i].tags)&&(libraryObj[i].tags.length)){
+      var name = i.replace(library_directory, '');
+      snapshotData[name] = libraryObj[i];
+    }
+  }
+  snapshotDict.parse(JSON.stringify({library_directory:library_directory, data:snapshotData}));
+  this.patcher.getnamed('snapshotDict').message('export', args);
 }
 
 //FileTreeComponent
@@ -1099,7 +1137,8 @@ function FileInfoComponent(name, args){
     '_needs_to_update',
     'fileAccessButton',
     '_in_update',
-    'report_update'
+    'report_update',
+    'clear_selected_files'
   ]);
   FileInfoComponent.super_.call(this, name, args);
 }
@@ -1188,6 +1227,12 @@ FileInfoComponent.prototype.report_update = function(val){
   }
 }
 
+FileInfoComponent.prototype.clear_selected_file = function(){
+  this._filepath._value = undefined;
+  this._shortname._value = undefined;
+  this._active_tags._value = [];
+}
+
 
 /**
 *  Component deals with all file-structure browser navigation tasks.
@@ -1264,6 +1309,7 @@ FileTreeComponent.prototype.input = function(){
 
 FileTreeComponent.prototype.init_nodes = function(){
   if(library_directory){
+    debug('init_nodes select_root', library_directory);
     this.select_root(library_directory);
     this.refresh_editor();
     this.refresh_mira();
@@ -1352,6 +1398,7 @@ FileTreeComponent.prototype.select_root = function(path){
     debug('current root is now:', path);
     // this.create_primary_node(path);
     this.parent_list = this.selection_list_from_path(path);
+    //instead of this, there should be a isInDir() function.....
     if(path != library_directory){
       this.parent_list.push({name:'<==back', type:'back_command', path:path});
     }
@@ -1447,6 +1494,7 @@ FileTreeComponent.prototype.find_folder = function(path){
   if(path){
     fileInfo.select_file(undefined);
     var root = parentPath(path);
+    debug('find_folder select_root');
     this.select_root(root);
     this.current_parent_node = this.parent_list[indexOfNodePath(this.parent_list, {name:basename(path)})];
     this.select_folder(path);
@@ -1466,6 +1514,7 @@ FileTreeComponent.prototype.find_file = function(path){
     fileInfo.select_file(path);
     var parent = parentPath(path);
     var root = parentPath(parent);
+    debug('find_file select_root');
     this.select_root(root);
     this.current_parent_node = this.parent_list[indexOfNodePath(this.parent_list, {name:basename(parent)})];
     this.select_folder(parent);

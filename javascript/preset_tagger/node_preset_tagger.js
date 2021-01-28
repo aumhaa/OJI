@@ -24,7 +24,7 @@ Debug = function(){
 	maxApi.post(args + '\n');
 }
 
-const DEBUG = false;
+const DEBUG = true;
 const debug = DEBUG&&Debug?Debug:function(){}
 
 const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
@@ -360,7 +360,7 @@ class PresetTagger {
 
 	scan_library_internal = async() => {
 		if( (fs.existsSync(this.library_dir)) && (fs.lstatSync(this.library_dir).isDirectory()) ){
-			// debug('this.library_dir is:', this.library_dir);
+			debug('this.library_dir is:', this.library_dir);
 			this.file_tree = {name:'root',
 				root:path.basename(this.library_dir),
 				root_path:this.library_dir,
@@ -445,6 +445,78 @@ class PresetTagger {
 			}
 			//maxApi.setDict(libraryDictId, libObj);
 			//libraryDict = maxApi.getDict(libraryDictId);
+		}
+	}
+
+	restore_snapshot = async(filename) => {
+		debug('restore_snapshot:', filename, typeof filename);
+		if((filename!=undefined)&&(fs.existsSync(filename))&&(fs.lstatSync(filename).isFile())){
+			let libObj = {};
+			try{
+				let snapshotData = fs.readFileSync(filename, 'utf8');
+				let snapshotContents = JSON.parse(snapshotData);
+				let libObj = snapshotContents.data;
+				let libDir = this.library_dir;
+				for(var item in libObj){
+					let file = libDir+item.toString('utf8');
+					let tags = [].concat(libObj[item].tags.toString('utf8').split(',')).filter(Boolean).sort();
+					// debug('file:', file, typeof file, 'tags:', tags, typeof tags);
+					if( (fs.existsSync(file)) && (fs.lstatSync(file).isFile()) ){
+						xattr.setSync(file, namespace, tags.join(' '));
+					}
+				}
+				return await this.scan_library()
+			}
+			catch(err){
+				debug('snapshot load error:', err);
+				return(err);
+			}
+		}
+	}
+
+	/**additively restore a dict json to the current library*/
+	merge_snapshot = async(filename) => {
+		debug('merge_snapshot:', filename, typeof filename);
+		if((filename!=undefined)&&(fs.existsSync(filename))&&(fs.lstatSync(filename).isFile())){
+			let libObj = {};
+			try{
+				let snapshotData = fs.readFileSync(filename, 'utf8');
+				let snapshotContents = JSON.parse(snapshotData);
+				let libObj = snapshotContents.data;
+				let libDir = this.library_dir;
+				for(var item in libObj){
+					let file = libDir+item.toString('utf8');
+					let tags = [].concat(libObj[item].tags.toString('utf8').split(',')).filter(Boolean).sort();
+					let existing_tags = [];
+					// debug('file:', file, typeof file, 'tags:', tags, typeof tags);
+					if( (fs.existsSync(file)) && (fs.lstatSync(file).isFile()) ){
+						let attrs = xattr.listSync(file);
+						if(attrs.indexOf(namespace)>-1){
+							let needs_update = false;
+							existing_tags = [].concat(xattr.getSync(file, namespace).toString('utf8').split(' ')).filter(Boolean).sort();
+							for(var i in tags){
+								if(existing_tags.indexOf(tags[i])<0){
+									// debug('found tag to add:', file, tags[i]);
+									existing_tags.push(tags[i]);
+									needs_update = true;
+								}
+							}
+							if(needs_update){
+								// debug('about to write:', existing_tags, needs_update);
+								xattr.setSync(file, namespace, existing_tags.join(' '));
+							}
+						}
+						else if(tags.length){
+							xattr.setSync(file, namespace, tags.join(' '));
+						}
+					}
+				}
+				return await this.scan_library()  //.then( () => {
+			}
+			catch(err){
+				debug('snapshot load error:', err);
+				return(err);
+			}
 		}
 	}
 
