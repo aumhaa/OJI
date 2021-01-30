@@ -13,7 +13,7 @@ aumhaa = require('_base');
 util = require('aumhaa_util');
 //util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -522,6 +522,8 @@ function setup_tests(){
   // });
   // FileTree.find_file('/Users/amounra/Music/Ableton/User Library/Presets/Audio Effects/Audio Effect Rack Test/@d_12 Instrument FX 043020.adg');
   // debug('tags:', fileInfo.active_tags);
+  // editor.unlock();
+
 }
 
 function setup_modes(){
@@ -1570,6 +1572,7 @@ FileTreeComponent.prototype.push_lists = function(){
 *  as well as all actions in the bottom section.
 */
 function FileTaggerComponent(name, args){
+  //deals with assigning tags to individual files or the contents of folders
   var self = this;
   this._tag_buffer = [];
   this.selection_mode_value = false;
@@ -1815,6 +1818,7 @@ FileTaggerComponent.prototype.chooser_double = function(index, shortname){
 *  as well as all actions in the bottom section.
 */
 function TagFilterComponent(name, args){
+  // provides visible files for selection in far right chooser based on selected tag(s)
   var self = this;
   // this._selected_tags = [];
   this.hash_list = {};
@@ -1823,6 +1827,7 @@ function TagFilterComponent(name, args){
   this.last_found_tags = [];
   this._selected_tags = new ArrayParameter(this._name + '_SelectedTags', {value:[]});
   this._tagList = new ArrayParameter(this._name + '_TagList', {value:[]});
+  this._textFilter = new ParameterClass(this._name + '_TextFilter', {value:''});
   this._filterMode = new TextToggleParameter(this._name + '_FilterMode', {
     value:true,
     onValue:6,
@@ -1852,7 +1857,8 @@ function TagFilterComponent(name, args){
     '_showAllTags',
     'last_found_tags',
     'found_tags',
-    'update_mira_filter_mode_button'
+    'update_mira_filter_mode_button',
+    'set_text_filter'
   ]);
   TagFilterComponent.super_.call(this, name, args);
   this._init.apply(this);
@@ -1878,6 +1884,11 @@ TagFilterComponent.prototype.__defineGetter__('filter_mode_value', function(){
 TagFilterComponent.prototype.__defineGetter__('show_all_value', function(){
   // debug('selected tags:', this._selected_tags);
   return this._showAllTags._value
+});
+
+TagFilterComponent.prototype.__defineGetter__('text_filter', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._textFilter._value
 });
 
 TagFilterComponent.prototype._init = function(args){
@@ -1959,17 +1970,23 @@ TagFilterComponent.prototype.display_filtered_files = function(){
     //OR//
     if(this.filter_mode_value){
       var entry = 0;
+      var text_filter = this.text_filter;
+      var text_regexp = new RegExp(text_filter, 'gi');
       for(var path in libraryObj){
         var file = libraryObj[path];
         var tags = [].concat(file.tags);
         var shortname = file.shortname;
         for(var j in tags){
           if(this.selected_tags.indexOf(tags[j])>-1){
-            this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
-            file_chooser.append(shortname);
             if(this.selected_tags.length>0){
               // messnamed('from_preset_tagger', 'files', 'append', shortname);
-              found_items.push(shortname);
+              // if((!text_filter)||(shortname.indexOf(text_filter)>-1
+              // debug('filter:', JSON.stringify(shortname.match(text_regexp)));
+              if((!text_filter)||(shortname.match(text_regexp))){
+                this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
+                file_chooser.append(shortname);
+                found_items.push(shortname);
+              }
             }
             entry += 1;
             break;
@@ -1979,6 +1996,8 @@ TagFilterComponent.prototype.display_filtered_files = function(){
     }
     //AND//
     else{
+      var text_filter = this.text_filter;
+      var text_regexp = new RegExp(text_filter, 'gi');
       for(var path in libraryObj){
         var file = libraryObj[path];
         var tags = [].concat(file.tags);
@@ -1991,11 +2010,15 @@ TagFilterComponent.prototype.display_filtered_files = function(){
           }
         }
         if(add){
-          this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
-          file_chooser.append(shortname);
           if(this.selected_tags.length>0){
             // messnamed('from_preset_tagger', 'files', 'append', shortname);
-            found_items.push(shortname);
+            // if((!text_filter)||(shortname.indexOf(text_filter)>-1)){
+            // debug('filter:', JSON.stringify(shortname.match(text_regexp)));
+            if((!text_filter)||(shortname.match(text_regexp))){
+              this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
+              file_chooser.append(shortname);
+              found_items.push(shortname);
+            }
           }
         }
       }
@@ -2009,6 +2032,8 @@ TagFilterComponent.prototype.display_filtered_files = function(){
   //NONE//
   else{
     var entry = 0;
+    var text_filter = this.text_filter;
+    var text_regexp = new RegExp(text_filter, 'gi');
     for(var path in libraryObj){
       var file = libraryObj[path];
       var tags = [].concat(file.tags).filter(util.isString);
@@ -2016,8 +2041,11 @@ TagFilterComponent.prototype.display_filtered_files = function(){
       //debug(shortname, tags.length, tags);
       if(tags.length==0){
         this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
-        file_chooser.append(shortname);
-        entry += 1;
+        // if((!text_filter)||(shortname.indexOf(text_filter)>-1)){
+        if((!text_filter)||(shortname.match(text_regexp))){
+          file_chooser.append(shortname);
+          entry += 1;
+        }
       }
     }
     //this needs to be moved to a generalized spot....we need a notifier as a switch, possibly?
@@ -2142,6 +2170,13 @@ TagFilterComponent.prototype.detect_found_tags = function(){
 TagFilterComponent.prototype.update_mira_filter_mode_button = function(){
   debug('sending_mira_filter_mode_button value:', this.filter_mode_value);
   messnamed('from_preset_tagger', 'and_or', 'set', this.filter_mode_value);
+}
+
+TagFilterComponent.prototype.set_text_filter = function(text){
+  debug(this._name+'set_text_filter', text);
+  text = text == 'bang' ? undefined : text.toString();
+  this._textFilter.receive(text);
+  this.display_filtered_files();
 }
 
 
