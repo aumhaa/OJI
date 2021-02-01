@@ -24,7 +24,7 @@ Debug = function(){
 	maxApi.post(args + '\n');
 }
 
-const DEBUG = true;
+const DEBUG = false;
 const debug = DEBUG&&Debug?Debug:function(){}
 
 const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
@@ -359,6 +359,7 @@ class PresetTagger {
 	}
 
 	scan_library_internal = async() => {
+		this.library_data = {};
 		if( (fs.existsSync(this.library_dir)) && (fs.lstatSync(this.library_dir).isDirectory()) ){
 			debug('this.library_dir is:', this.library_dir);
 			this.file_tree = {name:'root',
@@ -419,35 +420,6 @@ class PresetTagger {
 	}
 
 	/**restore a dict json to the current library*/
-	restore_snapshot = async(filename) => {
-		debug('restore_snapshot:', filename);
-		if((filename!=undefined)&&(fs.existsSync(filename))&&(fs.lstatSync(filename).isFile())){
-			let libObj = {};
-			try{
-				let snapshotData = fs.readFileSync(filename, 'utf8');
-				libObj = JSON.parse(snapshotData);
-				for(var item in libObj){
-					let file = item;
-					let tags = libObj[item].tags.join(' ').toString();
-					// debug('file:', file, 'tags:', tags);
-					if( (fs.existsSync(file)) && (fs.lstatSync(file).isFile()) ){
-						xattr.setSync(file, namespace, tags);
-					}
-				}
-				return await this.scan_library()  //.then( () => {
-				// 	maxApi.outlet('js', 'refresh_chooser');
-				// });
-				//return true;
-			}
-			catch(err){
-				debug('snapshot load error:', err);
-				return(err);
-			}
-			//maxApi.setDict(libraryDictId, libObj);
-			//libraryDict = maxApi.getDict(libraryDictId);
-		}
-	}
-
 	restore_snapshot = async(filename) => {
 		debug('restore_snapshot:', filename, typeof filename);
 		if((filename!=undefined)&&(fs.existsSync(filename))&&(fs.lstatSync(filename).isFile())){

@@ -969,7 +969,7 @@ function restore_snapshot(){
 function merge_snapshot(){
   var args = arrayfromargs(arguments);
   debug('merge_snapshot:', args);
-  NSProxy.asyncCall('merg_snapshot', args).then(function(res){
+  NSProxy.asyncCall('merge_snapshot', args).then(function(res){
     debug('merge_snapshot response:', res);
     library_updated();
   });
