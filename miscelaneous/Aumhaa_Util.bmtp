@@ -1,3 +1,7 @@
+; ------- Bome MIDI Translator: Signed Project File
+; ------- You can modify this file as you like, but that will invalidate
+; ------- the signature so that it cannot be opened in MT Player anymore.
+;
 [Preset.0]
 Name=New Preset
 Active=1
@@ -155,7 +159,34 @@ Name37=Capture
 Incoming37=KAM10000KSQ100020BB2BB
 Outgoing37=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x44"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options37=Actv01Stop00OutO00
-
+Name38=LoopLength1
+Incoming38=KAM10000KSQ1000415B03623635B
+Outgoing38=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x28"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options38=Actv01Stop00OutO00
+Name39=LoopLength2
+Incoming39=KAM10000KSQ1000415B03723735B
+Outgoing39=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x29"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options39=Actv01Stop00OutO00
+Name40=LoopLength4
+Incoming40=KAM10000KSQ1000415B03823835B
+Outgoing40=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x2A"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options40=Actv01Stop00OutO00
+Name41=LoopLength8
+Incoming41=KAM10000KSQ1000415B03923935B
+Outgoing41=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x2B"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options41=Actv01Stop00OutO00
+Name42=LoopLength16
+Incoming42=KAM10000KSQ1000415B03023035B
+Outgoing42=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x2C"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options42=Actv01Stop00OutO00
+Name43=FixClipGrid
+Incoming43=KAM10000KSQ1000415B0BD2BD35B
+Outgoing43=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x2D"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options43=Actv01Stop00OutO00
+Name44=FavoriteClip
+Incoming44=KAM10000KSQ1000415B0BF2BF35B
+Outgoing44=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x2E"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options44=Actv01Stop00OutO00
 [Project]
 Version=2
 Author=åååå
@@ -165,4 +196,7 @@ AuthorWWW=
 AuthorCopyright=
 DefaultInPorts=MIDA0000
 DefaultOutPorts=MIDA00010013Bome Virtual Port 1
-
+[Signatures]
+SigName-1=[Midi Translator Pro Internal]
+Signature-1=Bqu22EeTdEpF5+OArAI89uVcqg2/WvTOy0uKG+HXeEvu6WjdXSXx5TyoMI5EOqoV3AE1JmS5H2dKMqbNa4jf8sO4gISuxwuO9Pkv9mTtfXHaitYWjb/eZwI0jrDlWwXagim8EmOotC9OAjt3Xwm5VhjLA9+LN8cVl6UiRvBswWM=
+SignedBy-1=OJI Music LLC
