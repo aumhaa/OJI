@@ -132,6 +132,7 @@ class LoopSelectorComponent(Component, Messenger):
 	clip. It allows you to select the loop of the clip and a page
 	within it of a given Paginator object.
 	"""
+	play_selected_clip_button = ButtonControl(color="LoopSelector.Bank")
 	favorite_clip_color_button = ButtonControl(color="LoopSelector.Bank")
 	fix_grid_button = ButtonControl(color="LoopSelector.Bank")
 	loop_length_1_button = ButtonControl(color="LoopSelector.Bank")
@@ -141,9 +142,12 @@ class LoopSelectorComponent(Component, Messenger):
 	loop_length_16_button = ButtonControl(color="LoopSelector.Bank")
 	next_page_button = ButtonControl(color="LoopSelector.Bank")
 	prev_page_button = ButtonControl(color="LoopSelector.Bank")
+	shift_loop_right_keycommand_button = ButtonControl(color="LoopSelector.ShiftLoop")
+	shift_loop_left_keycommand_button = ButtonControl(color="LoopSelector.ShiftLoop")
 	shift_loop_right_button = ButtonControl(color="LoopSelector.ShiftLoop")
 	shift_loop_left_button = ButtonControl(color="LoopSelector.ShiftLoop")
 	latest_loop_button = ButtonControl(color="LoopSelector.LatestLoop")
+	latest_loop_keycommand_button = ButtonControl(color="LoopSelector.LatestLoop")
 	delete_button = ButtonControl()
 	select_button = ButtonControl()
 	loop_selector_matrix = control_matrix(PadControl, sensitivity_profile='loop', mode=PlayableControl.Mode.listenable)
@@ -573,6 +577,33 @@ class LoopSelectorComponent(Component, Messenger):
 		debug('pos_to_page:', pos)
 		return int(pos/self._page_length_in_beats)
 
+	@shift_loop_right_keycommand_button.pressed
+	def shift_loop_right_keycommand_button(self, button):
+		debug('shift_loop_right_keycommand_button.pressed')
+		clip = self._sequencer_clip
+		if liveobj_valid(clip):
+			# quant = self._page_length_in_beats
+			loop_length = clip.end_marker - clip.loop_start
+			loop_start = clip.loop_start + loop_length
+			loop_end = clip.end_marker + loop_length
+			set_loop(clip, loop_start, loop_end)
+			self._sequencer_clip.view.show_loop()
+			self._try_select_page(loop_start)
+			self._try_select_page(self.pos_to_page(clip.loop_start))
+
+	@shift_loop_left_keycommand_button.pressed
+	def shift_loop_left_keycommand_button(self, button):
+		debug('shift_loop_left_keycommand_button.pressed')
+		clip = self._sequencer_clip
+		if liveobj_valid(clip):
+			# quant = self._page_length_in_beats
+			loop_length = clip.end_marker - clip.loop_start
+			loop_start = max(0, clip.loop_start - loop_length)
+			loop_end = max(loop_length, clip.end_marker - loop_length)
+			set_loop(clip, loop_start, loop_end)
+			self._sequencer_clip.view.show_loop()
+			self._try_select_page(self.pos_to_page(clip.loop_start))
+
 	@shift_loop_right_button.pressed
 	def shift_loop_right_button(self, button):
 		debug('shift_loop_right_button.pressed')
@@ -613,6 +644,18 @@ class LoopSelectorComponent(Component, Messenger):
 			self._sequencer_clip.view.show_loop()
 			self._try_select_page(self.pos_to_page(clip.loop_start))
 
+	@latest_loop_keycommand_button.pressed
+	def latest_loop_keycommand_button(self, button):
+		debug('latest_loop_keycommand_button.pressed')
+		clip = self._sequencer_clip
+		if liveobj_valid(clip):
+			# debug('clip.loop_start:', clip.loop_start, 'loop_end', clip.loop_end, 'length', clip.length, 'end_time:', clip.end_time, 'start_marker:', clip.start_marker,  'start_time:', clip.start_time)
+			loop_length = 16
+			loop_end = clip.length
+			loop_start = max(0, loop_end - loop_length)
+			set_loop(clip, loop_start, loop_end)
+			self._sequencer_clip.view.show_loop()
+			self._try_select_page(self.pos_to_page(clip.loop_start))
 
 	@favorite_clip_color_button.pressed
 	def favorite_clip_color_button(self, button):
@@ -674,3 +717,13 @@ class LoopSelectorComponent(Component, Messenger):
 			set_loop(clip, loop_start, loop_end)
 			self._sequencer_clip.view.show_loop()
 			self._try_select_page(self.pos_to_page(clip.loop_start))
+
+	@play_selected_clip_button.pressed
+	def play_selected_clip_button(self, button):
+		debug('play_selected_clip_button.pressed')
+		clip_slot = self.song.view.highlighted_clip_slot
+		if liveobj_valid(clip_slot):
+			clip = clip_slot.clip
+			if liveobj_valid(clip):
+				debug('here')
+				clip.fire()

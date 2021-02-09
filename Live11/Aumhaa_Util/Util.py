@@ -276,11 +276,11 @@ class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
 	def _connect_parameters(self):
 		super(UtilDeviceParameterComponent, self)._connect_parameters()
 		parameters = self._parameter_provider.parameters[:16]
-		debug('parameters are:', parameters)
+		# debug('parameters are:', parameters)
 		for proxy, parameter_info in zip(self.parameter_proxies, parameters):
-			debug('here')
+			# debug('here')
 			parameter = parameter_info.parameter if parameter_info else None
-			debug('proxy:', proxy, 'parameter:', parameter)
+			# debug('proxy:', proxy, 'parameter:', parameter)
 			if proxy:
 				proxy.set_parameter(parameter)
 
@@ -493,6 +493,7 @@ class UtilMixerComponent(MonoMixerComponent):
 	util_arm_kill_button = ButtonControl()
 	util_mute_flip_button = ButtonControl()
 	util_select_first_armed_track_button = ButtonControl()
+	util_lower_all_track_volumes_button = ButtonControl()
 
 	def __init__(self, *a, **k):
 		super(UtilMixerComponent, self).__init__(*a, **k)
@@ -607,6 +608,22 @@ class UtilMixerComponent(MonoMixerComponent):
 			if liveobj_valid(t) and t.can_be_armed:
 				t.arm = False
 
+	def set_util_lower_all_track_volumes_button(self, button):
+		self.util_lower_all_track_volumes_button.set_control_element(button)
+
+	@util_lower_all_track_volumes_button.pressed
+	def util_lower_all_track_volumes_button(self, button):
+		self._on_util_lower_all_track_volumes_button_pressed(button)
+
+	def _on_util_lower_all_track_volumes_button_pressed(self, button):
+		self.lower_all_track_volumes()
+
+	def lower_all_track_volumes(self):
+		debug('lower_all_track_volumes')
+		for t in self.get_tracks():
+			if liveobj_valid(t) and t.has_audio_output:
+				t.mixer_device.volume.value = t.mixer_device.volume.value*.95
+
 
 class UtilSessionComponent(SessionComponent):
 
@@ -620,6 +637,7 @@ class UtilSessionComponent(SessionComponent):
 	util_select_playing_clipslot_button = ButtonControl()
 	util_stop_clip_button = ButtonControl()
 	util_new_scene_button = ButtonControl()
+	util_select_playing_on_single_armed_button = ButtonControl()
 
 
 	def __init__(self, *a, **k):
@@ -715,12 +733,24 @@ class UtilSessionComponent(SessionComponent):
 	def set_util_fire_next_on_single_armed_button(self, button):
 		self.util_fire_next_on_single_armed_button.set_control_element(button)
 
+
 	@util_fire_next_on_single_armed_button.pressed
 	def util_fire_next_on_single_armed_button(self, button):
 		self._on_util_fire_next_on_single_armed_button_pressed(button)
 
 	def _on_util_fire_next_on_single_armed_button_pressed(self, button):
 		self.fire_next_available_clip_slot_on_single_armed_track()
+
+
+	def set_util_select_playing_on_single_armed_button(self, button):
+		self.util_select_playing_on_single_armed_button.set_control_element(button)
+
+	@util_select_playing_on_single_armed_button.pressed
+	def util_select_playing_on_single_armed_button(self, button):
+		self._on_util_select_playing_on_single_armed_button_pressed(button)
+
+	def _on_util_select_playing_on_single_armed_button_pressed(self, button):
+		self.select_playing_clip_slot_on_single_armed_track()
 
 
 	def set_util_fire_next_on_all_armed_button(self, button):
@@ -886,6 +916,36 @@ class UtilSessionComponent(SessionComponent):
 				#self.song.view.highlighted_clip_slot = clip_slot
 			else:
 				self.fire_clip_slot_by_delta_with_explicit_track(d_value=1, track=track, available=True, create=False)
+
+	def select_playing_clip_slot_on_single_armed_track(self):
+		debug('select_playing_clip_slot_on_single_armed_track')
+
+		tracks = list(self.get_tracks())
+		armed_tracks = list(self.armed_tracks())
+		selected_track = self.song.view.selected_track
+		track =  None
+		if selected_track in armed_tracks:
+			debug('selected_track in armed_tracks')
+			track = selected_track
+		elif len(armed_tracks) > 0:
+			debug('len(armed_tracks)>0')
+			track = armed_tracks[0]
+		else:
+			debug('no armed tracks')
+			track = selected_track
+		if liveobj_valid(track):
+			last_clip = None
+			for clip_slot in track.clip_slots:
+				if clip_slot.has_clip:
+					if clip_slot.clip.is_playing:
+						last_clip = None
+						self.song.view.highlighted_clip_slot = clip_slot
+						break
+					else:
+						debug('adding last clip:', clip_slot.has_clip)
+						last_clip = clip_slot
+			if liveobj_valid(last_clip):
+				self.song.view.highlighted_clip_slot = last_clip
 
 
 	def set_util_select_playing_clipslot_button(self, button):
@@ -1409,14 +1469,15 @@ class Util(ControlSurface):
 			util_fire_next_absolute_button = self._button[24],
 			util_fire_prev_absolute_button = self._button[25],
 			util_fire_next_on_single_armed_button = self._button[26],
-			util_fire_next_on_all_armed_button = self._button[27])
+			util_fire_next_on_all_armed_button = self._button[27],
+			util_select_playing_on_single_armed_button = self._button2[50])
 
 		self._session.set_enabled(False)
 
 
 	def _setup_mixer_control(self):
 		self._mixer = UtilMixerComponent(name = 'Mixer', tracks_provider = self._session_ring, track_assigner = SimpleTrackAssigner(), auto_name = True, channel_strip_component_type = UtilChannelStripComponent)
-		self._mixer.layer = Layer(prehear_volume_control = self._dial, util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], arming_track_select_buttons = self._track_select_matrix)
+		self._mixer.layer = Layer(prehear_volume_control = self._dial, util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], arming_track_select_buttons = self._track_select_matrix, util_lower_all_track_volumes_button = self._button2[52])
 		self._mixer._selected_strip.layer = Layer(volume_control = self._fader, arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
 		self._mixer._assign_skin_colors()
 		self._mixer.set_enabled(False)
@@ -1559,7 +1620,11 @@ class Util(ControlSurface):
 														loop_length_8_button=self._button2[43],
 														loop_length_16_button=self._button2[44],
 														fix_grid_button=self._button2[45],
-														favorite_clip_color_button=self._button2[46])
+														favorite_clip_color_button=self._button2[46],
+														shift_loop_left_keycommand_button=self._button2[47],
+														shift_loop_right_keycommand_button=self._button2[48],
+														play_selected_clip_button=self._button2[49],
+														latest_loop_keycommand_button=self._button2[51])
 		self._audiolooper.set_enabled(False)
 
 	def _setup_main_modes(self):

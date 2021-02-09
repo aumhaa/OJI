@@ -187,6 +187,30 @@ Name44=FavoriteClip
 Incoming44=KAM10000KSQ1000415B0BF2BF35B
 Outgoing44=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x2E"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options44=Actv01Stop00OutO00
+Name45=ShiftLoopLeft
+Incoming45=KAM10000KSQ100040120BC2BC212
+Outgoing45=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x2F"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options45=Actv01Stop00OutO00
+Name46=ShiftLoopLeft
+Incoming46=KAM10000KSQ100040120BE2BE212
+Outgoing46=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x30"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options46=Actv01Stop00OutO00
+Name47=PlaySelectedClip
+Incoming47=KAM10000KSQ1000415B05025035B
+Outgoing47=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x31"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options47=Actv01Stop00OutO00
+Name48=SelectPlayingClipInArmedTrack
+Incoming48=KAM10000KSQ10004012043243212
+Outgoing48=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x32"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options48=Actv01Stop00OutO00
+Name49=LatestLoop
+Incoming49=KAM10000KSQ100040120DC2DC212
+Outgoing49=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x33"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options49=Actv01Stop00OutO00
+Name50=ReduceAllTrackVolumes
+Incoming50=KAM10000KSQ10004012051251212
+Outgoing50=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x34"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options50=Actv01Stop00OutO00
 [Project]
 Version=2
 Author=åååå
@@ -198,5 +222,5 @@ DefaultInPorts=MIDA0000
 DefaultOutPorts=MIDA00010013Bome Virtual Port 1
 [Signatures]
 SigName-1=[Midi Translator Pro Internal]
-Signature-1=Bqu22EeTdEpF5+OArAI89uVcqg2/WvTOy0uKG+HXeEvu6WjdXSXx5TyoMI5EOqoV3AE1JmS5H2dKMqbNa4jf8sO4gISuxwuO9Pkv9mTtfXHaitYWjb/eZwI0jrDlWwXagim8EmOotC9OAjt3Xwm5VhjLA9+LN8cVl6UiRvBswWM=
+Signature-1=VZCY+TElg5y75ZoCbHEujnxefknbKF/EhwfD9EdRKscUQj0x5V+dQFuPuWI4aLKyt/r3vK/RhoiGzl2bQCgvsxlKHu9SZpe3Pmmo4HogTatdtZNo1NRscufyPFXi6jZ8QTi4fOsdG+18G72NeiaAK0VVEbt8Cfx63hlPtM91RwE=
 SignedBy-1=OJI Music LLC
