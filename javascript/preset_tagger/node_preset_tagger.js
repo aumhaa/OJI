@@ -28,6 +28,7 @@ const DEBUG = false;
 const debug = DEBUG&&Debug?Debug:function(){}
 
 const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
+const LIVEAPP_PATH = '/Applications/Ableton Live 11 Suite.app';
 const namespace = 'com.aumhaa.Tag';
 const prefFile_prefix = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share");
 const prefFile_path = prefFile_prefix + '/com.aumhaa.preset_tagger_preferences.json';
@@ -613,7 +614,7 @@ class PresetTagger {
 	//open
 	open_preset = async(filepath) => {
 		// debug('open_preset', filepath);
-		return await open(filepath, {wait: true, app:'/Applications/Ableton Live 10 Suite.app'});
+		return await open(filepath, {wait: true, app:LIVEAPP_PATH});
 	}
 
 	//reveal
