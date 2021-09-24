@@ -74,8 +74,10 @@ var mod_finder;
 var Mod = ModComponent.bind(script);
 var ModProxy = ModProxyComponent.bind(script);
 
+// var BROWSERXSIZE = 796;
+// var BROWSERYSIZE = 360;
 var BROWSERXSIZE = 796;
-var BROWSERYSIZE = 360;
+var BROWSERYSIZE = 802;
 var BATCHXSIZE = 203;
 var BATCHYSIZE  = 550;
 var PREFSXSIZE = 100;
@@ -103,6 +105,7 @@ function init(){
   setup_targetchooser();
   setup_preview();
   setup_favorites();
+  setup_randomizer();
   setup_controls();
   setup_modes();
   setup_mainfx_button();
@@ -347,7 +350,7 @@ function setup_filetagger(){
   });
   script['toFileTagger'] = FileTagger.input;
   file_chooser.set_target(function(obj){
-    debug('file_chooser input:', obj, obj._value, obj._doublepressed);
+    debug('file_chooser input:', obj, obj._value, obj._doublepressed);100000
     if(obj._doublepressed){
       FileTagger.input.apply(FileTagger, ['chooser_double'].concat(obj._value));
     } else {
@@ -381,13 +384,18 @@ function setup_targetchooser(){
 }
 
 function setup_preview(){
-  this.previewPlayer = new PreviewPlayerComponent('PreviewPlayer', {waveform:waveform, bufferObj:bufferObj, playObj:playObj});
+  script.previewPlayer = new PreviewPlayerComponent('PreviewPlayer', {waveform:waveform, bufferObj:bufferObj, playObj:playObj});
   script.toPreviewPlayer = previewPlayer.input;
 }
 
 function setup_favorites(){
   script.faves = new FavoritesComponent('Favorites', {pattr:favorites_pattr});
   faves._favorites.add_listener(tag_chooser._refresh);
+}
+
+function setup_randomizer(){
+  script.randomizer = new RandomizerComponent('Randomizer', {tagFilter:'tagFilter', fileNameFilter:'fileNameFilter'});
+  script.toRandomizer = randomizer.input;
 }
 
 function setup_mod(){
@@ -428,7 +436,7 @@ function setup_nodescript(){
   script['NSProxy'] = new NodeScriptProxy('NSProxy', {obj:node_script,
                                                       cabled:false,
                                                       debug:NODE_DEBUG,
-                                                      debugTyes:['error']});
+                                                      debugTypes:['error']});
   script['asyncResolve'] = NSProxy.asyncResolve;
   script['nodeDump'] = NSProxy.nodeDump;
   script['toNSProxy'] = NSProxy.receive;
@@ -1020,10 +1028,10 @@ function show_tree_dict(){
 
 function FavoritesComponent(name, args){
   this._favorites = new ArrayParameter(this._name+'_Favorites', {value:[]});
-  this.add_bound_properties(this, [
-    '_favorites',
+  this.add_bound_properties(this, ['_favorites',
     'toggle_favorite'
   ]);
+  FavoritesComponent.super_.call(this, name, args);
   this._init.call(this);
 }
 
@@ -1054,6 +1062,33 @@ FavoritesComponent.prototype.toggle_favorite = function(tag){
   debug('faves are now:', favorites_pattr.getvalueof());
 }
 
+
+function RandomizerComponent(name, args){
+  var self = this;
+  this.add_bound_properties(this, ['input', 'select_random_preset']);
+  RandomizerComponent.super_.call(this, name, args);
+}
+
+util.inherits(RandomizerComponent, Bindable);
+
+RandomizerComponent.prototype.input = function(){
+  var args = arrayfromargs(arguments);
+  debug(this._name, 'input:', args);
+  if(args[0] in this){
+    this[args[0]].apply(this, args.slice(1));
+  }
+}
+
+RandomizerComponent.prototype.select_random_preset = function(){
+  debug('select_random_preset');
+  var hashlist = TagFilter.filtered_files;
+  var shortnames = Object.keys(hashlist);
+  var len = shortnames.length;
+  var randN = parseInt(Math.random()*len);
+  var path = hashlist[shortnames[randN]].file;
+  debug('file to open:', path);
+  NSProxy.asyncCall('open_preset', path);
+}
 
 
 function PreviewPlayerComponent(name, args){
@@ -1889,6 +1924,11 @@ TagFilterComponent.prototype.__defineGetter__('show_all_value', function(){
 TagFilterComponent.prototype.__defineGetter__('text_filter', function(){
   // debug('selected tags:', this._selected_tags);
   return this._textFilter._value
+});
+
+TagFilterComponent.prototype.__defineGetter__('filtered_files', function(){
+  // debug('filtered_files:', this._fil);
+  return this.filtered_hash_list;
 });
 
 TagFilterComponent.prototype._init = function(args){
@@ -2844,6 +2884,11 @@ SpecialCellBlockChooserComponent.prototype.set_active_tag_notifier = function(ob
 
 
 //Remote key functions//
+function Random(){
+  debug('Random');
+  randomizer.select_random_preset();
+}
+
 function Audition(){
   debug('Audition');
   previewPlayer.preview_current();
