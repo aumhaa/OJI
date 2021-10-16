@@ -1390,14 +1390,14 @@ class Util(ControlSurface):
 		self._on_device_changed.subject = self._device_provider
 
 
-	@listenable_property
-	def pipe(self):
-		return None
-
-
-	def _send(self, **a):
-		notify_pipe(a)
-
+	# @listenable_property
+	# def pipe(self):
+	# 	return None
+	#
+	#
+	# def _send(self, **a):
+	# 	notify_pipe(a)
+	#
 
 	def _initialize_script(self):
 		self._main_modes.set_enabled(True)
@@ -1410,6 +1410,10 @@ class Util(ControlSurface):
 		self._monobridge.name = 'MonoBridge'
 
 
+	def _handle(self):
+		return self
+
+
 	def _setup_controls(self):
 		def is_momentary(id):
 			return id > 34 and id not in (42,43,44,45,46,47,64,65,66,69)
@@ -1418,6 +1422,9 @@ class Util(ControlSurface):
 		optimized = True
 		resource = PrioritizedResource
 		color_map = COLOR_MAP
+		# self._modHandle = SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = True, msg_type = MIDI_NOTE_TYPE, channel = 15, identifier = 0, name = 'ModHandle', optimized_send_midi = optimized, resource_type = resource, skin = self._skin)
+		# self._modHandle.monomodular = self.monomodular
+
 		self._button = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary(UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = UTIL_BUTTONS[index], name = 'Button_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(128)]
 		self._button2 = [SpecialMonoButtonElement(color_map = color_map, script = self, monobridge = self._monobridge, is_momentary = is_momentary2(SECONDARY_CHANNEL_UTIL_BUTTONS[index]), msg_type = MIDI_NOTE_TYPE, channel = SECONDARY_CHANNEL, identifier = SECONDARY_CHANNEL_UTIL_BUTTONS[index], name = 'Button2_' + str(index), optimized_send_midi = optimized, resource_type = resource, skin = self._skin) for index in range(128)]
 
@@ -1601,6 +1608,10 @@ class Util(ControlSurface):
 		# 																	#key_buttons = self.elements.track_state_buttons))
 		self._device_provider.restart_mod()
 
+		# self._modHandle = ModControl(modscript = self, monomodular = self.monomodular, name = 'ModHandle')   #is_momentary = True, msg_type = MIDI_NOTE_TYPE, channel = 15, identifier = 0,
+
+		self._modHandle = SpecialModControl(modscript = self, monomodular = self.monomodular, name = 'ModHandle')   #is_momentary = True, msg_type = MIDI_NOTE_TYPE, channel = 15, identifier = 0,
+
 	def _setup_preset_tagger(self):
 		self._preset_tagger_selector = PresetTaggerSelectorComponent(self.modhandler)
 		self._preset_tagger_selector.layer = Layer(PT_button = self._button[45])
@@ -1666,22 +1677,18 @@ class Util(ControlSurface):
 		#return routing == 'Ext: All Ins' or routing == 'All Ins'
 		return False
 
-	def _do_send_midi(self, midi_event_bytes):
-		super(Util, self)._do_send_midi(midi_event_bytes)
-		bytes = list(midi_event_bytes)
-		self.notify_pipe('midi', *bytes)
-
-	def receive_note(self, num, val, chan=0):
-		# debug('receive_note', num, val)
-		self.receive_midi(tuple([144+chan, num, val]))
-
-	def receive_cc(self, num, val, chan=0):
-		# debug('receive_cc', num, val)
-		self.receive_midi(tuple([176+chan, num, val]))
-
-	def refresh_state(self, *a, **k):
-		super(Util, self).refresh_state(*a, **k)
-		self.modhandler.update()
+	# def _do_send_midi(self, midi_event_bytes):
+	# 	super(Util, self)._do_send_midi(midi_event_bytes)
+	# 	bytes = list(midi_event_bytes)
+	# 	self.notify_pipe('midi', *bytes)
+	#
+	# def receive_note(self, num, val, chan=0):
+	# 	debug('receive_note', num, val)
+	# 	self.receive_midi(tuple([144+chan, num, val]))
+	#
+	# def receive_cc(self, num, val, chan=0):
+	# 	# debug('receive_cc', num, val)
+	# 	self.receive_midi(tuple([176+chan, num, val]))
 
 	@listens('device')
 	def _on_device_changed(self):
@@ -1694,18 +1701,27 @@ class Util(ControlSurface):
 		else:
 			self._modswitcher.selected_mode = 'audiolooper'
 
+
+class SpecialModControl(ModControl):
+
+
+	def refresh_state(self, *a, **k):
+		# super(Util, self).refresh_state(*a, **k)
+		self.modscript.refresh_state(*a, **k)
+		self.modscript.modhandler.update()
+
 	def modhandler_select_mod_by_name(self, name):
-		if not self.modhandler is None:
-			self.modhandler.select_mod_by_name(name)
+		if not self.modscript.modhandler is None:
+			self.modscript.modhandler.select_mod_by_name(name)
 
 	def modhandler_set_lock(self, val):
-		if not self.modhandler is None:
-			self.modhandler.set_lock(val)
+		if not self.modscript.modhandler is None:
+			self.modscript.modhandler.set_lock(val)
 
 	def hotswap_enable(self, value):
 		browser = Live.Application.get_application().browser
 		if value:
-			device = self._device_provider.device
+			device = self.modscript._device_provider.device
 			if liveobj_valid(device):
 				browser.hotswap_target = device
 		else:
