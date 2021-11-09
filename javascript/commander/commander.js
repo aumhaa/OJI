@@ -33,8 +33,8 @@ var controls = {};
 var EXCLUDED = ['control', 'control_names', 'done'];
 var control_surface_type = jsarguments[1]||'None';
 
-var FORCELOAD = false;
-var DEBUG = false;
+var FORCELOAD = true;
+var DEBUG = true;
 var SHOW_DICTS = false;
 var VIEW_DEVICE = false;
 aumhaa.init(this);
@@ -83,6 +83,7 @@ function continue_init(){
 	setup_device_navigation();
 	setup_listeners();
 	setup_tests();
+	// control_surface.call_script_function('refresh_state');
 	control_surface.call('refresh_state');
 }
 
@@ -215,6 +216,7 @@ function setup_controls(){
 }
 
 function setup_session_ring(){
+	debug('setup_session_ring');
   var path = control_surface.path;
   var session_ring_callback = function(args){
 		if((args[0]=='offsets')&&(args[1]!='id')){
@@ -233,9 +235,10 @@ function setup_session_ring(){
 }
 
 function setup_mixer(){
+	debug('setup_mixer');
 	var path = control_surface.path;
 	var track_names_callback = function(args){
-			// debug('track_names_callback:', args.length, args);
+			debug('track_names_callback:', args.length, args);
 		 if((args[0]=='track_names')&&(args[1]!='id')){
 			 //outlet(0, 'track_names', args);
 			 // debug('track_names_callback2:', args.length, args);
@@ -249,11 +252,12 @@ function setup_mixer(){
 	if(track_names.id != 0){
 		track_names.property = 'track_names';
 		var names = track_names.get('track_names');
+		debug('names:', names);
 		for(var i=0;i<8;i++){
 			track_select_buttons[i].message('text', names[i] ? names[i] : '');
 		}
 	}
-	//debug('track_names:', track_names.id);
+	debug('track_names:', track_names.id);
 
 	var selected_strip_volume_callback = function(args){
 			// debug('cue_volume_callback:', args.length, args);
@@ -284,6 +288,7 @@ function setup_mixer(){
 }
 
 function setup_device_controls(){
+	debug('setup_device_controls');
 	var path = control_surface.path;
 
 	var device_name_callback = function(args){
@@ -353,6 +358,7 @@ function setup_device_controls(){
 }
 
 function setup_device_navigation(){
+	debug('setup_device_navigation');
 	var path = control_surface.path;
 	var device_names_callback = function(args){
 		if((args[0]=='item_names')&&(args[1]!='id')){
@@ -437,39 +443,40 @@ function init_m4l_component(){
 	control_surface = new LiveAPI(pipe_callback, 'control_surfaces');
 	var number_children = parseInt(finder.children[0]);
 	debug('control_surfaces length:', number_children);
-	for(var i=0;i<number_children;i++)
-	{
+	for(var i=0;i<number_children;i++){
 		debug('Checking control surface #:', i);
 		finder.goto('control_surfaces', i);
 		control_surface.goto('control_surfaces', i);
 		debug('looking for:', control_surface_type, 'type is:', finder.type);
-		if(finder.type == control_surface_type)
-		{
-			debug('found corresponding control surface:', finder.type)
-			var names = finder.call('get_control_names').filter(function(element){return EXCLUDED.indexOf(element)<0;}).slice(1);
-			//debug('names:', names);
-			for (var i in names)
-			{
-				// debug(i, 'name:', names[i]);
-				var name = names[i];
-				try
-				{
-					controls[names[i]] = 0;
+		if(finder.type == control_surface_type){
+			debug('here');
+			debug('modhandleID', parseInt(this.finder.call('get_control_by_name', 'ModHandle')[1]));
+			var modHandleId = parseInt(this.finder.call('get_control_by_name', 'ModHandle')[1]);
+			if(modHandleId!=0){
+				// this.finder.id = modHandleId;
+				control_surface.id = modHandleId;
+				debug('found corresponding control surface:', finder.type)
+				var names = finder.call('get_control_names').filter(function(element){return EXCLUDED.indexOf(element)<0;}).slice(1);
+				//debug('names:', names);
+				for (var i in names){
+					// debug(i, 'name:', names[i]);
+					var name = names[i];
+					try{
+						controls[names[i]] = 0;
+					}
+					catch(err){
+					}
 				}
-				catch(err)
-				{
-				}
+				// control_surface.id = finder.id;
+				control_surface.property = 'pipe';
+				debug('control_surface is:', control_surface.path);
+				deprivatize_script_functions(script);
+				outlet(0, 'path', finder.path);
+	      continue_init();
+				return;
 			}
-			control_surface.id = finder.id;
-			control_surface.property = 'pipe';
-			debug('control_surface is:', control_surface.path);
-			deprivatize_script_functions(script);
-			outlet(0, 'path', finder.path);
-      continue_init();
-			return;
 		}
 	}
-
 }
 
 function get_control_names(){
@@ -495,7 +502,7 @@ function _grab(name){
 	{
 		if(controls[name]==0)
 		{
-			var control = finder.call('get_control', name);
+			var control = control_surface.call('get_control', name);
 			debug('control is:', control);
 			var obj = new LiveAPI(make_callback(name), control);
 			obj.property = 'value';
@@ -547,9 +554,12 @@ function _send_value(){
 function _call_function(){
 	var args = arrayfromargs(arguments);
 	func = args[0] ? args[0] : undefined;
-	// debug('call_function:', func, 'args:', args);
+	debug('call_function:', func, 'args:', args);
 	try
 	{
+		//control_surface.call.apply(control_surface, args);
+		// args.shift('call_script_function');
+		// control_surface.call(call_script_function, args);
 		control_surface.call.apply(control_surface, args);
 	}
 	catch(err)

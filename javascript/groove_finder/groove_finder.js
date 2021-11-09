@@ -17,16 +17,23 @@ var intGrooveLibrary = {};
 var nodeScriptInitialized = false;
 var comparison_stats = [];
 var comparison_data = {};
+var clip_buffer = [];
+var NODE_DEBUG =  true;
 // var VIEW_DEVICEDICT = true;
 // this._grooveDict = new DictModule('grooveLibrary', {'dict_name':'GrooveLibrary',
 //		'obj':patcher.getnamed('GrooveLibrary'), 'VIEW_DEVICEDICT':VIEW_DEVICEDICT});
+
 
 function init() {
   debug('init', this._name);
   finder = new LiveAPI();
   setup_tasks();
   setup_patcher();
+  setup_viewer();
+  setup_clipfollower();
   setup_nodescript();
+  NODE_DEBUG&&node_debug.front();
+  initialize_nodescript();
 }
 
 function setup_tasks(){
@@ -37,49 +44,72 @@ function setup_patcher(){
 	util.find_patcher_objects(script, patcher, util.get_patcher_script_names(patcher));
 }
 
+function setup_viewer(){
+  script.viewer = new ViewerClass('Viewer', {obj:viewer});
+  viewer.initialize();
+}
+
+function setup_clipfollower(){
+  this._clipfollower = new ClipFollowerComponent();
+}
+
 function setup_nodescript(){
-  var running = nodescript.getattr('running');
-  debug('setup_nodescript, running:', running);
-  if(running>0){
-    nodescript.message('init_from_js');
-    //outlet(0, 'init_from_js');
+  // debug('setup_nodescript');
+  script['NSProxy'] = new NodeScriptProxy('NSProxy', {obj:nodescript,
+                                                      cabled:false,
+                                                      debug:NODE_DEBUG,
+                                                      debugTypes:['error']});
+  script['asyncResolve'] = NSProxy.asyncResolve;
+  script['nodeDump'] = NSProxy.nodeDump;
+  script['toNSProxy'] = NSProxy.receive;
+
+  var restart_task = new Task(initialize_nodescript, this);
+  var on_nodescript_terminated = function () {
+    debug('on_nodescript_terminated');
+    // restart_task.schedule(1000);
+    Alive = false;
+    nodeScriptInitialized = true;
+    // restart_button.hidden = 0;
+    // restart_button.message('text', 'RESTART');
   }
-  else{
-    //outlet(0, 'script', 'start');
-    nodescript.message('script', 'start');
-    tasks.addTask(check_running, {}, 20, true, 'check_running');
-  }
+
+  NSProxy.addTerminationCallback(on_nodescript_terminated);
 }
 
-
-
-
-function check_running(){
-  var running = nodescript.getattr('running');
-  if(running<1){
-    //debug('nodescript not running');
-    outlet(0, 'script', 'start');
-  }
+function initialize_nodescript(){
+  debug('initialize_nodescript');
+  NSProxy.initialize().then(function(res){
+    debug('SCRIPT', 'success', JSON.stringify(res));
+    NSProxy.asyncCall('init_from_js').then(function(path){
+      debug('returned from init_from_js', path);
+      node_script_initialized(path);
+    }).catch(function(err){
+      debug('NSProxy setup error:', err.message);
+      util.report_error(err);
+      if(err.message=='no library path'){
+        // select_library_button.message(1);
+        node_script_initialized();
+      };
+    });
+  }).catch(function(e){
+    util.report_error(e);
+  });
 }
 
-function nodescript_running(){
-  debug('nodescript_running');
-  tasks.removeTask(check_running, {}, 'check_running');
-  nodescript.message('init_from_js');
-}
-
-function node_script_initialized(){
-  debug('node_script_initialized');
+function node_script_initialized(res){
+  debug('node_script_initialized:', res);
   nodeScriptInitialized = true;
+  debug('NSProxy init finished');
+  util.deprivatize_script_functions(script);  /**this is needed for _grid, _key, etc mod funcs */
+  res&&activate();
 }
 
-function node_script_not_initialized(){
-  var args = arrayfromargs(arguments);
-  debug('node_script_not_initialized:', args, typeof args);
-
+function activate(){
+  debug('activate');
+  Alive = true;
+  // DEBUG&&setup_tests();
+  update_library();
 }
-
-
 
 
 function select_clip(){
@@ -93,18 +123,36 @@ function get_currently_selected_clip_contents() {
   debug('starting...');
   finder.goto('live_set view detail_clip');
   //debug('id is:', finder.id);
-  note_data = sort_note_array(array_from_get_notes(finder.call('get_notes', 0, 0, 32, 128)));
-  debug('note_data:', note_data);
+  clip_buffer = array_from_get_notes(finder.call('get_notes', 0, 0, 32, 128));
+  note_data = sort_note_array((clip_buffer));
+  // debug('note_data:', note_data);
+}
+
+//untested
+function set_currently_selected_clip_contents(new_contents){
+  finder.goto('live_set view detail_clip');
+  finder.call('set_notes');
+  finder.call('notes', new_contents.length);
+  for(var i in new_contents){
+    finder.call('note', new_contents[i]);
+  }
+  finder.call('done');
+}
+
+//unfinished
+function interpolate_clip_buffer_with_groove(clip_buffer, groove){
+  var new_buffer = [];
+  // var time_indexed_groove = groove.map
+
 }
 
 function display_seqbuf(){
-  seqbuf.message('clear');
+  viewer.clear_seq();
   for(var i in note_data){
     var note = note_data[i][0];
     var vel = note_data[i][1];
     if((vel>0)&&(note<64)){
-      note = Math.round(note*16);
-      seqbuf.message(note, 1);
+      viewer.draw_seq_note(note, vel);
     }
   }
 }
@@ -176,6 +224,7 @@ function compare_all() {
   // for(var i in comparison_stats){
   //   comparison_data[comparison_stats[i].name] = comparison_stats
   // }
+  populate_chooser();
 }
 
 function compare_grooves(clip_data, groove_data, name){
@@ -224,18 +273,97 @@ function chooser_single(index, item){
 }
 
 function display_agrbuf(comparison_obj){
-  agrbuf.message('clear');
   var note_data = comparison_obj.note_data;
+  viewer.clear_groove();
   for(var i in note_data){
     var note = note_data[i][0];
     var vel = note_data[i][1];
     if((vel>0)&&(note<64)){
-      note = Math.round(note*16);
-      agrbuf.message(note, 1);
+      viewer.draw_groove_note(note, vel);
     }
   }
 }
 
 var diff = function (a, b) { return Math.abs(a - b); }
+
+
+function ViewerClass(name, args){
+  var self = this;
+	this.add_bound_properties(this, [
+    '_obj'
+	]);
+	ViewerClass.super_.call(this, name, args);
+}
+
+util.inherits(ViewerClass, EventEmitter);
+
+ViewerClass.prototype.draw_seq_note = function(pos, vel){
+  x = (1000/16)*pos;
+  y = 0;
+  x2 = 5;
+  y2 = ((100/127)*vel);
+  this._obj.message('set_source_rgba', 1, 0, 0, 1);
+  this._obj.message('rectangle', x, y, x2, y2);
+  this._obj.message('fill');
+}
+
+ViewerClass.prototype.draw_groove_note = function(pos, vel){
+  x = (1000/16)*pos;
+  y = 100;
+  x2 = 5;
+  y2 = ((100/127)*vel)+100;
+  this._obj.message('set_source_rgba', 0, 0, 1, 1);
+  this._obj.message('rectangle', x, y, x2, y2);
+  this._obj.message('fill');
+}
+
+ViewerClass.prototype.initialize = function(){
+  this._obj.message('set_source_rgba', 1, 1, 1, 1);
+  this._obj.message('paint');
+  this._obj.message('set_source_rgba', 0, 0, 0, 1);
+  this._obj.message('identity_matrix');
+  this._obj.message('move_to', 0, 0);
+}
+
+ViewerClass.prototype.clear_seq = function(){
+  this._obj.message('set_source_rgba', 1, 1, 1, 1);
+  this._obj.message('rectangle', 0, 0, 1000, 100);
+  this._obj.message('fill');
+}
+
+ViewerClass.prototype.clear_groove = function(){
+  this._obj.message('set_source_rgba', 1, 1, 1, 1);
+  this._obj.message('rectangle', 0, 100, 1000, 100);
+  this._obj.message('fill');
+}
+
+
+function ClipFollowerComponent(name, args){
+  var self = this;
+	this.add_bound_properties(this, [
+    '_on_selected_track_changed'
+	]);
+  this._selected_track = new LiveAPI(this._on_selected_track_changed, 'live_set', 'view', 'selected_track');
+  this._selected_track.property = 'playing_slot_index';
+	ClipFollowerComponent.super_.call(this, name, args);
+}
+
+util.inherits(ClipFollowerComponent, EventEmitter);
+
+ClipFollowerComponent.prototype.init = function(){
+
+}
+
+ClipFollowerComponent.prototype._on_selected_track_changed = function(val){
+  debug('playing_slot_index is:', val);
+  select_clip();
+}
+
+ClipFollowerComponent.prototype._on_selected_clipslot_changed = function(){
+
+}
+
+
+
 
 forceload(this);

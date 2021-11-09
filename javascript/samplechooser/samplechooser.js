@@ -10,8 +10,8 @@ var uid = jsarguments[1];
 var unique = jsarguments[1];
 
 aumhaa = require('_base');
-var FORCELOAD = false;
-var DEBUG = false;
+var FORCELOAD = true;
+var DEBUG = true;
 var VIEW_DEVICEDICT = false;
 aumhaa.init(this);
 
@@ -26,7 +26,7 @@ var ModProxy = ModProxyComponent.bind(script);
 var this_device_id = 0;
 
 
-var INIT_GLOBAL = false;
+var INIT_GLOBAL = true;
 var aumhaaGlobal = new Global('aumhaaGlobal');
 
 if((!aumhaaGlobal.sampleChooser)||(INIT_GLOBAL)){
@@ -82,7 +82,7 @@ function init(){
 	setup_editor();
 	setup_components();
 	setup_parameter_controls();
-	setup_device();
+	// setup_device();
 	setup_modes();
 	setup_listeners();
 	setup_storage();
@@ -581,6 +581,7 @@ function _FaveDec(val){
 }
 
 function _Favorite(val){
+	debug('_Favorite:', val);
 	if(val){
 		layerChooser.toggle_favorite_status(layerChooser._value);
 	}
@@ -592,8 +593,7 @@ function _FaveSkip(val){
 }
 
 function update_background(){
-
-	background_panel.message('bgfillcolor', layerChooser.is_favorite(layerChooser._value) ? [.5, 0, 0] : [.4, .4, .4]);
+	background_panel&&background_panel.message('bgfillcolor', layerChooser.is_favorite(layerChooser._value) ? [.5, 0, 0] : [.4, .4, .4]);
 }
 
 
