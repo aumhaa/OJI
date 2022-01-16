@@ -131,7 +131,7 @@ def special_parameter_banks(device, device_dict = DEVICE_DICT):
 						except:
 							parameter_indices = []
 						if len(parameter_indices) != 32:
-							return [ None for i in range(0, 32) ]
+							return [ None for i in list(range(0, 32))]
 						else:
 							return [ (device.parameters[i] if i != -1 else None) for i in parameter_indices ]
 
@@ -218,10 +218,10 @@ class TwisterButtonElement(MonoButtonElement):
 
 
 	def send_value(self, value, force = False):
-		if (value != None) and isinstance(value, int) and (value in range(128)):
+		if (value != None) and isinstance(value, int) and (value in list(range(128))):
 			if (force or self._force_next_send or ((value != self._last_sent_value) and self._is_being_forwarded)):
 				data_byte1 = self._original_identifier
-				if value in range(1, 127):
+				if value in list(range(1, 127)):
 					data_byte2 = self._color_map[(value - 1) % (self._num_colors)]
 				elif value == 127:
 					data_byte2 = self._color_map[self._num_colors-1]
@@ -404,13 +404,13 @@ class Twister(LividControlSurface):
 		is_momentary = True
 		optimized = True
 		resource = PrioritizedResource
-		self._encoder = [CodecEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = TWISTER_DIALS[index], name = 'Encoder_' + str(index), num = TWISTER_DIALS[index], script = self, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(16)]
-		self._encoder_button = [TwisterButtonElement(is_momentary = is_momentary, msg_type = MIDI_CC_TYPE, channel = 1, identifier = TWISTER_DIAL_BUTTONS[index], name = 'Encoder_Button_' + str(index), script = self, skin = self._skin, color_map = COLOR_MAP, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(16)]
+		self._encoder = [CodecEncoderElement(msg_type = MIDI_CC_TYPE, channel = CHANNEL, identifier = TWISTER_DIALS[index], name = 'Encoder_' + str(index), num = TWISTER_DIALS[index], script = self, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in list(range(16))]
+		self._encoder_button = [TwisterButtonElement(is_momentary = is_momentary, msg_type = MIDI_CC_TYPE, channel = 1, identifier = TWISTER_DIAL_BUTTONS[index], name = 'Encoder_Button_' + str(index), script = self, skin = self._skin, color_map = COLOR_MAP, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in list(range(16))]
 
 		self._dial_matrix = ButtonMatrixElement(name = 'Dial_Matrix', rows = [self._encoder[index*4:(index*4)+4] for index in range(4)])
 		self._dial_button_matrix = ButtonMatrixElement(name = 'Dial_Button_Matrix', rows = [self._encoder_button[index*4:(index*4)+4] for index in range(4)])
 
-		self._side_button = [TwisterButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = 3, identifier = TWISTER_SIDE_BUTTONS[index], name = 'Side_Button_' + str(index), script = self, skin = self._skin, color_map = COLOR_MAP, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in range(3)]
+		self._side_button = [TwisterButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = 3, identifier = TWISTER_SIDE_BUTTONS[index], name = 'Side_Button_' + str(index), script = self, skin = self._skin, color_map = COLOR_MAP, optimized_send_midi = optimized, resource_type = resource, monobridge = self._monobridge) for index in list(range(3))]
 
 
 	def _setup_background(self):
@@ -452,9 +452,9 @@ class Twister(LividControlSurface):
 
 
 	def _setup_device_controls(self):
-		self._device = [None for index in range(2)]
+		self._device = [None for index in list(range(2))]
 
-		self._device[0] = TwisterDeviceComponent(self, index+1, device_bank_registry = DeviceBankRegistry())
+		self._device[0] = TwisterDeviceComponent(self, 1, device_bank_registry = DeviceBankRegistry())
 		self._device[0].name = 'TwisterDevice_Component_0'
 		self._device[0].layer = Layer(priority = 4,  parameter_controls = self._dial_matrix.submatrix[:, :2],
 											on_off_button = self._encoder_button[1],
@@ -463,7 +463,7 @@ class Twister(LividControlSurface):
 											)
 		self._device[0].set_enabled(False)
 
-		self._device[1] = TwisterDeviceComponent(self, index+1, device_bank_registry = DeviceBankRegistry())
+		self._device[1] = TwisterDeviceComponent(self, 2, device_bank_registry = DeviceBankRegistry())
 		self._device[1].name = 'TwisterDevice_Component_1'
 		self._device[1].layer = Layer(priority = 4, parameter_controls = self._dial_matrix.submatrix[:, 2:],
 											on_off_button = self._encoder_button[9],
