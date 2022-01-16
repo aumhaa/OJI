@@ -102,9 +102,9 @@ def special_parameter_bank_names(device, bank_name_dict = BANK_NAME_DICT):
 				else:
 					return _default_bank_name(bank_index)
 
-			return list(map(_bank_name, list(range(0, banks))))
+			return list(map(_bank_name, range(0, int(banks))))
 		else:
-			return list(map(_default_bank_name, list(range(0, banks))))
+			return list(map(_default_bank_name, range(0, int(banks))))
 	return []
 
 
@@ -135,7 +135,7 @@ def special_parameter_banks(device, device_dict = DEVICE_DICT):
 						else:
 							return [ (device.parameters[i] if i != -1 else None) for i in parameter_indices ]
 
-					return list(map(_bank_parameters, list(range(0, banks))))
+					return list(map(_bank_parameters, range(0, banks)))
 			return group(device_parameters_to_map(device), 16)
 	return []
 
