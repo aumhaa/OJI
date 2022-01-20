@@ -531,12 +531,13 @@ class Twister(LividControlSurface):
 										twister_encoder_button_grid = self._dial_button_matrix.submatrix[:,:],)
 										#twister_encoder_grid = self._dial_matrix.submatrix[:,:],)
 		self.modhandler.set_enabled(False)
+		self._modHandle = SpecialModControl(modscript = self, monomodular = self.monomodular, name = 'ModHandle')   #is_momentary = True, msg_type = MIDI_NOTE_TYPE, channel = 15, identifier = 0,
 
 
 	def _setup_modes(self):
 		self._modswitcher = ModesComponent(name = 'ModSwitcher')
 		self._modswitcher.add_mode('mod', [self.modhandler, self._device])
-		self._modswitcher.add_mode('device', [self._selected_device_modes, self._device[0]])  #, self._device[1], self._automation_component])
+		self._modswitcher.add_mode('device', [self._selected_device_modes]) #, self._device[0]])  #, self._device[1], self._automation_component])
 		#self._modswitcher.add_mode('special_device', [self._device, self._device.bank_layer])
 		self._modswitcher.selected_mode = 'device'
 		self._modswitcher.set_enabled(True)
@@ -631,6 +632,32 @@ class TwisterModHandler(ModHandler):
 		#debug('modhandler update:', mod)
 		if self.is_enabled() and not mod is None:
 			mod.restore()
+
+
+class SpecialModControl(ModControl):
+
+
+	def change_device_bank(self, value, m4l_device = None, *a, **k):
+		# debug('change_device_bank:', value, m4l_device)
+		# # debug('m4l_device is:', liveobj_valid(m4l_device), m4l_device.name if liveobj_valid(m4l_device) else 'None')
+		# device = self.modscript._device[0]
+		# # debug('device is:', liveobj_valid(device._get_device()), device.name if liveobj_valid(device._get_device()) else device._get_device())
+		# if device.is_enabled() and liveobj_valid(device._get_device()) and (m4l_device == device._get_device()):
+		# 	if value != device._bank_index:
+		# 		if device._number_of_parameter_banks() > value:
+		# 			device._bank_name = ''
+		# 			device._bank_index = value
+		# 			device.update()
+
+		device = self.modscript._special_device
+		# debug('special_device is:', liveobj_valid(device._get_device()), device._get_device().name if liveobj_valid(device._get_device) else device._get_device())
+		if device.is_enabled() and liveobj_valid(device._get_device()) and (m4l_device == device._get_device()):
+			# value = math.floor(value/2)
+			if value != device._bank_index:
+				if device._number_of_parameter_banks() > value:
+					device._bank_name = ''
+					device._bank_index = value
+					device.update()
 
 
 

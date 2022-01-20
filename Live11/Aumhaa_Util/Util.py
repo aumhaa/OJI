@@ -1727,6 +1727,13 @@ class SpecialModControl(ModControl):
 		else:
 			browser.hotswap_target = None
 
+	def change_device_bank(self, value, m4l_device = None, *a, **k):
+		device = self.modscript._parameter_provider
+		# debug('special_device is:', liveobj_valid(device.device()), device.device().name if liveobj_valid(device.device()) else device.device())
+		if device.is_enabled() and liveobj_valid(device.device()) and (m4l_device == device.device()):
+			if value != device._bank.index:
+				device._device_bank_registry.set_device_bank(device._bank._device, min(device._bank.bank_count(), max(0, value)))
+
 
 	def load_preset(self, target = None, folder = None, directory = 'defaultPresets'):
 		debug('load_preset()', 'target:', target, 'folder:', folder, 'directory:', directory)
