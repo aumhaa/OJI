@@ -33,8 +33,8 @@ var controls = {};
 var EXCLUDED = ['control', 'control_names', 'done'];
 var control_surface_type = jsarguments[1]||'None';
 
-var FORCELOAD = true;
-var DEBUG = true;
+var FORCELOAD = false;
+var DEBUG = false;
 var SHOW_DICTS = false;
 var VIEW_DEVICE = false;
 aumhaa.init(this);
@@ -200,7 +200,7 @@ function setup_controls(){
 			debug('callback closure:', index, args);
 			if((args[0]=='value')&&(args[1]!='bang')&&(args[1]>0)){
 				debug('loading....', index, main_preset_folder, sub_preset_folder);
-				finder.call('load_preset', index, sub_preset_folder, main_preset_folder);
+				control_surface.call('load_preset', index, sub_preset_folder, main_preset_folder);
 			}
 		}
 		return callback;
