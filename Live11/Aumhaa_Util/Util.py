@@ -284,6 +284,7 @@ class UtilDeviceParameterComponent(DisplayingDeviceParameterComponent):
 			if proxy:
 				proxy.set_parameter(parameter)
 
+
 class UtilDeviceComponent(DeviceComponent):
 
 	bank_up_button = ButtonControl()
@@ -1297,7 +1298,7 @@ class HotswapComponent(Component):
 		device = self.device_provider.device
 		browser = self._browser
 		selected_track_device = self.song.view.selected_track.view.selected_device
-		debug('selected_track.view.selected_device:', selected_device)
+		debug('selected_track.view.selected_device:', selected_track_device)
 		if not browser.hotswap_target == None:
 			browser.hotswap_target = None
 		elif liveobj_valid(self._selected_drum_pad):

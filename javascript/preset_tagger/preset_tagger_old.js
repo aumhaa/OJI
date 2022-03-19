@@ -11,14 +11,21 @@ var unique = jsarguments[1];
 
 aumhaa = require('_base');
 util = require('aumhaa_util');
+
+var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
+
 //util.inject(this, util);
-var FORCELOAD = true;
+var FORCELOAD = false;
 var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
-var EDITOR_OPEN = true;
+var EDITOR_OPEN = false;
 var BATCH_OPEN = false;
+var MOD_DEBUG = false;
+var EDITOR_FLOAT = false;
+var INITIAL_FILTER_MODE = true;
+
 aumhaa.init(this);
 var script = this;
 
@@ -56,9 +63,14 @@ var library_directory = undefined;
 var library_base = undefined;
 var libraryObj = {};
 var filetreeDict = new Dict('filetree');
+var snapshotDict = new Dict('snapshot');
+var filesDict = new Dict();
+var parentDict = new Dict();
 var nodeScriptInitialized = false;
-var suppress_rescan = false;
+var suppress_rescan = false;  //currently this is set in batch operations, but its not observed anywhere.
 var VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
+var QUICKTAB_NAMES = ['#bass', 'PD', 'LD', 'PL', 'SAMPLE', '-', '-', '-'];
+var SQLITE_DB_NAME = './testDB';
 
 var finder;
 var mod;
@@ -67,11 +79,18 @@ var mod_finder;
 var Mod = ModComponent.bind(script);
 var ModProxy = ModProxyComponent.bind(script);
 
+// var BROWSERXSIZE = 796;
+// var BROWSERYSIZE = 360;
 var BROWSERXSIZE = 796;
-var BROWSERYSIZE = 360;
+var BROWSERYSIZE = 802;
 var BATCHXSIZE = 203;
-var BATCHYSIZE  = 480;
+var BATCHYSIZE  = 550;
+var PREFSXSIZE = 100;
+var PREFSYSIZE  = 200;
+var SEARCHXSIZE = 500;
+var SEARCHYSIZE  = 80;
 var MULTITAG_DELAY = 250;
+var MAX_MIRA_DROPDOWN_LENGTH = 1000;
 
 function anything(){}
 
@@ -79,10 +98,13 @@ function init(){
   debug('init', this._name);
   finder = new LiveAPI();
   setup_tasks();
+  setup_sqlite();
   setup_library();
   setup_patcher();
   setup_browser();
   setup_batch_editor();
+  setup_preferences();
+  setup_search_window();
   setup_fileinfo();
   setup_filetree();
   setup_filetagger();
@@ -91,19 +113,30 @@ function init(){
   setup_filterchooser();
   setup_targetchooser();
   setup_preview();
+  setup_favorites();
+  setup_randomizer();
   setup_controls();
   setup_modes();
   setup_mainfx_button();
   setup_tagmode_button();
+  setup_audition_button();
+  // setup_quicktabs();
   setup_mod();
   setup_nodescript();
   NODE_DEBUG&&node_debug.front();
   //editor._floatToggle.receive(1);
   initialize_nodescript();
+  setup_tests();
 }
 
 function setup_tasks(){
 	script['tasks'] = new TaskServer(script, 20);
+}
+
+function setup_sqlite(){
+  sqlite = new SQLite;
+  sqliteResult = new SQLResult;
+  sqlite.open(SQLITE_DB_NAME, 1);
 }
 
 function setup_library(){
@@ -113,11 +146,15 @@ function setup_library(){
 function setup_patcher(){
   script.node_script = this.patcher.getnamed('node_script');
   script.browser_patcher = this.patcher.getnamed('browser');
+  script.prefs_patcher = this.patcher.getnamed('modPT_preferences');
+  script.batch_patcher = this.patcher.getnamed('batch_editor');
   script.current_selected_file = browser_patcher.subpatcher().getnamed('current_selected_file');
   script.selected_file_tags = browser_patcher.subpatcher().getnamed('selected_file_tags');
   script.tag_buffer_display = browser_patcher.subpatcher().getnamed('tag_buffer_display');
   script.libPath = this.patcher.getnamed('libPath');
   script.EditorButton = this.patcher.getnamed('Editor');
+  script.BatchButton = this.patcher.getnamed('BatchButton');
+  script.PrefsButton = this.patcher.getnamed('PrefsButton');
   script.ParentBackButton = browser_patcher.subpatcher().getnamed('parent_back_button');
   script.ChildrenBackButton = browser_patcher.subpatcher().getnamed('children_back_button');
   script.mira_gate = this.patcher.getnamed('mira_gate');
@@ -127,10 +164,16 @@ function setup_patcher(){
   script.preview_button = browser_patcher.subpatcher().getnamed('preview_button');
   script.bufferObj = this.patcher.getnamed('preview_buffer');
   script.playObj = this.patcher.getnamed('preview_play');
-  script.sfplayObj = this.patcher.getnamed('preview_sfplay');
   script.waveform = browser_patcher.subpatcher().getnamed('waveform');
-  script.BatchButton = this.patcher.getnamed('BatchButton');
-  script.batch_patcher = this.patcher.getnamed('batch_editor');
+  script.favorites_pattr = this.patcher.getnamed('favorites');
+  script.textFilter = browser_patcher.subpatcher().getnamed('textFilter');
+  script.search_window = this.patcher.getnamed('search_window');
+  script.quicktabs = [];
+  for(var i=0; i<8; i++){
+    quicktabs[i] = browser_patcher.subpatcher().getnamed('quicktab['+i+']');
+    quicktabs[i].message('text', QUICKTAB_NAMES[i]);
+  }
+
   restart_button.hidden = 0;
   restart_button.message('text', 'LOADING');
 
@@ -171,14 +214,20 @@ function setup_browser(){
   });
   script.toTagChooser = tag_chooser.input;
 
+  script.quicktab_controls = [];
+  for(var i in quicktabs){
+    quicktab_controls[i] = new SpecialGUITextButton(i,
+      {jsObj:quicktabs[i],
+        index:i,
+        onValue: [200, 0, 20],
+        offValue: [25, 25, 25],
+    });
+  };
+
   var obj = browser_patcher;
-	var pcontrol = this.patcher.getnamed('editor_pcontrol');
-	var thispatcher = obj.subpatcher().getnamed('thispatcher');
 	var window_position = obj.subpatcher().getnamed('window_position');
   script.editor = new FloatingWindowModule('Editor', {
     'window_position':window_position,
-    'thispatcher':thispatcher,
-    'pcontrol':pcontrol,
     'obj':obj,
     'sizeX':BROWSERXSIZE,
     'sizeY':BROWSERYSIZE,
@@ -187,7 +236,7 @@ function setup_browser(){
     'noclose':true,
     'nogrow':true,
     'notitle':false,
-    'float':false
+    'float':EDITOR_FLOAT
   });
   editor.lock();
   script.browserInput = function(){
@@ -218,13 +267,9 @@ function setup_batch_editor(){
   var search_filter_text = obj.subpatcher().getnamed('filefilter');
   var tag_buffer_text = obj.subpatcher().getnamed('tagbuffer');
   var recursive_toggle = obj.subpatcher().getnamed('batch_recursive_toggle');
-  var pcontrol = this.patcher.getnamed('batch_editor_pcontrol');
-  var thispatcher = obj.subpatcher().getnamed('thispatcher');
-  var window_position=  obj.subpatcher().getnamed('window_position');
+  var window_position = obj.subpatcher().getnamed('window_position');
   script.batchEditor = new FloatingWindowModule('BatchEditor', {
     'window_position':window_position,
-    'thispatcher':thispatcher,
-    'pcontrol':pcontrol,
     'obj':obj,
     'sizeX':BATCHXSIZE,
     'sizeY':BATCHYSIZE,
@@ -265,6 +310,75 @@ function setup_batch_editor(){
       FilenameFilter.input.apply(FilenameFilter, ['select_file'].concat(obj._value));
     }
   });
+}
+
+function setup_preferences(){
+  var obj = prefs_patcher;
+  var window_position =  obj.subpatcher().getnamed('window_position');
+  script.prefsWindow = new FloatingWindowModule('PrefsWindow', {
+    'window_position':window_position,
+    'obj':obj,
+    'sizeX':PREFSXSIZE,
+    'sizeY':PREFSYSIZE,
+    'nominimize':true,
+    'nozoom':false,
+    'noclose':true,
+    'nogrow':true,
+    'notitle':false,
+    'float':false
+  });
+  prefsWindow.lock();
+  // debug('prefsWindow.lock');
+  script['prefsInput'] = function(){
+    var args = arrayfromargs(arguments);
+    if(args[0]=='close'){
+      PrefsButton.message('set', 0);
+    }
+    try{
+      prefsWindow[args[0]].apply(prefsWindow, args.slice(1));
+    }
+    catch(err){
+      util.report_error(err);
+    }
+  }
+}
+
+function setup_search_window(){
+  var obj = search_window;
+  var window_position =  obj.subpatcher().getnamed('window_position');
+  var textedit = obj.subpatcher().getnamed('textedit');
+  script.searchWindow = new FloatingWindowModule('SearchWindow', {
+    'window_position':window_position,
+    'obj':obj,
+    'sizeX':SEARCHXSIZE,
+    'sizeY':SEARCHYSIZE,
+    'nominimize':true,
+    'nozoom':false,
+    'noclose':true,
+    'nogrow':true,
+    'notitle':true,
+    'float':true,
+    'textedit':textedit
+  });
+  searchWindow.lock();
+  // debug('searchWindow.lock');
+  script['searchWindowInput'] = function(){
+    var args = arrayfromargs(arguments);
+    if(args[0]=='texteditInput'){
+      debug('textedit_IN', args);
+      textFilter.message('set', args.slice(1));
+      textFilter.message('bang');
+      searchWindow.close();
+    }
+    else{
+      try{
+        searchWindow[args[0]].apply(prefsWindow, args.slice(1));
+      }
+      catch(err){
+        util.report_error(err);
+      }
+    }
+  }
 }
 
 function setup_fileinfo(){
@@ -308,7 +422,7 @@ function setup_filetagger(){
   });
   script['toFileTagger'] = FileTagger.input;
   file_chooser.set_target(function(obj){
-    debug('file_chooser input:', obj, obj._value, obj._doublepressed);
+    debug('file_chooser input:', obj, obj._value, obj._doublepressed);100000
     if(obj._doublepressed){
       FileTagger.input.apply(FileTagger, ['chooser_double'].concat(obj._value));
     } else {
@@ -342,8 +456,18 @@ function setup_targetchooser(){
 }
 
 function setup_preview(){
-  this.previewPlayer = new PreviewPlayerComponent('PreviewPlayer', {waveform:waveform, bufferObj:bufferObj, playObj:playObj, sfplayObj:sfplayObj});
+  script.previewPlayer = new PreviewPlayerComponent('PreviewPlayer', {waveform:waveform, bufferObj:bufferObj, playObj:playObj});
   script.toPreviewPlayer = previewPlayer.input;
+}
+
+function setup_favorites(){
+  script.faves = new FavoritesComponent('Favorites', {pattr:favorites_pattr});
+  faves._favorites.add_listener(tag_chooser._refresh);
+}
+
+function setup_randomizer(){
+  script.randomizer = new RandomizerComponent('Randomizer', {tagFilter:'tagFilter', fileNameFilter:'fileNameFilter'});
+  script.toRandomizer = randomizer.input;
 }
 
 function setup_mod(){
@@ -357,11 +481,13 @@ function setup_mod(){
   }
   mod = new ModProxy(script, ['Send', 'SendDirect', 'restart']);
   found_mod = new Mod(script, script._name, unique, false, {'name':'PT', 'init_callback':init_callback});
-	// found_mod.debug = debug;
+  if(MOD_DEBUG){
+    found_mod.debug = debug;
+  }
   var mod_callback = function(args){
   	if((args[0]=='value')&&(args[1]!='bang'))
   	{
-  		//debug('mod callback:', args);
+  		debug('mod callback:', args);
   		if(args[1] in script)
   		{
   			script[args[1]].apply(script, args.slice(2));
@@ -382,7 +508,7 @@ function setup_nodescript(){
   script['NSProxy'] = new NodeScriptProxy('NSProxy', {obj:node_script,
                                                       cabled:false,
                                                       debug:NODE_DEBUG,
-                                                      debugTyes:['error']});
+                                                      debugTypes:['error']});
   script['asyncResolve'] = NSProxy.asyncResolve;
   script['nodeDump'] = NSProxy.nodeDump;
   script['toNSProxy'] = NSProxy.receive;
@@ -476,6 +602,19 @@ function setup_tests(){
   // });
   // FileTree.find_file('/Users/amounra/Music/Ableton/User Library/Presets/Audio Effects/Audio Effect Rack Test/@d_12 Instrument FX 043020.adg');
   // debug('tags:', fileInfo.active_tags);
+  // editor.unlock();
+  // for(var i in quicktab_controls){
+  //   quicktab_controls[i].add_listener(function(obj){debug('quicktab:', obj._value)});
+  //
+  // }
+  // quicktab_radio.add_listener(function(obj){debug('radio:', obj._value)});
+  // searchWindow.open();
+  var res = sqlite.exec("SELECT * FROM filenames", sqliteResult);
+  debug('result is:', res);
+  var len = sqliteResult.numrecords();
+  // for(var i=0;i<len;i++){
+  //   debug('item is:', sqliteResult.value(2, i), sqliteResult.value(1, i));
+  // }
 }
 
 function setup_modes(){
@@ -663,7 +802,13 @@ function setup_tagmode_button(){
   });
 }
 
+function setup_audition_button(){
+  ShiftButton.add_listener(function(){Audition();});
+}
 
+function setup_quicktabs(){
+  script.quicktabs = new QuicktabComponent('Quicktabs', {radio_buttons_raw:quicktab_controls, QUICKTAB_NAMES:QUICKTAB_NAMES, tag_filter:TagFilter, tag_chooser:tag_chooser});
+}
 
 function initialize_nodescript(){
   NSProxy.initialize().then(function(res){
@@ -690,7 +835,7 @@ function node_script_initialized(libdir_from_nodescript){
   library_directory = libdir_from_nodescript;
   library_base = library_directory.split(basename(library_directory))[0];
   debug('NSProxy init finished');
-  // deprivatize_script_functions(script);
+  deprivatize_script_functions(script);  /**this is needed for _grid, _key, etc mod funcs */
   library_directory&&activate();
 }
 
@@ -712,6 +857,8 @@ function activate(){
 }
 
 
+
+/** These functions are called directly from Nodescript **/
 /** called from nodescript instance when it starts its update*/
 function on_file_changed(){
   if(!fileInfo._needs_to_update){
@@ -719,6 +866,15 @@ function on_file_changed(){
     // scan_library();
     refresh_libraryObj();
   }
+}
+
+/** Called from on_file_changed (only)...probably should be condensed. */
+function refresh_libraryObj(){
+  NSProxy.asyncCall('scan_library').then(function(res){
+    library_updated_light();
+  }).catch(function(e){
+    debug('scan_library error:', e.message);
+  })
 }
 
 /** this function recieves a request from node to
@@ -760,6 +916,7 @@ function library_updated(){
 }
 
 /** called from nodescript instance when it finishes its update*/
+//wazzup, we still need both these??  if so they want better names....
 function library_updated_light(){
   debug('library_updated_light triggered...');
   libraryObj = dict_to_jsobj(libraryDict);
@@ -776,6 +933,8 @@ function library_updated_light(){
 
 
 
+/** These function are called directly from Commander **/
+/** inter-maxpat message from top pane of commander device */
 function from_commander(){
   var args = arrayfromargs(arguments);
   debug('from_commander:', args);
@@ -818,7 +977,7 @@ function from_commander(){
         FileTagger.set_selection_mode(args[1]);
         break;
       case 'update_remote_display':
-        debug('sending command....');
+        // debug('sending command....');
         update_remote_display();
         break;
       // case 'Next':
@@ -834,14 +993,17 @@ function from_commander(){
   }
 }
 
+/** called on commander load?  */
 function update_remote_display(){
-  // debug()
-  FileTree.refresh();
+  FileTree.refresh_mira();
   // refresh_tagchooser();
   TagFilter.redraw_tagchooser();
   messnamed('from_preset_tagger', 'and_or', 'set', TagFilter.filter_mode_value);
 }
 
+
+
+//convenience functions from patcher
 function unlock_editor(){
   editor.unlock();
 }
@@ -861,20 +1023,21 @@ function scan_library(){
   })
 }
 
-function refresh_libraryObj(){
-  NSProxy.asyncCall('scan_library').then(function(res){
-    library_updated_light();
-  }).catch(function(e){
-    debug('scan_library error:', e.message);
-  })
-}
-
 //FileTreeComponent
 function set_library(){
   var args = arrayfromargs(arguments);
   debug('set_library:', args);
   NSProxy.asyncCall('set_library', args).then(function(res){
     debug('SET_LIBRARY response:', res);
+    library_directory = res;
+    library_base = library_directory.split(basename(library_directory))[0];
+    //clear the selected file
+    fileInfo.clear_selected_file();
+    //reset the filetree to the root folder
+    FileTree.current_parent_node = undefined;
+    FileTree.current_child_node = undefined;
+    FileTree.init_nodes();
+    FileTree.select_folder(library_directory);
     if(!Alive){
       activate();
     }
@@ -897,6 +1060,34 @@ function restore_snapshot(){
 }
 
 //FileTreeComponent
+function merge_snapshot(){
+  var args = arrayfromargs(arguments);
+  debug('merge_snapshot:', args);
+  NSProxy.asyncCall('merge_snapshot', args).then(function(res){
+    debug('merge_snapshot response:', res);
+    library_updated();
+  });
+}
+
+//FileTreeComponent
+function save_snapshot(){
+  var args = arrayfromargs(arguments);
+  debug('save_snapshot:', args);
+  var snapshotData = {};
+  //var snapshotData = JSON.parse(JSON.stringify(libraryObj
+  // var libraryObj = JSON.stringify(libraryObj);
+  for(var i in libraryObj){
+    //debug('entry:', i, JSON.stringify(libraryObj[i]));
+    if((libraryObj[i].tags)&&(libraryObj[i].tags.length)){
+      var name = i.replace(library_directory, '');
+      snapshotData[name] = libraryObj[i];
+    }
+  }
+  snapshotDict.parse(JSON.stringify({library_directory:library_directory, data:snapshotData}));
+  this.patcher.getnamed('snapshotDict').message('export', args);
+}
+
+//FileTreeComponent
 function set_global_path(){
   // debug('set_global_path');
   NSProxy.asyncCall('set_global_path').then(function(res){
@@ -906,16 +1097,84 @@ function set_global_path(){
   });
 }
 
+
+//SHOW_LIB_DICT turns this on
 function show_lib_dict(){
   SHOW_LIB_DICT&& this.patcher.getnamed('library').message('wclose');
   SHOW_LIB_DICT&& this.patcher.getnamed('library').message('edit');
 }
 
+//SHOW_TREE_DICT turns this on
 function show_tree_dict(){
   SHOW_TREE_DICT&&this.patcher.getnamed('filetree').message('wclose');
   SHOW_TREE_DICT&&this.patcher.getnamed('filetree').message('edit');
 }
 
+
+
+function FavoritesComponent(name, args){
+  this._favorites = new ArrayParameter(this._name+'_Favorites', {value:[]});
+  this.add_bound_properties(this, ['_favorites',
+    'toggle_favorite'
+  ]);
+  FavoritesComponent.super_.call(this, name, args);
+  this._init.call(this);
+}
+
+util.inherits(FavoritesComponent, Bindable);
+
+FavoritesComponent.prototype._init = function(){
+  var favorites = [].concat(favorites_pattr.getvalueof());
+  this._favorites._value = favorites;
+  debug('faves value is:', this.favorites);
+}
+
+FavoritesComponent.prototype.__defineGetter__('favorites', function(){
+  return this._favorites._value;
+})
+
+FavoritesComponent.prototype.toggle_favorite = function(tag){
+  debug('toggle_favorite', tag);
+  var current_favorites = this.favorites;
+  var index = current_favorites.indexOf(tag);
+  if(index>-1){
+    current_favorites.splice(index, 1)
+  }
+  else{
+    current_favorites.push(tag);
+  }
+  this._favorites.receive(current_favorites);
+  favorites_pattr.message(current_favorites);
+  debug('faves are now:', favorites_pattr.getvalueof());
+}
+
+
+function RandomizerComponent(name, args){
+  var self = this;
+  this.add_bound_properties(this, ['input', 'select_random_preset']);
+  RandomizerComponent.super_.call(this, name, args);
+}
+
+util.inherits(RandomizerComponent, Bindable);
+
+RandomizerComponent.prototype.input = function(){
+  var args = arrayfromargs(arguments);
+  debug(this._name, 'input:', args);
+  if(args[0] in this){
+    this[args[0]].apply(this, args.slice(1));
+  }
+}
+
+RandomizerComponent.prototype.select_random_preset = function(){
+  debug('select_random_preset');
+  var hashlist = TagFilter.filtered_files;
+  var shortnames = Object.keys(hashlist);
+  var len = shortnames.length;
+  var randN = parseInt(Math.random()*len);
+  var path = hashlist[shortnames[randN]].file;
+  debug('file to open:', path);
+  NSProxy.asyncCall('open_preset', path);
+}
 
 
 function PreviewPlayerComponent(name, args){
@@ -945,6 +1204,10 @@ PreviewPlayerComponent.prototype.input = function(){
   }
 }
 
+PreviewPlayerComponent.prototype.preview_current = function(){
+  this._preview(fileInfo._filepath);
+}
+
 PreviewPlayerComponent.prototype.preview = function(filename){
   this._togglePreview._Callback({_value:1});
   if(this._togglePreview._value){
@@ -964,12 +1227,13 @@ PreviewPlayerComponent.prototype.preview = function(filename){
 
 PreviewPlayerComponent.prototype._preview = function(obj){
   var file = fileInfo.selected_file;
-  // debug('preview', obj._value);
+  debug('preview', obj._value);
   var f = new File(file, 'read');
   var type = f.filetype;
   f.close()
   if((type=='AIFF')||(type=='WAVE')){
     this._bufferObj.message('sizeinsamps', 20000);
+    this._bufferObj.message('')
     this._bufferObj.message('read', file);
     //this._bufferObj.message('open');
     // this._sfplayObj.message('open', file);
@@ -988,12 +1252,16 @@ function FileInfoComponent(name, args){
   this._needs_to_update = false;
   this._obj = undefined;
   this._flush_task = new Task(this._flush_changed_tags, this);
+  this._in_update = false;
   this.fileAccessButton = new MomentaryParameter(this._name + '_FileAccess', {value:0, onValue:5, offValue:1});
   this.add_bound_properties(this, ['_flush_changed_tags',
     'buffer_tags',
     '_flush_task',
     '_needs_to_update',
-    'fileAccessButton'
+    'fileAccessButton',
+    '_in_update',
+    'report_update',
+    'clear_selected_files'
   ]);
   FileInfoComponent.super_.call(this, name, args);
 }
@@ -1034,9 +1302,17 @@ FileInfoComponent.prototype._flush_changed_tags = function(){
 
 FileInfoComponent.prototype.select_file = function(filepath){
   this._needs_to_update&&this._flush_changed_tags();
-  this._filepath.set_value(filepath);
-  // this._active_tags.set_value(filepath in libraryObj ? libraryObj[filepath].tags : []);
-  this.update();
+  if(!this._in_update){
+    if(filepath!=this.selected_file){
+      debug('_filepath.set_value:', filepath, this.selected_file);
+      this._filepath.set_value(filepath);
+      // this._active_tags.set_value(filepath in libraryObj ? libraryObj[filepath].tags : []);
+      this.update();
+    }
+  }
+  else{
+    this._filepath._value = filepath;
+  }
 }
 
 FileInfoComponent.prototype.update = function(){
@@ -1049,24 +1325,35 @@ FileInfoComponent.prototype.update = function(){
 }
 
 FileInfoComponent.prototype.refresh = function(){
-  var tags = this.active_tags;
-  var path = this.selected_file;
-  selected_file_tags.message('set', tags ? tags : '');
-  current_selected_file.message('set', path ? '...'+path.slice(-58) : '');
+  if(!this._in_update){
+    var tags = this.active_tags;
+    var path = this.selected_file;
+    selected_file_tags.message('set', tags ? tags : '');
+    current_selected_file.message('set', path ? '...'+path.slice(-58) : '');
+  }
 }
 
 FileInfoComponent.prototype.report_update = function(val){
-  if(val){
-    // debug('report_update true');
+  this._in_update = val;
+  if(this._in_update){
+    debug('report_update true');
     current_selected_file.message('bgfillcolor', 1, 0, 0, 1);
     current_selected_file.message('set', 'ACCESSING FILES...');
     this.fileAccessButton.set_value(1);
   }
   else{
-    // debug('report_update false');
+    debug('report_update false');
     current_selected_file.message('bgfillcolor', .2, .5, 1, 1);
     this.fileAccessButton.set_value(0);
+    // this._filepath.notify();  //this was causing a double _preview.  Not sure what ill effects removing it will have.
+    this.refresh();
   }
+}
+
+FileInfoComponent.prototype.clear_selected_file = function(){
+  this._filepath._value = undefined;
+  this._shortname._value = undefined;
+  this._active_tags._value = [];
 }
 
 
@@ -1077,68 +1364,43 @@ FileInfoComponent.prototype.report_update = function(val){
 function FileTreeComponent(name, args){
   var self = this;
 	this.add_bound_properties(this, [
-    'init_parent_node',
     'input',
     'select_parent',
+    'open_parent',
     'select_child',
     'open_child',
     '_parentChooser',
     '_filesChooser',
-    '_treeobj',
     'current_parent_node',
     'current_child_node',
     '_dict',
-    '_treeobj',
-    'empty_child_node',
     'parent_list',
     'child_list',
-    'selected_parent_path',
-    'selected_child_path',
-    'Defer',
     'miraDefer',
     'find_file',
+    'find_folder',
     '_miraParentChooser',
     '_miraFilesChooser',
     '_always_select_first_item',
-    'update_libraryObj',
-    'scan_library',
-    'scan_folder',
-    '_browser_tree',
-    'create_primary_node',
-    'create_secondary_node',
-    'refresh_browser_pane',
     '_current_root',
-    'new_parent_list',
-    'new_child_list',
-    'new_select_parent',
-    'new_select_child',
-    'current_parent_path',
-    'current_child_path',
+    '_current_folder',
+    'refresh',
     'refresh_editor',
-    'refresh_mira'
+    'refresh_mira',
+    'selection_list_from_path',
+    'push_lists',
+    'find_folder',
+    'find_file',
+    'init_nodes'
   ]);
   this._current_root = new MomentaryParameter(this._name+'_CurrentRoot', {value:undefined});
+  this._current_folder = new MomentaryParameter(this._name+'_CurrentRoot', {value:undefined});
 	FileTreeComponent.super_.call(this, name, args);
-  // this._treeobj = util.dict_to_jsobj(this._dict);
-  this._treeobj = {name:'root',
-    root:undefined,
-    root_path:undefined,
-    parents:[],
-    parent: undefined,
-    children:{}
-  };
   this.current_parent_node = this._treeobj;
   this.current_child_node = undefined;
-  this.current_parent_path = undefined;
-  this.current_child_path = undefined;
-  this._browser_tree = {};
   this.parent_list = [];
   this.child_list = [];
-  this.new_parent_list = [];
-  this.new_child_list = [];
   this._always_select_first_item = true;
-  // this.selected_parent_path = undefined;
-  // this.selected_child_path = undefined;
   this._init();
 }
 
@@ -1148,10 +1410,12 @@ FileTreeComponent.prototype.__defineGetter__('current_root', function(){
   return this._current_root._value
 })
 
+FileTreeComponent.prototype.__defineGetter__('current_folder', function(){
+  return this._current_folder._value
+})
+
 FileTreeComponent.prototype._init = function(args){
-  debug('FileTreeComponent._init', this.current_parent_node);
-  // this.init_parent_node();
-  this._current_root.add_listener(this.refresh_browser_pane);
+  debug('FileTreeComponent._init', this.current_parent_path);
 }
 
 FileTreeComponent.prototype.input = function(){
@@ -1166,313 +1430,131 @@ FileTreeComponent.prototype.input = function(){
   }
 }
 
-FileTreeComponent.prototype.init_parent_node = function(){
-  //used to make sure that when refreshing, some undefined vars don't cause exception in this.refresh
-  if((!this.current_parent_node)||(!this._treeobj.name)){
-    // debug('FileTree.init_parent_node', !this.current_parent_node, this._treeobj.name);
-    this.current_parent_node = this._treeobj.children[Object.keys(this._treeobj.children)];
-  }
-  this.init_parent_path();
-}
-
-FileTreeComponent.prototype.init_parent_path = function(){
-  if((!this.current_parent_path)||(!this._browser_tree.name)){
-    this.create_primary_node(library_directory);
-    this.current_parent_path = this._browser_tree.children[Object.keys(this._browser_tree.children)];
+FileTreeComponent.prototype.init_nodes = function(){
+  if(library_directory){
+    debug('init_nodes select_root', library_directory);
+    this.select_root(library_directory);
+    this.refresh_editor();
+    this.refresh_mira();
   }
 }
 
 FileTreeComponent.prototype.update_files = function(){
   debug('FileTree.update_files');
-  // this._treeobj = util.dict_to_jsobj(this._dict);
-  this.scan_library();
-  // this.update_libraryObj(this._treeobj);
-
-  this.refresh_parent_node();
-  this.init_parent_node();
-
-  this._current_root._value = library_directory;
-  this.create_primary_node(library_directory);
-  this.refresh_parent_path();
-  this.init_parent_path();
-
-  this.find_file(fileInfo.selected_file);
-
-  this._dict.parse(JSON.stringify(this._browser_tree));
+  if(fileInfo.selected_file){
+    this.find_file(fileInfo.selected_file);
+  }
+  else if(this.current_parent_node){
+    this.find_folder(this.current_parent_node.path);
+  }
+  else{
+    this.init_nodes();
+  }
 }
 
 FileTreeComponent.prototype.update_file = function(file_name){
-  // debug('FileTree.update_file:', file_name);
-  // libraryObj[file_name] = util.dict_to_jsobj(libraryDict.get(file_name));
-  // debug('new obj:', JSON.stringify(libraryObj[file_name]));
+  debug('FileTree.update_file:', file_name);
   if(fileInfo.selected_file==file_name){
-    debug('need to refresh fileInfo.selected_file...');
+    this.find_file(file_name);
   }
-}
-
-FileTreeComponent.prototype.update_libraryObj = function(node){
-  for(var i in node.children){
-    var child_node = node.children[i];
-    if(child_node.type=='file'){
-      libraryObj[child_node.path] = {tags:[].concat(child_node.tags), shortname:child_node.name};
-    }
-    this.update_libraryObj(child_node);
-  }
-}
-
-FileTreeComponent.prototype.refresh_browser_pane = function(obj){
-  debug('current root is now:', this.current_root);
-  this.create_primary_node(this.current_root);
-  this._dict.parse(JSON.stringify(this._browser_tree));
-  show_lib_dict();
-
-  this.new_parent_list = [];
-  for(var i in this._browser_tree.children){
-    this.new_parent_list.push(this._browser_tree.children[i]);
-  }
-  // debug('new_parent_list:', JSON.stringify(this.new_parent_list));
-  if(this.current_root != library_directory){
-    this.new_parent_list.push({name:'<==back', type:'back_command', parents:[this.current_root]});
-  }
-  var selected_index = 0;
-  if(this.current_parent_path){
-    var parent_name = this.current_parent_path.name;
-    selected_index = this.new_parent_list.reduce(function(acc, obj, index){
-      return acc + Math.floor(obj.name == parent_name)*index
-    }, 0);
-    debug('parent_path is:', this.current_parent_path.name, 'parent path index is:', selected_index);
-  }
-  this.new_child_list = [];
-  if(selected_index>-1){
-    var selected_child_path = this.new_parent_list[selected_index];
-    for(var i in selected_child_path.children){
-      this.new_child_list.push(selected_child_path.children[i]);
-    }
-  }
-  this.refresh_editor();
 }
 
 FileTreeComponent.prototype.refresh_editor = function(){
-  ParentBackButton.message('active', this.current_root == library_directory);
+  ParentBackButton.message('active', this.current_root != library_directory);
   this._parentChooser.clear();
-  for(var i in this.new_parent_list){
-    this._parentChooser.append(this.new_parent_list[i].name);
+  for(var i in this.parent_list){
+    this._parentChooser.append(this.parent_list[i].name);
   }
-  var selected_index = indexOfNodePath(this.new_parent_list, this.current_parent_path);
-  if(selected_index>-1){
-    this._parentChooser.set(selected_index);
-  }
-  var current_dir = this.current_parent_path ? this.current_parent_path : {name:'none', children:[], type:'root'};
-  debug('FileTree.refresh_editor() child_node:', current_dir.name);
+  var selected_index = indexOfNodePath(this.parent_list, this.current_parent_node);
+  this._parentChooser.set(selected_index > -1 ? selected_index : undefined);
+
   this._filesChooser.clear();
-  if(current_dir.path != library_directory){
-    for(var i in this.new_child_list){
-      this._filesChooser.append(this.new_child_list[i].name);
-    }
-    var selected_index = indexOfNodePath(this.new_child_list, this.current_child_path);
-    selected_index = selected_index >-1 ? selected_index : undefined;
-    if(selected_index>-1){
-      this._filesChooser.set(selected_index);
-    }
-    else{
-      this._filesChooser.set();
-    }
+  for(var i in this.child_list){
+    this._filesChooser.append(this.child_list[i].name);
   }
-  mira_gate.message(1);
+  var selected_index = indexOfNodePath(this.child_list, this.current_child_node);
+  this._filesChooser.set(selected_index > -1 ? selected_index : undefined);
 }
 
 FileTreeComponent.prototype.refresh_mira = function(){
   mira_gate.message(0);
-  messnamed('from_preset_tagger', 'back', 'active', this.current_root = library_directory);
+  messnamed('from_preset_tagger', 'back', 'active', this.current_root != library_directory);
   messnamed('from_preset_tagger', 'parent', 'clear');
-  for(var i in this.new_parent_list){
-    messnamed('from_preset_tagger', 'parent', 'append', this.new_parent_list[i].name);
-  }
-  var selected_index = indexOfNodePath(this.new_parent_list, this.current_parent_path);
-  if(selected_index>-1){
-    // this._miraDefer.message('parent', 'set', selected_index);
-    messnamed('from_preset_tagger_deferred', 'parent', 'set', selected_index);
-  }
-  if(!TagFilter.selected_tags.length>0){
-    messnamed('from_preset_tagger', 'files', 'clear');
-  }
-  var current_dir = this.current_parent_node ? this.current_parent_node : {name:'none', children:[], type:'root'};
-  if(current_dir.path != library_directory){
-    for(var i in this.new_child_list){
-      if(!TagFilter.selected_tags.length>0){
-        messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
-      }
-    }
-    var selected_index = indexOfNodePath(this.new_child_list, this.current_child_path);
-    selected_index  = selected_index >-1 ? selected_index : undefined;
-    if(selected_index>-1){
-      // this._miraDefer.message('files', 'set', selected_index);
-      if(!TagFilter.selected_tags.length>0){
-        messnamed('from_preset_tagger_deferred', 'files', 'set', selected_index);
-      }
-    }
-  }
-}
-
-FileTreeComponent.prototype.refresh = function(){
-  /**refreshes current UI elements with current dir data*/
-  debug('REFRESH!!!');
-  // debug('current_root:', this.current_parent_node.name);
-  // this.refresh_browser_pane();
-
-  mira_gate.message(0);
-  var current_root = retrieve_parent(this._treeobj, this.current_parent_node.parents);
-  // debug('FileTree parent_node:', current_root.name);
-  this.parent_list = [];
-  for(var i in current_root.children){
-    this.parent_list.push(current_root.children[i]);
-  }
-  if(current_root.type!='root'){
-    this.parent_list.push({name:'<==back', type:'back_command', parents:[current_root]});
-  }
-  ParentBackButton.message('active', current_root.type!='root');
-  messnamed('from_preset_tagger', 'back', 'active', current_root.type!='root');
-  this._parentChooser.clear();
-  messnamed('from_preset_tagger', 'parent', 'clear');
+  var found_parent_items = [];
+  var found_child_items = [];
   for(var i in this.parent_list){
-    this._parentChooser.append(this.parent_list[i].name);
-    messnamed('from_preset_tagger', 'parent', 'append', this.parent_list[i].name);
+    // messnamed('from_preset_tagger', 'parent', 'append', this.parent_list[i].name);
+    found_parent_items.push(this.parent_list[i].name);
   }
-  var selected_index = this.parent_list.indexOf(this.current_parent_node);
+  parentDict.parse(JSON.stringify({items:found_parent_items}));
+  messnamed('from_preset_tagger', 'parent', 'dictionary', parentDict.name);
+  var selected_index = indexOfNodePath(this.parent_list, this.current_parent_node);
   if(selected_index>-1){
-    // debug('found selected parent');
-    // this._Defer.message('parent', 'set', selected_index);
-    this._parentChooser.set(selected_index);
     // this._miraDefer.message('parent', 'set', selected_index);
     messnamed('from_preset_tagger_deferred', 'parent', 'set', selected_index);
   }
-
-  var current_dir = this.current_parent_node ? this.current_parent_node : {name:'none', children:[], type:root};
-  // debug('FileTree child_node:', current_dir.name);
-  this._filesChooser.clear();
-  if(!TagFilter.selected_tags.length>0){
+  var current_dir = this.current_parent_path ? this.current_parent_path : {name:'none', children:[], type:'root'};
+  if(!TagFilter.selected_tags.length){
     messnamed('from_preset_tagger', 'files', 'clear');
-  }
-  if(current_dir.type != 'root'){
-    this.child_list = [];
-
-    for(var i in current_dir.children){
-      this.child_list.push(current_dir.children[i]);
-    }
-    for(var i in this.child_list){
-      this._filesChooser.append(this.child_list[i].name);
-      if(!TagFilter.selected_tags.length>0){
-        messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
+    if(current_dir.path != library_directory){
+      for(var i in this.child_list){
+        // messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
+        found_child_items.push(this.child_list[i].name);
       }
-    }
-    var selected_index = this.child_list.indexOf(this.current_child_node);
-    selected_index  = selected_index >-1 ? selected_index : undefined;
-    if(selected_index>-1){
-      this._filesChooser.set(selected_index);
-      // this._miraDefer.message('files', 'set', selected_index);
-      if(!TagFilter.selected_tags.length>0){
+      filesDict.parse(JSON.stringify({items:found_child_items}));
+      messnamed('from_preset_tagger', 'files', 'dictionary', filesDict.name);
+      var selected_index = indexOfNodePath(this.child_list, this.current_child_node);
+      selected_index  = selected_index >-1 ? selected_index : undefined;
+      if(selected_index>-1){
+        // this._miraDefer.message('files', 'set', selected_index);
         messnamed('from_preset_tagger_deferred', 'files', 'set', selected_index);
       }
-    }
-    else{
-      this._filesChooser.set();
     }
   }
   mira_gate.message(1);
 }
 
-FileTreeComponent.prototype.refresh = function(){
-  this.refresh_browser_pane();
-}
-
 FileTreeComponent.prototype.select_root = function(path){
   debug('select_root:', path);
-  this._current_root.receive(path);
+  if(path != this._current_root._value){
+    fileInfo.report_update(true);
+    debug('current root is now:', path);
+    // this.create_primary_node(path);
+    this.parent_list = this.selection_list_from_path(path);
+    //instead of this, there should be a isInDir() function.....
+    if(path != library_directory){
+      this.parent_list.push({name:'<==back', type:'back_command', path:path});
+    }
+    this._current_root.receive(path);
+    fileInfo.report_update(false);
+  }
+}
+
+FileTreeComponent.prototype.select_folder = function(path){
+  debug('select_folder:', path);
+  if(path != this._current_root._value){
+    fileInfo.report_update(true);
+    debug('current folder is now:', path);
+    this.child_list = this.selection_list_from_path(path);
+    this.push_lists();
+    this._current_folder.receive(path);
+    fileInfo.report_update(false);
+  }
 }
 
 FileTreeComponent.prototype.select_parent = function(index, item){
   /**input from left browser pane*/
-  // debug('FileTree.select_parent:', index, item);
-  this.new_select_parent(index, item);
+  debug('FileTree.select_parent:', index, item, this.parent_list.length);
   if(index!=undefined){
     if(this.parent_list.length){
       var entry = this.parent_list[index];
-      if(entry.type == 'folder'){
-        this.current_parent_node = this.parent_list[index];
-        this.current_child_node = undefined;
-        fileInfo.select_file();
-        this.refresh();
-        // if(this._always_select_first_item){
-        //   this.select_child(0);
-        // }
+      var type = entry.type;
+      if(type == 'folder'||type =='back_command'){
+        this.find_folder(entry.path);
       }
-      else if(entry.type == 'file'){
-        var parent_node = retrieve_parent(this._treeobj, entry.parents);
-        if(this.current_parent_node.type == 'root'){
-          this.current_child_node = entry;
-          fileInfo.select_file(entry.path);
-        }
-        else{
-          this.current_child_node = entry;
-          this.current_parent_node = parent_node;
-          this.refresh();
-        }
+      else if(type == 'file'){
+        this.find_file(entry.path);
       }
-      else if(entry.type == 'back_command'){
-        this.current_parent_node = entry.parents[0];
-        this.current_child_node = undefined;
-        fileInfo.select_file();
-        // this.create_primary_node(this.current_parent_node.path);
-        this.refresh();
-        // if(this._always_select_first_item){
-        //   this.select_child(0);
-        // }
-      }
-    }
-    else{
-      this.refresh();
-    }
-  }
-}
-
-FileTreeComponent.prototype.new_select_parent = function(index, item){
-  /**input from left browser pane*/
-  debug('FileTree.new_select_parent:', index, item, this.new_parent_list.length);
-  if(index!=undefined){
-    if(this.new_parent_list.length){
-      var entry = this.new_parent_list[index];
-      debug('entry is:', entry.name);
-      if(entry.type == 'folder'){
-        this.current_parent_path = this.new_parent_list[index];
-        this.current_child_path = undefined;
-        this.select_root(this.current_parent_path.parent);
-        fileInfo.select_file();
-        this.refresh_browser_pane();
-      }
-      else if(entry.type == 'file'){
-        var parent_node = retrieve_parent(this._browser_tree, entry.parents);
-        // if(parent_node.path == library_directory){
-        //   this.current_child_path = entry;
-        //   this.select_root(library_directory);
-        //   fileInfo.select_file(entry.path);
-        // }
-        // else{
-        this.current_child_path = entry;
-        this.current_parent_path = parent_node;
-        this.select_root(this.current_parent_path.parent);
-        this.refresh_browser_pane();
-        // }
-      }
-      else if(entry.type == 'back_command'){
-        this.current_parent_path = entry.parents[0];
-        this.current_child_path = undefined;
-        this.select_root(this.current_parent_path.parent);
-        fileInfo.select_file();
-        this.refresh_browser_pane();
-      }
-    }
-    else{
-      this.refresh_browser_pane();
     }
   }
 }
@@ -1483,84 +1565,32 @@ FileTreeComponent.prototype.open_parent = function(index, item){
   if(index!=undefined){
     if(this.parent_list.length){
       var entry = this.parent_list[index];
-      if(entry.type == 'folder'){
-        this.current_parent_node = this.parent_list[index];
-        this.refresh();
+      var type = entry.type;
+      if(type == 'file'){
+        this.find_file(entry.path);
+        NSProxy.asyncCall('open_preset', entry.path);
       }
-      else if(entry.type == 'file'){
-        var parent_node = retrieve_parent(this._treeobj, entry.parents);
-        if(this.current_parent_node.type == 'root'){
-          this.current_child_node = entry;
-          fileInfo.select_file(entry.path);
-          NSProxy.asyncCall('open_preset', entry.path);
-        }
-        else{
-          this.current_child_node = entry;
-          this.current_parent_node = parent_node;
-          this.refresh();
-        }
+      else{
+        this.select_parent(index, item);
       }
-      else if(entry.type == 'back_command'){
-        this.current_child_node = undefined;
-        this.current_parent_node = entry.parents[0];
-        this.refresh();
-      }
-    }
-    else{
-      this.refresh();
     }
   }
 }
 
 FileTreeComponent.prototype.select_child = function(index, item){
   /**input from right browser pane*/
-  // debug('FileTree.select_child:', index, item);
-  this.new_select_child(index, item);
+  debug('FileTree.select_child:', index, item);
   if(index!=undefined){
     if(this.child_list.length){
       var entry = this.child_list[index];
-      if(entry.type == 'folder'){
-        this.current_child_node = undefined;
-        this.current_parent_node = entry;
-        fileInfo.select_file(undefined);
-        // this.create_primary_node(this.current_parent_node.path);
-        this.refresh();
+      // debug('entry is:', entry.name);
+      var type = entry.type;
+      if(type == 'folder'){
+        this.find_folder(entry.path);
       }
-      else if(entry.type == 'file'){
-        this.current_child_node = entry;
-        fileInfo.select_file(entry.path);
-        this.refresh();
+      else if(type == 'file'){
+        this.find_file(entry.path);
       }
-    }
-    else{
-      this.refresh();
-    }
-  }
-}
-
-FileTreeComponent.prototype.new_select_child = function(index, item){
-  /**input from right browser pane*/
-  debug('FileTree.new_select_child:', index, item);
-  if(index!=undefined){
-    if(this.new_child_list.length){
-      var entry = this.new_child_list[index];
-      debug('entry is:', entry.name);
-      if(entry.type == 'folder'){
-        this.current_child_path = undefined;
-        this.current_parent_path = entry;
-        this.select_root(entry.parent);
-        fileInfo.select_file(undefined);
-        // this.create_primary_node(this.current_parent_node.path);
-        this.refresh_browser_pane();
-      }
-      else if(entry.type == 'file'){
-        this.current_child_path = entry;
-        fileInfo.select_file(entry.path);
-        this.refresh_browser_pane();
-      }
-    }
-    else{
-      this.refresh_browser_pane();
     }
   }
 }
@@ -1570,354 +1600,100 @@ FileTreeComponent.prototype.open_child = function(index, item){
   // debug('FileTree.open_child:', index, item);
   if(index!=undefined){
     var entry = this.child_list[index];
-    if(entry.type == 'folder'){
-      this.current_child_node = undefined;
-      this.current_parent_node = entry;
-      this.refresh();
-      fileInfo.select_file(undefined);
-
+    var type = entry.type;
+    if(type == 'folder'){
+      this.find_folder(entry.path);
     }
-    else if(entry.type == 'file'){
-      this.current_child_node = entry;
-      fileInfo.select_file(entry.path);
+    else if(type == 'file'){
+      this.find_file(entry.path)
       NSProxy.asyncCall('open_preset', entry.path);
     }
   }
 }
 
+FileTreeComponent.prototype.find_folder = function(path){
+  /**used in all instances to execute a change in folder focus*/
+  debug('FileTree.find_folder:', path);
+  if(path){
+    fileInfo.select_file(undefined);
+    var root = parentPath(path);
+    debug('find_folder select_root');
+    this.select_root(root);
+    this.current_parent_node = this.parent_list[indexOfNodePath(this.parent_list, {name:basename(path)})];
+    this.select_folder(path);
+    this.current_child_node = undefined;
+    this.refresh_editor();
+    this.refresh_mira();
+  }
+  else{
+    this.init_nodes();
+  }
+}
+
 FileTreeComponent.prototype.find_file = function(path){
-  /**used primarily by selected file from filter window*/
-  // debug('FileTree.find_file:', path);
+  /**used in all instances to execute a change in file focus*/
+  debug('FileTree.find_file:', path);
   if(path){
-    var root = this._treeobj.parent;
-    var parents = path.toString().replace(root, '').split('/');
-    var ft_obj = retrieve_child(this._treeobj, parents);
-    // debug('found obj:', ft_obj.name, 'parents:', parents);
-    if(parents&&ft_obj){
-      this.current_parent_node = retrieve_parent(this._treeobj, ft_obj.parents);
-      // debug('new current_parent_node is:', this.current_parent_node);
-      this.current_child_node = ft_obj;
-      fileInfo.select_file(ft_obj.path);
-    }
-  }
-  this.refresh();
-}
-
-FileTreeComponent.prototype.refresh_parent_node = function(){
-  var node = this.current_parent_node;
-  if((node)&&(node.name!='root')){
-    this.current_parent_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
+    fileInfo.select_file(path);
+    var parent = parentPath(path);
+    var root = parentPath(parent);
+    debug('find_file select_root');
+    this.select_root(root);
+    this.current_parent_node = this.parent_list[indexOfNodePath(this.parent_list, {name:basename(parent)})];
+    this.select_folder(parent);
+    this.current_child_node = this.child_list[indexOfNodePath(this.child_list, {name:basename(path)})];
+    this.refresh_editor();
+    this.refresh_mira();
   }
 }
 
-FileTreeComponent.prototype.refresh_parent_path = function(){
-  var node = this.current_parent_path;
-  if((node)&&(node.name!='root')){
-    this.current_parent_node = retrieve_child(this._browser_tree, node.parents.concat([node.name]));
-  }
-}
-
-FileTreeComponent.prototype.node_for_path = function(path){
-  debug('FileTree.node_for_path:', path);
-  var node = undefined;
-  if(path){
-    var root = this._treeobj.parent;
-    var parents = path.toString().replace(root, '').split('/');
-    var ft_obj = retrieve_child(this._treeobj, parents);
-    node = ft_obj;
-  }
-  return node
-}
-
-FileTreeComponent.prototype.parent_node_for_path = function(path){
-  debug('FileTree.parent_node_for_path:', path);
-  var node = undefined;
-  if(path){
-    var root = this._treeobj.parent;
-    var parents = path.toString().replace(root, '').split('/');
-    var ft_obj = retrieve_child(this._treeobj, parents);
-    var parent_obj = retrieve_parent(this._treeobj, ft_obj.parents);
-    node = parent_obj;
-  }
-  return node
-}
-
-FileTreeComponent.prototype.scan_library = function(){
-  var f = undefined;
+FileTreeComponent.prototype.selection_list_from_path = function(directory){
+	debug(this._name+'.selection_list_from_path:', directory);
   try{
-    debug('library_directory:', library_directory);
-		this._treeobj = {name:'root',
-			root:basename(library_directory),
-			root_path:library_directory,
-			parents:[],
-			parent: library_directory.replace(basename(library_directory)+'/', ''),
-			children:{}
-		};
-    this.scan_folder(library_directory, this._treeobj);
-    // this._dict.parse(JSON.stringify(this._treeobj));
-  }
-  catch(e){
-    debug('Folder not found', util.report_error(e));
-
-  }
-}
-
-FileTreeComponent.prototype.scan_folder = function(dir_name, filetree_node){
-	// debug('scan_folder:', dir_name, typeof filetree_node);
-  try{
-    var f = new Folder(dir_name);
-    var shortname = basename(dir_name);
-    // debug('shortname is:', shortname);
-  	filetree_node.children[shortname] = {name: shortname,
-  		path: f.pathname,
-  		type: dir_name == library_directory ? 'root':'folder',
-  		parents: dir_name == library_directory ? [] : dir_name.replace(library_base, '').replace(shortname, '').split('/').slice(0, -1),
-  		parent: dir_name.split(shortname)[0],
-  		children:{}
-    };
+    var tree = [];
+    var f = new Folder(directory);
     while (!f.end) {
-    	if(f.filetype=='fold'){
-  			this.scan_folder(pathJoin([f.pathname, f.filename]), filetree_node.children[shortname]);
-  		}
-      else{
-        if(VALID_FILE_TYPES.indexOf(f.extension)>-1){
-          // debug('filename:', f.filename, 'extension:', f.extension);
-          var file_name = pathJoin([f.pathname, f.filename]);
-          var file_shortname = f.filename;
-          var tags = [];
-          try{
-            tags = libraryObj[file_name].tags;
-            if(tags == null || tags == ''){
-              tags = [];
-            }
-          }
-          catch(e){
-            debug('no libraryObj repr for:', file_name);
-          }
-          var parents = file_name.replace(library_base, '').replace(file_shortname, '').split('/').filter(function(i){return i!=''});
-          filetree_node.children[shortname].children[file_shortname] = {
-            name:file_shortname,
-  					path:file_name,
-            type:'file',
-  					parent:f.pathname,
-  					parents: parents,
-            tags: tags
-          };
-        }
+      var type = f.filetype == 'fold' ? 'folder' : 'file';
+    	if(type=='folder'|| VALID_FILE_TYPES.indexOf(f.extension)>-1){
+        var name = f.filename;
+        var path = pathJoin([f.pathname, f.filename]);
+        // var parents = parents_from_path(path);
+        var parent = type == 'folder' ? directory.split(name)[0] : f.pathname;
+  			tree.push({
+          name: name,
+      		path: path,
+      		type: type,
+      		parent: parent
+        });
       }
       f.next();
      }
      f.close();
-     // delete f
    }
    catch(e){
      debug('scan_folder fail:', util.report_error(e));
    }
+   return tree
 }
 
-FileTreeComponent.prototype.create_primary_node = function(dir_name){
-	debug('create_primary_node:', dir_name);
-  dir_name = dir_name ? dir_name : library_directory;
-  try{
-    var f = new Folder(dir_name);
-    var shortname = basename(dir_name);
-    // debug('shortname is:', shortname);
-  	this._browser_tree = {
-      name: shortname,
-  		path: f.pathname,
-  		type: 'root',
-  		parents: dir_name == library_directory ? [] : dir_name.replace(library_base, '').replace(shortname, '').split('/').slice(0, -1),
-  		parent: dir_name.split(shortname)[0],
-  		children:{}
-    };
-    while (!f.end) {
-    	if(f.filetype=='fold'){
-        var folder_shortname = f.filename;
-  			this._browser_tree.children[folder_shortname] = this.create_secondary_node(pathJoin([f.pathname, f.filename]));
-  		}
-      else{
-        if(VALID_FILE_TYPES.indexOf(f.extension)>-1){
-          // debug('filename:', f.filename, 'extension:', f.extension);
-          var file_name = pathJoin([f.pathname, f.filename]);
-          var file_shortname = f.filename;
-          var tags = [];
-          try{
-            tags = libraryObj[file_name].tags;
-            if(tags == null || tags == ''){
-              tags = [];
-            }
-          }
-          catch(e){
-            debug('no libraryObj repr for:', file_name);
-          }
-          var parents = file_name.replace(library_base, '').replace(file_shortname, '').split('/').filter(function(i){return i!=''});
-          this._browser_tree.children[file_shortname] = {
-            name:file_shortname,
-  					path:file_name,
-            type:'file',
-  					parent:f.pathname,
-  					parents: parents,
-            tags: tags
-          };
-        }
-      }
-      f.next();
-     }
-     f.close();
-     // delete f
-   }
-   catch(e){
-     debug('scan_folder fail:', util.report_error(e));
-   }
+FileTreeComponent.prototype.refresh = function(){
+  this.refresh_mira();
 }
 
-FileTreeComponent.prototype.create_secondary_node = function(dir_name){
-	// debug('scan_folder:', dir_name, typeof filetree_node);
-  try{
-    var f = new Folder(dir_name);
-    var shortname = basename(dir_name);
-    // debug('shortname is:', shortname);
-  	var new_node = {
-      name: shortname,
-  		path: f.pathname,
-  		type: dir_name == library_directory ? 'root':'folder',
-  		parents: dir_name == library_directory ? [] : dir_name.replace(library_base, '').replace(shortname, '').split('/').slice(0, -1),
-  		parent: dir_name.split(shortname)[0],
-  		children:{}
-    };
-    while (!f.end) {
-    	if(f.filetype=='fold'){
-  			var folder_name = pathJoin([f.pathname, f.filename]);
-        var folder_shortname = basename(folder_name);
-      	new_node.children[folder_shortname] = {
-          name: folder_shortname,
-      		path: folder_name,
-      		type: 'folder',
-      		parents: folder_name.replace(library_base, '').replace(folder_shortname, '').split('/').filter(function(i){return i!=''}),
-      		parent: dir_name.split(folder_shortname)[0],
-        };
-  		}
-      else{
-        if(VALID_FILE_TYPES.indexOf(f.extension)>-1){
-          var file_name = pathJoin([f.pathname, f.filename]);
-          var file_shortname = f.filename;
-          var tags = [];
-          try{
-            tags = libraryObj[file_name].tags;
-            if(tags == null || tags == ''){
-              tags = [];
-            }
-          }
-          catch(e){
-            debug('no libraryObj repr for:', file_name);
-          }
-          var parents = file_name.replace(library_base, '').replace(file_shortname, '').split('/').filter(function(i){return i!=''});
-          new_node.children[file_shortname] = {
-            name:file_shortname,
-  					path:file_name,
-            type:'file',
-  					parent:f.pathname,
-  					parents: parents,
-            tags: tags
-          };
-        }
-      }
-      f.next();
-     }
-     f.close();
-     // delete f
-     return new_node
-   }
-   catch(e){
-     debug('scan_folder fail:', util.report_error(e));
-   }
-   return {}
-}
-
-
-function indexOfNodePath(arr, path){
-  var ret = -1;
-  if(arr&&path&&path.name){
-    var name = path.name;
-    ret = arr.reduce(function(acc, obj, index){
-      return acc + Math.floor(obj.name == name)*(index+1);
-    }, 0) -1;
-  }
-  return ret
-}
-
-function basename(path){
-  // debug('basename:', path);
-  var path_array = path.split('/');
-  var len = path_array.length;
-  if(path_array[len-1].length==0){
-    return path_array[len-2];
-  }
-  return path_array[len-1];
-}
-
-function pathJoin(parts, sep){
-   var separator = sep || '/';
-   var replace   = new RegExp(separator+'{1,}', 'g');
-   return parts.join(separator).replace(replace, separator);
-}
-
-function retrieve_parent(obj, parents){
-  //parents = [].concat(parents);
-  if((!parents)||(!parents.length)){
-    return obj.children[Object.keys(obj.children)[0]];
-  }
-  parents = [].concat(parents);
-  // debug('here', obj.name, parents, typeof parents);
-  var new_obj = obj.children[parents.shift()];
-  if(parents.length){
-    new_obj = retrieve_parent(new_obj, parents);
-  }
-  return new_obj;
-}
-
-function retrieve_child(obj, parents){
-  // debug('retrieve_child', obj, parents);
-  //parents = [].concat(parents);
-  if((!parents)||(!parents.length)||(!obj)||(!obj.children)){
-    //debug('returning null');
-    return undefined
-  }
-  parents = [].concat(parents);
-  var new_obj = obj.children[parents.shift()];
-  if(parents.length){
-    new_obj = retrieve_child(new_obj, parents);
-  }
-  return new_obj
-}
-
-function get_child_dict(dict, parents){
-  var value = undefined;
-  var parent = parents.shift();
-  // debug('parent is:', parent);
-  if (dict == null) return null;
-  var keys = dict.getkeys();
-  // debug('keys are:', keys);
-  if(keys.indexOf('children'>-1)){
-    dict = dict.get('children');
-    keys = dict.getkeys();
-    if((keys.indexOf(parent)>-1)||(keys==parent)){
-      value = dict.get(parent);
-      if (value && value instanceof Dict && parents.length) {
-        value = get_child_dict(value, parents);
-      }
-    }
-  }
-  return value
+//this is mostly just to view data structures during development
+FileTreeComponent.prototype.push_lists = function(){
+  // this._dict.parse(JSON.stringify({parent_list:this.parent_list, child_list:this.child_list}));
+  // show_tree_dict();
 }
 
 
 /**
 *  Component deals with all tagging tasks.
-*  Basically everything in right two windows,
+*  Basically everything in right two windows of editor,
 *  as well as all actions in the bottom section.
 */
 function FileTaggerComponent(name, args){
+  //deals with assigning tags to individual files or the contents of folders
   var self = this;
   this._tag_buffer = [];
   this.selection_mode_value = false;
@@ -2043,17 +1819,9 @@ FileTaggerComponent.prototype.clear_tags = function(){
   NSProxy.asyncCall('clear_tags', fileInfo.selected_file);
 }
 
-//this is done in-house now ;)
-FileTaggerComponent.prototype.set_folder_tags = function(){
-  // FileTree.set_folder_tags();
-  if(FileTree.current_parent_node.type == 'folder'){
-    NSProxy.asyncCall('apply_folder_tags', FileTree.current_parent_node.path, this.tag_buffer);
-  }
-}
-
 FileTaggerComponent.prototype.set_folder_tags = function(){
   if(FileTree.current_parent_node.type == 'folder'){
-    var filenames = recurse_folder(FileTree.current_parent_node, []);
+    var filenames = recurse_folder(FileTree.current_parent_node.path, []);
     var tag = this.tag_buffer;
     // debug('filepaths are:', filenames);
     suppress_rescan = true;
@@ -2078,17 +1846,9 @@ FileTaggerComponent.prototype.set_folder_tags = function(){
   }
 }
 
-//this is done in-house now ;)
-FileTaggerComponent.prototype.remove_folder_tags = function(){
-  // FileTree.remove_folder_tags();
-  if(FileTree.current_parent_node.type == 'folder'){
-    NSProxy.asyncCall('remove_folder_tags', FileTree.current_parent_node.path, this.tag_buffer);
-  }
-}
-
 FileTaggerComponent.prototype.remove_folder_tags = function(){
   if(FileTree.current_parent_node.type == 'folder'){
-    var filenames = recurse_folder(FileTree.current_parent_node, []);
+    var filenames = recurse_folder(FileTree.current_parent_node.path, []);
     var tag = this.tag_buffer;
     // debug('filepaths are:', filenames);
     suppress_rescan = true;
@@ -2113,17 +1873,9 @@ FileTaggerComponent.prototype.remove_folder_tags = function(){
   }
 }
 
-//this is done in-house now ;)
-FileTaggerComponent.prototype.clear_folder_tags = function(){
-  // FileTree.clear_folder_tags();
-  if(FileTree.current_parent_node.type == 'folder'){
-    NSProxy.asyncCall('clear_folder_tags', FileTree.current_parent_node.path);
-  }
-}
-
 FileTaggerComponent.prototype.clear_folder_tags = function(){
   if(FileTree.current_parent_node.type == 'folder'){
-    var filenames = recurse_folder(FileTree.current_parent_node, []);
+    var filenames = recurse_folder(FileTree.current_parent_node.path, []);
     var tag = this.tag_buffer;
     suppress_rescan = true;
     fileInfo.report_update(true);
@@ -2180,21 +1932,6 @@ FileTaggerComponent.prototype.chooser_double = function(index, shortname){
   NSProxy.asyncCall('open_preset', path);
 }
 
-function recurse_folder(parentNode, paths){
-  // debug('recurse_folder', parentNode.name);
-  for(var i in parentNode.children){
-    //debug('here');
-    var child = parentNode.children[i];
-    if(child.type == 'folder'){
-      paths = recurse_folder(child, paths);
-    }
-    else{
-      paths.push(child.path);
-    }
-  }
-  return paths
-}
-
 
 /**
 *  Component deals with all tagging tasks.
@@ -2202,6 +1939,7 @@ function recurse_folder(parentNode, paths){
 *  as well as all actions in the bottom section.
 */
 function TagFilterComponent(name, args){
+  // provides visible files for selection in far right chooser based on selected tag(s)
   var self = this;
   // this._selected_tags = [];
   this.hash_list = {};
@@ -2210,12 +1948,20 @@ function TagFilterComponent(name, args){
   this.last_found_tags = [];
   this._selected_tags = new ArrayParameter(this._name + '_SelectedTags', {value:[]});
   this._tagList = new ArrayParameter(this._name + '_TagList', {value:[]});
+  this._textFilter = new ParameterClass(this._name + '_TextFilter', {value:''});
   this._filterMode = new TextToggleParameter(this._name + '_FilterMode', {
     value:true,
     onValue:6,
     offValue:5,
     textOnValue:'OR',
     textOffValue:'AND'
+  });
+  this._showAllTags = new TextToggleParameter(this._name + '_ShowAllTags', {
+    value:false,
+    onValue:6,
+    offValue:5,
+    textOnValue:'AllTags',
+    textOffValue:'ValidTags'
   });
   this.ClearFilter = new TextMomentaryParameter(this._name + '_ClearFilterControl', {
     onValue:2,
@@ -2224,7 +1970,17 @@ function TagFilterComponent(name, args){
     textOffValue:'ClearFilter'
   });
   this.ClearFilter.add_listener(function(obj){obj._control._value&&self.clear_filter();});
-  this.add_bound_properties(this, ['input', 'refresh', '_filterMode', 'refresh_filtered_chooser_selection']);
+  this.add_bound_properties(this, [
+    'input',
+    'refresh',
+    '_filterMode',
+    'refresh_filtered_chooser_selection',
+    '_showAllTags',
+    'last_found_tags',
+    'found_tags',
+    'update_mira_filter_mode_button',
+    'set_text_filter'
+  ]);
   TagFilterComponent.super_.call(this, name, args);
   this._init.apply(this);
 }
@@ -2246,11 +2002,29 @@ TagFilterComponent.prototype.__defineGetter__('filter_mode_value', function(){
   return this._filterMode._value
 });
 
+TagFilterComponent.prototype.__defineGetter__('show_all_value', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._showAllTags._value
+});
+
+TagFilterComponent.prototype.__defineGetter__('text_filter', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._textFilter._value
+});
+
+TagFilterComponent.prototype.__defineGetter__('filtered_files', function(){
+  // debug('filtered_files:', this._fil);
+  return this.filtered_hash_list;
+});
+
 TagFilterComponent.prototype._init = function(args){
   // debug('TagFilterComponent._init');
   this._selected_tags.add_listener(this.refresh);
   this._filterMode.add_listener(this.refresh);
   fileInfo._filepath.add_listener(this.refresh_filtered_chooser_selection);
+  this._filterMode.on('NotifyTarget', this.update_mira_filter_mode_button);
+  this._filterMode.update_control();
+  this.update_mira_filter_mode_button();
 }
 
 TagFilterComponent.prototype.refresh = function(){
@@ -2279,6 +2053,9 @@ TagFilterComponent.prototype.tag_selection = function(){
   var tags = arrayfromargs(arguments);
   debug('tag_selection:', tags, tags.length);
   this._selected_tags.set_value(tags);  //this calls refresh
+  if(!this.selected_tags.length){
+    FileTree.refresh_mira();
+  }
 }
 
 TagFilterComponent.prototype.tag_selection_from_commander = function(){
@@ -2290,7 +2067,7 @@ TagFilterComponent.prototype.tag_selection_from_commander = function(){
     commander does doubleduty between filtering and fileTree.*/
   if(!this.selected_tags.length){
     this.clear_filter();
-    FileTree.refresh();
+    FileTree.refresh_mira();
   }
   else{
     this.refresh();
@@ -2314,20 +2091,28 @@ TagFilterComponent.prototype.display_filtered_files = function(){
     messnamed('from_preset_tagger', 'files', 'clear');
   }
   this.filtered_hash_list = {};
+  var found_items = [];
   if(this.selected_tags.length){
     //OR//
     if(this.filter_mode_value){
       var entry = 0;
+      var text_filter = this.text_filter;
+      var text_regexp = new RegExp(text_filter, 'gi');
       for(var path in libraryObj){
         var file = libraryObj[path];
         var tags = [].concat(file.tags);
         var shortname = file.shortname;
         for(var j in tags){
           if(this.selected_tags.indexOf(tags[j])>-1){
-            this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
-            file_chooser.append(shortname);
             if(this.selected_tags.length>0){
-              messnamed('from_preset_tagger', 'files', 'append', shortname);
+              // messnamed('from_preset_tagger', 'files', 'append', shortname);
+              // if((!text_filter)||(shortname.indexOf(text_filter)>-1
+              // debug('filter:', JSON.stringify(shortname.match(text_regexp)));
+              if((!text_filter)||(shortname.match(text_regexp))){
+                this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
+                file_chooser.append(shortname);
+                found_items.push(shortname);
+              }
             }
             entry += 1;
             break;
@@ -2337,6 +2122,8 @@ TagFilterComponent.prototype.display_filtered_files = function(){
     }
     //AND//
     else{
+      var text_filter = this.text_filter;
+      var text_regexp = new RegExp(text_filter, 'gi');
       for(var path in libraryObj){
         var file = libraryObj[path];
         var tags = [].concat(file.tags);
@@ -2349,18 +2136,30 @@ TagFilterComponent.prototype.display_filtered_files = function(){
           }
         }
         if(add){
-          this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
-          file_chooser.append(shortname);
           if(this.selected_tags.length>0){
-            messnamed('from_preset_tagger', 'files', 'append', shortname);
+            // messnamed('from_preset_tagger', 'files', 'append', shortname);
+            // if((!text_filter)||(shortname.indexOf(text_filter)>-1)){
+            // debug('filter:', JSON.stringify(shortname.match(text_regexp)));
+            if((!text_filter)||(shortname.match(text_regexp))){
+              this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
+              file_chooser.append(shortname);
+              found_items.push(shortname);
+            }
           }
         }
       }
     }
+    if(found_items.length > MAX_MIRA_DROPDOWN_LENGTH){
+      found_items = found_items.slice(0, MAX_MIRA_DROPDOWN_LENGTH);
+    }
+    filesDict.parse(JSON.stringify({items:found_items}));
+    messnamed('from_preset_tagger', 'files', 'dictionary', filesDict.name);
   }
   //NONE//
   else{
     var entry = 0;
+    var text_filter = this.text_filter;
+    var text_regexp = new RegExp(text_filter, 'gi');
     for(var path in libraryObj){
       var file = libraryObj[path];
       var tags = [].concat(file.tags).filter(util.isString);
@@ -2368,10 +2167,15 @@ TagFilterComponent.prototype.display_filtered_files = function(){
       //debug(shortname, tags.length, tags);
       if(tags.length==0){
         this.filtered_hash_list[shortname] = {file:path, tags:tags, entry:entry};
-        file_chooser.append(shortname);
-        entry += 1;
+        // if((!text_filter)||(shortname.indexOf(text_filter)>-1)){
+        if((!text_filter)||(shortname.match(text_regexp))){
+          file_chooser.append(shortname);
+          entry += 1;
+        }
       }
     }
+    //this needs to be moved to a generalized spot....we need a notifier as a switch, possibly?
+    FileTree.refresh_mira();
   }
   mira_gate.message(1);
   this.emit('FilteredHashListUpdated', this.filtered_hash_list);
@@ -2462,9 +2266,23 @@ TagFilterComponent.prototype.redraw_tagchooser = function(){
 TagFilterComponent.prototype.detect_found_tags = function(){
   this.last_found_tags = this.found_tags.slice();
   this.found_tags = [];
-  //debug('last_found_tags:', last_found_tags);
+  // debug('last_found_tags:', this.last_found_tags);
+  var hide_invalid_choices = ((!this.filter_mode_value) && (!this.show_all_value) && (this.selected_tags.length));
+  // debug('hide_invalid_choices:', hide_invalid_choices);
+
+  var selected_tags = this.selected_tags;
+  var selected_tags_length = selected_tags.length;
+
+  var valid_tags_from_file = function(file_tags){
+    var present_tags = file_tags.filter(function(tag){
+      return selected_tags.indexOf(tag) > -1;
+    })
+    return present_tags.length >= selected_tags_length ? file_tags : []
+  }
+
   for(var i in libraryObj){
-    var tags = [].concat(libraryObj[i].tags);
+    var tags = [].concat(libraryObj[i].tags)
+    tags = hide_invalid_choices ? valid_tags_from_file(tags) : tags;
     for(var t in tags){
       if((this.found_tags.indexOf(tags[t])==-1)&&(tags[t])){
         this.found_tags.push(tags[t]);
@@ -2475,6 +2293,17 @@ TagFilterComponent.prototype.detect_found_tags = function(){
   this._tagList.set_value(this.found_tags);
 }
 
+TagFilterComponent.prototype.update_mira_filter_mode_button = function(){
+  debug('sending_mira_filter_mode_button value:', this.filter_mode_value);
+  messnamed('from_preset_tagger', 'and_or', 'set', this.filter_mode_value);
+}
+
+TagFilterComponent.prototype.set_text_filter = function(text){
+  debug(this._name+'set_text_filter', text);
+  text = text == 'bang' ? undefined : text.toString();
+  this._textFilter.receive(text);
+  this.display_filtered_files();
+}
 
 
 function FilenameFilterComponent(name, args){
@@ -2658,6 +2487,40 @@ FilenameFilterComponent.prototype.select_file = function(num, shortname){
   }
 }
 
+FilenameFilterComponent.prototype.convert_tagnames = function(oldtag, newtag){
+  // debug(this._name+'.convert_tagnames:', oldtag, newtag);
+  var filenames = [];
+  for(var path in libraryObj){
+    var file = libraryObj[path];
+    var tags = [].concat(file.tags);
+    if(tags.indexOf(oldtag)>-1){
+      filenames.push(path);
+    }
+  }
+  // debug('filenames:', filenames);
+  suppress_rescan = true;
+  fileInfo.report_update(true);
+  NSProxy.asyncCall('set_block_updates', 1).then(function(){
+    Promise.each(filenames, function(filename) {
+      return NSProxy.asyncCall('remove_tag', filename, oldtag).then(function(ret){
+      })
+    }).then(function(res){
+      // debug('done removing tags:', res);
+      Promise.each(filenames, function(filename) {
+        return NSProxy.asyncCall('apply_tag', filename, newtag).then(function(ret){
+        })
+      }).then(function(res){
+        // debug('done adding tags:', res);
+        NSProxy.asyncCall('set_block_updates', 0);
+        suppress_rescan = false;
+        fileInfo.report_update(false);
+      })
+    })
+  }).catch(function(e){
+    NSProxy.asyncCall('set_block_updates', 0);
+  })
+}
+
 
 
 function TagDisplayComponent(name, args){
@@ -2737,7 +2600,7 @@ TagDisplayComponent.prototype._button_press = function(button){
     var controls = this._grid.controls();
     var index = controls.indexOf(button);
     var tag = this._tag_choices[index+offset];
-    this._toggle_tag(tag);
+    tag&&this._toggle_tag(tag);
 	}
 }
 
@@ -3041,15 +2904,24 @@ util.inherits(SpecialCellBlockChooserComponent, CellBlockChooserComponent);
 
 SpecialCellBlockChooserComponent.prototype._init = function(){
   SpecialCellBlockChooserComponent.super_.prototype._init.call(this);
-  this._obj.message('cols', 2);
-  this._obj.message('col', 0, 'width', 165);
+  this._obj.message('cols', 3);
+  this._obj.message('col', 0, 'width', 150);
   this._obj.message('grid', 1);
-  this._obj.message('col', 1, 'width', 30);
+  this._obj.message('col', 1, 'width', 15);
   this._obj.message('col', 1, 'jus', 0);
+  this._obj.message('col', 2, 'width', 30);
+  this._obj.message('col', 2, 'jus', 0);
 }
 
 SpecialCellBlockChooserComponent.prototype.input = function(col, row, item){
   if(col==1){
+    if(this._contents[row]){
+      debug('SpecialCellBlockChooserComponent.input.fave:', row, item);
+      // this.set_tag.set_value(this._contents[row].value);
+      faves.toggle_favorite(this._contents[row].value);
+    }
+  }
+  else if(col==2){
     if(this._contents[row]){
       // debug('SpecialCellBlockChooserComponent.input.marker:', row, item);
       this.set_tag.set_value(this._contents[row].value);
@@ -3068,6 +2940,14 @@ SpecialCellBlockChooserComponent.prototype._refresh = function(){
     for(var i in this._contents){
       var is_marked = marked.indexOf(this._contents[i].value)>-1;
       var val = is_marked ? 'X' : ' ';
+      this._obj.message('set', 2, parseInt(i), val);
+    }
+  }
+  if(Alive){
+    var current_faves = faves.favorites;
+    for(var i in this._contents){
+      var is_marked = current_faves.indexOf(this._contents[i].value)>-1;
+      var val = is_marked ? 'F' : ' ';
       this._obj.message('set', 1, parseInt(i), val);
     }
   }
@@ -3076,7 +2956,7 @@ SpecialCellBlockChooserComponent.prototype._refresh = function(){
 SpecialCellBlockChooserComponent.prototype.append = function(){
   var args = arrayfromargs(arguments);
   SpecialCellBlockChooserComponent.super_.prototype.append.apply(this, args);
-  this._obj.message('col', 1, 'width', this._contents.length>this._row_height ? 12 : 30);
+  this._obj.message('col', 2, 'width', this._contents.length>this._row_height ? 12 : 30);
 }
 
 SpecialCellBlockChooserComponent.prototype.set_active_tag_notifier = function(obj){
@@ -3089,7 +2969,98 @@ SpecialCellBlockChooserComponent.prototype.set_active_tag_notifier = function(ob
 
 
 
+function SpecialGUITextButton(name, args){
+  SpecialGUITextButton.super_.call(this, name, args);
+}
+
+inherits(SpecialGUITextButton, GUITextButton);
+
+SpecialGUITextButton.prototype.set = function(value){
+  if(this._jsObj){
+    // debug(this._name + '._send:', value, this._color_attribute, value ? this._on_color : this._off_color);
+    // var val = value in this._skin ? this._skin[value] : this._skin_array.length > value ? this._skin_array[value] : value;
+    this._jsObj.setattr(this._color_attribute, value ? this._on_color : this._off_color);
+  }
+}
+
+
+
+function QuicktabRadioComponent(name, minimum, maximum, initial, callback, onValue, offValue, args){
+  QuicktabRadioComponent.super_.call(this, name, minimum, maximum, initial, callback, onValue, offValue, args);
+}
+
+inherits(QuicktabRadioComponent, RadioComponent);
+
+QuicktabRadioComponent.prototype.update_controls_group = function(button_group){
+	// debug('update_controls_group', button_group, JSON.stringify(button_group));
+	for(var i in button_group){
+		var button = button_group[i];
+		if(button){
+			// button.send(button_group.indexOf(button) + this._min ==this._value ? this._onValue : this._offValue);
+      if(button_group.indexOf(button) + this._min == this._value){
+        button.turn_on();
+      }
+      else{
+        button.turn_off();
+      }
+		}
+	}
+}
+
+
+
+function QuicktabComponent(name, args){
+  var self = this;
+  this.radio_component = new QuicktabRadioComponent('QuicktabRadioComponent', 0, 7, -1, {}, MaxColors.RED, MaxColors.OFF, {});
+  this.add_bound_properties(this, [
+    'radio_component',
+    '_on_button_pushed',
+    '_QUICKTAB_NAMES',
+    '_tag_filter',
+    '_tag_chooser',
+    '_update_radio_component'
+  ]);
+  QuicktabComponent.super_.call(this, name, args);
+  this.radio_component.set_controls(this._radio_buttons_raw);
+  this.radio_component.set_target(this._on_button_pushed)
+  this._tag_filter._selected_tags.add_listener(this._update_radio_component);
+
+}
+
+inherits(QuicktabComponent, EventEmitter);
+
+QuicktabComponent.prototype._on_button_pushed = function(obj){
+  // debug(this._name+'on_button_pushed:', obj._value);
+  if(obj._value>-1){
+    this._tag_filter._selected_tags.set_value([QUICKTAB_NAMES[obj._value]]);
+    tag_chooser._refresh();
+  }
+}
+
+QuicktabComponent.prototype._update_radio_component = function(){
+  // debug(this._name+'update_radio_component');
+  var new_val = -1;
+  var fval = this._tag_filter.selected_tags;
+  if(fval.length==1){
+    new_val = QUICKTAB_NAMES.indexOf(fval.join(''));
+  }
+  this.radio_component._value = new_val;
+  this.radio_component.update_controls();
+}
+
+
+
 //Remote key functions//
+function Random(){
+  debug('Random');
+  randomizer.select_random_preset();
+}
+
+function Audition(){
+  debug('Audition');
+  previewPlayer.preview_current();
+}
+
 function AddTag(val){
   // debug('AddTag', val);
   FileTagger.set_tag();
@@ -3122,7 +3093,7 @@ function Editor(val){
 }
 
 function OpenPreset(){
-  debug('OpenPreset');
+  // debug('OpenPreset');
   NSProxy.asyncCall('open_preset', fileInfo.selected_file);
 }
 
@@ -3141,453 +3112,232 @@ function Batch(val){
   }
 }
 
+function Prefs(val){
+  if(Alive){
+    if(prefsWindow){
+      if(val){
+        prefsWindow.open();
+      }
+      else{
+        prefsWindow.close();
+      }
+    }
+  }
+}
+
+function Search(){
+  searchWindow.open();
+  search_window.front();
+  search_window.subpatcher().getnamed('textedit').message('select');
+}
+
+function dissolve(){
+  if(mod){mod.dissolve();}
+  if(found_mod){found_mod.dissolve();}
+  // for(var p in this){
+  //   this[p] = null;
+  //   delete this[p];
+  // }
+}
 
 
+function parentPath(path){
+  return path.substring(0, path.lastIndexOf(basename(path)))
+}
+
+function indexOfNodePath(arr, path){
+  // debug('indexOfNodePath: path:', path);
+  var ret = -1;
+  if(arr&&path&&path.name){
+    var arr_names = arr.map(function(obj){return obj.name});
+    // debug('path name:', path.name, 'arr names:', arr_names);
+    var name = path.name;
+    ret = arr.reduce(function(acc, obj, index){
+      var result = acc + parseInt(Math.floor(obj.name == name)*(index+1));
+      // debug('result:', obj.name, name, result);
+      return result
+    }, 0) -1;
+  }
+  // debug('index is:', ret, 'ran:', (arr&&path&&path.name));
+  return ret
+}
+
+function basename(path){
+  debug('basename:', path);
+  var path_array = path.split('/');
+  var len = path_array.length;
+  if(path_array[len-1].length==0){
+    return path_array[len-2];
+  }
+  return path_array[len-1];
+}
+
+function pathJoin(parts, sep){
+   var separator = sep || '/';
+   var replace   = new RegExp(separator+'{1,}', 'g');
+   return parts.join(separator).replace(replace, separator);
+}
+
+function recurse_folder(path, paths){
+  // debug('recurse_folder', path);
+  var f = new Folder(path);
+  while(!f.end){
+    if(f.filetype == 'fold'){
+      paths = recurse_folder(pathJoin([f.pathname, f.filename]), paths);
+    }
+    else{
+      paths.push(pathJoin([f.pathname, f.filename]));
+    }
+    f.next();
+  }
+  f.close();
+  return paths
+}
+
+function parents_from_path(path){
+  path = path ? path : library_directory;
+  return path == library_directory ? [] : path.replace(library_base, '').replace(basename(path), '').split('/').slice(0, -1).filter(function(i){return i!=''});
+}
+
+function endsWith(str, char){
+  if(str){
+    return str[str.length-1] == char
+  }
+  return false
+}
+
+
+function retrieve_parent(obj, parents){
+  //parents = [].concat(parents);
+  if((!parents)||(!parents.length)){
+    return obj.children[Object.keys(obj.children)[0]];
+  }
+  parents = [].concat(parents);
+  // debug('here', obj.name, parents, typeof parents);
+  var new_obj = obj.children[parents.shift()];
+  if(parents.length){
+    new_obj = retrieve_parent(new_obj, parents);
+  }
+  return new_obj;
+}
+
+function retrieve_child(obj, parents){
+  // debug('retrieve_child', obj, parents);
+  //parents = [].concat(parents);
+  if((!parents)||(!parents.length)||(!obj)||(!obj.children)){
+    //debug('returning null');
+    return undefined
+  }
+  parents = [].concat(parents);
+  var new_obj = obj.children[parents.shift()];
+  if(parents.length){
+    new_obj = retrieve_child(new_obj, parents);
+  }
+  return new_obj
+}
+
+function get_child_dict(dict, parents){
+  var value = undefined;
+  var parent = parents.shift();
+  // debug('parent is:', parent);
+  if (dict == null) return null;
+  var keys = dict.getkeys();
+  // debug('keys are:', keys);
+  if(keys.indexOf('children'>-1)){
+    dict = dict.get('children');
+    keys = dict.getkeys();
+    if((keys.indexOf(parent)>-1)||(keys==parent)){
+      value = dict.get(parent);
+      if (value && value instanceof Dict && parents.length) {
+        value = get_child_dict(value, parents);
+      }
+    }
+  }
+  return value
+}
+
+function old_recurse_folder(parentNode, paths){
+  // debug('recurse_folder', parentNode.name);
+  for(var i in parentNode.children){
+    //debug('here');
+    var child = parentNode.children[i];
+    if(child.type == 'folder'){
+      paths = recurse_folder(child, paths);
+    }
+    else{
+      paths.push(child.path);
+    }
+  }
+  return paths
+}
+
+
+
+// function scan_library_internal(){
+//   this.library_data = {};
+//   if( (fs.existsSync(this.library_dir)) && (fs.lstatSync(this.library_dir).isDirectory()) ){
+//     debug('this.library_dir is:', this.library_dir);
+//     this.file_tree = {name:'root',
+//       root:path.basename(this.library_dir),
+//       root_path:this.library_dir,
+//       parents:[],
+//       parent: this.library_dir.replace(path.basename(this.library_dir)+'/', ''),
+//       children:{}
+//     };
+//     try{
+//       await this.scan_folder(this.library_dir, this.file_tree);
+//       debug('returned from scan...', this.filetreeDictId, this.file_tree);
+//     }
+//     catch(e){
+//       return Promise.reject(e)
+//     }
+//     try{
+//       // await setDict(this.filetreeDictId, this.file_tree);
+//       await setDict(this.libraryDictId, this.library_data);
+//       return true
+//     }
+//     catch(e){
+//       return Promise.reject(e)
+//     }
+//   }
+//   else{
+//     return Promise.reject(new Error('scan failed, library dir is invalid'));
+//   }
+// }
+//
+// function scan_folder(dir_name){
+//   // debug('scan_folder:', dir_name, typeof filetree_node);
+//   let directoryFiles = fs.readdirSync(dir_name);
+//   let shortname = path.basename(dir_name);
+//   for(const filename of directoryFiles){
+//     let file_path = path.join(dir_name, filename).toString();
+//     if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isDirectory()) ){
+//       await this.scan_folder(file_path);
+//     }
+//     else if( (fs.existsSync(file_path)) && (fs.lstatSync(file_path).isFile()) ){
+//       await this.scan_file(file_path, filename);
+//     }
+//   }
+//   return true
+// }
+//
+// function scan_file(file_name, shortname){
+//   // debug('scan_file', file_name);
+//   if( (fs.existsSync(file_name)) && (VALID_FILE_TYPES.indexOf(path.extname(file_name))>-1)){
+//     let tags = [];
+//     let attrs = xattr.listSync(file_name);
+//     if(attrs.indexOf(namespace)>-1){
+//       tags = [].concat(xattr.getSync(file_name, namespace).toString('utf8').split(' ')).filter(Boolean).sort();
+//     }
+//     this.library_data[file_name] = {'tags':tags, 'shortname':shortname};
+//   }
+//   return true
+// }
+//
+
+function notifydeleted(){
+  debug('notifydeleted');
+  dissolve();
+}
 
 forceload(this);
-
-
-
-
-
-
-
-
-// function FileTreeComponent(name, args){
-// 	this.add_bound_properties(this, [
-//     'init_parent_node',
-//     'input',
-//     'select_parent',
-//     'select_child',
-//     'open_child',
-//     '_parentChooser',
-//     '_filesChooser',
-//     '_treeobj',
-//     'current_parent_node',
-//     'current_child_node',
-//     '_dict',
-//     '_treeobj',
-//     'empty_child_node',
-//     'parent_list',
-//     'child_list',
-//     'selected_parent_path',
-//     'selected_child_path',
-//     'Defer',
-//     'miraDefer',
-//     'find_file',
-//     '_miraParentChooser',
-//     '_miraFilesChooser',
-//     '_always_select_first_item',
-//     'update_libraryObj'
-//   ]);
-// 	FileTreeComponent.super_.call(this, name, args);
-//   // this._treeobj = util.dict_to_jsobj(this._dict);
-//   this._treeobj = {name:'root',
-//     root:undefined,
-//     root_path:undefined,
-//     parents:[],
-//     parent: undefined,
-//     children:{}
-//   };
-//   this.current_parent_node = this._treeobj;
-//   this.current_child_node = undefined;
-//   this.parent_list = [];
-//   this.child_list = [];
-//   this._always_select_first_item = true;
-//   // this.selected_parent_path = undefined;
-//   // this.selected_child_path = undefined;
-// }
-//
-// util.inherits(FileTreeComponent, Bindable);
-//
-// FileTreeComponent.prototype._init = function(args){
-//   debug('FileTreeComponent._init', this.current_parent_node);
-//   // this.init_parent_node();
-// }
-//
-// FileTreeComponent.prototype.input = function(){
-//   /**distributes input to Class instance to its available methods*/
-//   var args = arrayfromargs(arguments);
-//   //debug('FileTree.input:', args);
-//   try{
-//     this[args[0]].apply(this, args.slice(1));
-//   }
-//   catch(err){
-//     util.report_error(err);
-//   }
-// }
-//
-// FileTreeComponent.prototype.init_parent_node = function(){
-//   //used to make sure that when refreshing, some undefined vars don't cause exception in this.refresh
-//   if((!this.current_parent_node)||(!this._treeobj.name)){
-//     // debug('FileTree.init_parent_node', !this.current_parent_node, this._treeobj.name);
-//     this.current_parent_node = this._treeobj.children[Object.keys(this._treeobj.children)];
-//   }
-// }
-//
-// FileTreeComponent.prototype.update_files = function(){
-//   debug('FileTree.update_files');
-//   this._treeobj = util.dict_to_jsobj(filetreeDict);
-//   this.update_libraryObj(this._treeobj);
-//   this.refresh_parent_node();
-//   this.init_parent_node();
-//   // this.refresh_child_node();
-//   // this.refresh();
-//   this.find_file(fileInfo.selected_file);
-// }
-//
-// FileTreeComponent.prototype.update_files = function(){
-//   debug('FileTree.update_files');
-//   this._treeobj = util.dict_to_jsobj(this._dict);
-//   this.update_libraryObj(this._treeobj);
-//   this.refresh_parent_node();
-//   this.init_parent_node();
-//   this.find_file(fileInfo.selected_file);
-// }
-//
-// FileTreeComponent.prototype.update_file = function(file_name){
-//   debug('FileTree.update_file');
-//   var root = this._treeobj.parent;
-//   var parents = file_name.toString().replace(root, '').split('/');
-//   var dictBranch = get_child_dict(filetreeDict, parents);
-//   var newObj = util.dict_to_jsobj(dictBranch);
-//   libraryObj[file_name] = {tags:[].concat(newObj.tags), shortname:newObj.name};
-//   var parent_node = this.parent_node_for_path(file_name);
-//   parent_node.children[newObj.name] = newObj;
-//   parent_node = this.parent_node_for_path(file_name);
-// }
-//
-// FileTreeComponent.prototype.update_libraryObj = function(node){
-//   // count = count !=undefined ? count : 0;
-//   for(var i in node.children){
-//     var child_node = node.children[i];
-//     if(child_node.type=='file'){
-//       libraryObj[child_node.path] = {tags:[].concat(child_node.tags), shortname:child_node.name};
-//       // if(count<50){
-//       //   count+=1;
-//       //   var debugNode = libraryObj[child_node.path];
-//       //   debug('to libraryObj:', child_node.path, debugNode.shortname, debugNode.tags);
-//       // }
-//     }
-//     this.update_libraryObj(child_node);
-//   }
-// }
-//
-// FileTreeComponent.prototype.refresh = function(){
-//   /**refreshes current UI elements with current dir data*/
-//   debug('REFRESH!!!');
-//   // debug('current_root', this.current_parent_node.name);
-//   mira_gate.message(0);
-//   var current_root = retrieve_parent(this._treeobj, this.current_parent_node.parents);
-//   // debug('FileTree parent_node:', current_root.name);
-//   this.parent_list = [];
-//   for(var i in current_root.children){
-//     this.parent_list.push(current_root.children[i]);
-//   }
-//   if(current_root.type!='root'){
-//     this.parent_list.push({name:'<==back', type:'back_command', parents:[current_root]});
-//   }
-//   ParentBackButton.message('active', current_root.type!='root');
-//   messnamed('from_preset_tagger', 'back', 'active', current_root.type!='root');
-//   this._parentChooser.clear();
-//   messnamed('from_preset_tagger', 'parent', 'clear');
-//   for(var i in this.parent_list){
-//     this._parentChooser.append(this.parent_list[i].name);
-//     messnamed('from_preset_tagger', 'parent', 'append', this.parent_list[i].name);
-//   }
-//   var selected_index = this.parent_list.indexOf(this.current_parent_node);
-//   if(selected_index>-1){
-//     // debug('found selected parent');
-//     // this._Defer.message('parent', 'set', selected_index);
-//     this._parentChooser.set(selected_index);
-//     // this._miraDefer.message('parent', 'set', selected_index);
-//     messnamed('from_preset_tagger_deferred', 'parent', 'set', selected_index);
-//   }
-//
-//   var current_dir = this.current_parent_node ? this.current_parent_node : {name:'none', children:[], type:root};
-//   debug('FileTree child_node:', current_dir.name);
-//   this._filesChooser.clear();
-//   if(!TagFilter.selected_tags.length>0){
-//     messnamed('from_preset_tagger', 'files', 'clear');
-//   }
-//   if(current_dir.type != 'root'){
-//     this.child_list = [];
-//
-//     for(var i in current_dir.children){
-//       this.child_list.push(current_dir.children[i]);
-//     }
-//     for(var i in this.child_list){
-//       this._filesChooser.append(this.child_list[i].name);
-//       if(!TagFilter.selected_tags.length>0){
-//         messnamed('from_preset_tagger', 'files', 'append', this.child_list[i].name);
-//       }
-//     }
-//     var selected_index = this.child_list.indexOf(this.current_child_node);
-//     selected_index  = selected_index >-1 ? selected_index : undefined;
-//     if(selected_index>-1){
-//       this._filesChooser.set(selected_index);
-//       // this._miraDefer.message('files', 'set', selected_index);
-//       if(!TagFilter.selected_tags.length>0){
-//         messnamed('from_preset_tagger_deferred', 'files', 'set', selected_index);
-//       }
-//     }
-//     else{
-//       this._filesChooser.set();
-//     }
-//   }
-//   mira_gate.message(1);
-// }
-//
-// FileTreeComponent.prototype.select_parent = function(index, item){
-//   /**input from left browser pane*/
-//   // debug('FileTree.select_parent:', index, item);
-//   if(index!=undefined){
-//     if(this.parent_list.length){
-//       var entry = this.parent_list[index];
-//       if(entry.type == 'folder'){
-//         this.current_parent_node = this.parent_list[index];
-//         this.current_child_node = undefined;
-//         fileInfo.select_file();
-//         this.refresh();
-//         // if(this._always_select_first_item){
-//         //   this.select_child(0);
-//         // }
-//       }
-//       else if(entry.type == 'file'){
-//         var parent_node = retrieve_parent(this._treeobj, entry.parents);
-//         if(this.current_parent_node.type == 'root'){
-//           this.current_child_node = entry;
-//           fileInfo.select_file(entry.path);
-//         }
-//         else{
-//           this.current_child_node = entry;
-//           this.current_parent_node = parent_node;
-//           this.refresh();
-//         }
-//       }
-//       else if(entry.type == 'back_command'){
-//         this.current_parent_node = entry.parents[0];
-//         this.current_child_node = undefined;
-//         fileInfo.select_file();
-//         this.refresh();
-//         // if(this._always_select_first_item){
-//         //   this.select_child(0);
-//         // }
-//       }
-//     }
-//     else{
-//       this.refresh();
-//     }
-//   }
-// }
-//
-// FileTreeComponent.prototype.open_parent = function(index, item){
-//   /**double-click from left pane of browser*/
-//   // debug('FileTree.open_parent:', index, item);
-//   if(index!=undefined){
-//     if(this.parent_list.length){
-//       var entry = this.parent_list[index];
-//       if(entry.type == 'folder'){
-//         this.current_parent_node = this.parent_list[index];
-//         this.refresh();
-//       }
-//       else if(entry.type == 'file'){
-//         var parent_node = retrieve_parent(this._treeobj, entry.parents);
-//         if(this.current_parent_node.type == 'root'){
-//           this.current_child_node = entry;
-//           fileInfo.select_file(entry.path);
-//           NSProxy.asyncCall('open_preset', entry.path);
-//         }
-//         else{
-//           this.current_child_node = entry;
-//           this.current_parent_node = parent_node;
-//           this.refresh();
-//         }
-//       }
-//       else if(entry.type == 'back_command'){
-//         this.current_child_node = undefined;
-//         this.current_parent_node = entry.parents[0];
-//         this.refresh();
-//       }
-//     }
-//     else{
-//       this.refresh();
-//     }
-//   }
-// }
-//
-// FileTreeComponent.prototype.select_child = function(index, item){
-//   /**input from right browser pane*/
-//   // debug('FileTree.select_child:', index, item);
-//   if(index!=undefined){
-//     if(this.child_list.length){
-//       var entry = this.child_list[index];
-//       if(entry.type == 'folder'){
-//         this.current_child_node = undefined;
-//         this.current_parent_node = entry;
-//         fileInfo.select_file(undefined);
-//         this.refresh();
-//       }
-//       else if(entry.type == 'file'){
-//         this.current_child_node = entry;
-//         fileInfo.select_file(entry.path);
-//         this.refresh();
-//       }
-//     }
-//     else{
-//       this.refresh();
-//     }
-//   }
-// }
-//
-// FileTreeComponent.prototype.open_child = function(index, item){
-//   /**double-click from right pane of browser*/
-//   // debug('FileTree.open_child:', index, item);
-//   if(index!=undefined){
-//     var entry = this.child_list[index];
-//     if(entry.type == 'folder'){
-//       this.current_child_node = undefined;
-//       this.current_parent_node = entry;
-//       this.refresh();
-//       fileInfo.select_file(undefined);
-//
-//     }
-//     else if(entry.type == 'file'){
-//       this.current_child_node = entry;
-//       fileInfo.select_file(entry.path);
-//       NSProxy.asyncCall('open_preset', entry.path);
-//     }
-//   }
-// }
-//
-// FileTreeComponent.prototype.find_file = function(path){
-//   /**used primarily by selected file from filter window*/
-//   // debug('FileTree.find_file:', path);
-//   if(path){
-//     var root = this._treeobj.parent;
-//     var parents = path.toString().replace(root, '').split('/');
-//     var ft_obj = retrieve_child(this._treeobj, parents);
-//     //debug('found obj:', ft_obj.name);
-//     if(parents&&ft_obj){
-//       this.current_parent_node = retrieve_parent(this._treeobj, ft_obj.parents);
-//       this.current_child_node = ft_obj;
-//       fileInfo.select_file(ft_obj.path);
-//     }
-//   }
-//   this.refresh();
-// }
-//
-// FileTreeComponent.prototype.refresh_parent_node = function(){
-//   var node = this.current_parent_node;
-//   if((node)&&(node.name!='root')){
-//     this.current_parent_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
-//   }
-// }
-//
-// FileTreeComponent.prototype.refresh_child_node = function(){
-//   // var node = this.current_parent_node;
-//   // this.current_child_node = retrieve_child(this._treeobj, node.parents.concat([node.name]));
-// }
-//
-// FileTreeComponent.prototype.node_for_path = function(path){
-//   debug('FileTree.node_for_path:', path);
-//   var node = undefined;
-//   if(path){
-//     var root = this._treeobj.parent;
-//     var parents = path.toString().replace(root, '').split('/');
-//     var ft_obj = retrieve_child(this._treeobj, parents);
-//     node = ft_obj;
-//   }
-//   return node
-// }
-//
-// FileTreeComponent.prototype.parent_node_for_path = function(path){
-//   debug('FileTree.parent_node_for_path:', path);
-//   var node = undefined;
-//   if(path){
-//     var root = this._treeobj.parent;
-//     var parents = path.toString().replace(root, '').split('/');
-//     var ft_obj = retrieve_child(this._treeobj, parents);
-//     var parent_obj = retrieve_parent(this._treeobj, ft_obj.parents);
-//     node = parent_obj;
-//   }
-//   return node
-// }
-//
-// FileTreeComponent.prototype.set_tags_internal = function(path, tags){
-//   //this is turned off for now, since there is no way to read part of a dict from node4max
-//   var node = this.node_for_path(path);
-//   var current_tags = [].concat(node.tags);
-//   var new_tags = [].concat(tags);
-//   for(var i in new_tags){
-//     var tag = new_tags[i];
-//     if(current_tags.indexOf(tag)==-1){
-//       node.tags.push(tag);
-//     }
-//   }
-//   libraryObj[node.name].tags = node.tags;
-//   this.store_node_tags_to_Dict(node);
-// }
-//
-// FileTreeComponent.prototype.remove_tags_internal = function(path, tags){
-//   //this is turned off for now, since there is no way to read part of a dict from node4max
-//   var node = this.node_for_path(path);
-//   var current_tags = [].concat(node.tags);
-//   var new_tags = [].concat(tags);
-//   for(var i in new_tags){
-//     var tag = new_tags[i];
-//     var index = current_tags.indexOf(tag);
-//     if(index>-1){
-//       node.tags.splice(index);
-//     }
-//   }
-//   libraryObj[node.name].tags = node.tags;
-//   this.store_node_tags_to_Dict(node);
-// }
-//
-// FileTreeComponent.prototype.clear_tags_internal = function(path){
-//   //this is turned off for now, since there is no way to read part of a dict from node4max
-//   var node = this.node_for_path(path);
-//   node.tags = [];
-//   libraryObj[node.name].tags = node.tags;
-//   this.store_node_tags_to_Dict(node);
-// }
-//
-// FileTreeComponent.prototype.store_node_tags_to_Dict = function(node){
-//   //this is used by set/remove/clear_tags_internal
-//   var dict = get_child_dict(this._dict, node.parents);
-//   dict.set('tags', node.tags);
-// }
-
-// function on_specific_file_changed(filename){
-//   debug('on_specific_file_changed', filename);
-//   // if(!suppress_rescan){
-//     if(!fileInfo._needs_to_update){
-//       fileInfo.report_update(true);
-//       FileTree.update_file(filename);
-//       TagFilter.refresh();
-//       FileTagger.refresh();
-//       fileInfo.update();
-//     }
-//     // if(SHOW_DICTS){
-//     SHOW_LIB_DICT&&this.patcher.getnamed('library').message('wclose');
-//     SHOW_LIB_DICT&&this.patcher.getnamed('library').message('edit');
-//     SHOW_TREE_DICT&&this.patcher.getnamed('filetree').message('wclose');
-//     SHOW_TREE_DICT&&this.patcher.getnamed('filetree').message('edit');
-//     // };
-//     fileInfo.report_update(false);
-//   // }
-// }
-
-
-// FileTreeComponent.prototype.update_file = function(file_name){
-//   debug('FileTree.update_file');
-//   var root = this._treeobj.parent;
-//   var parents = file_name.toString().replace(root, '').split('/');
-//   var dictBranch = get_child_dict(filetreeDict, parents);
-//   var newObj = util.dict_to_jsobj(dictBranch);
-//   libraryObj[file_name] = {tags:[].concat(newObj.tags), shortname:newObj.name};
-//   var parent_node = this.parent_node_for_path(file_name);
-//   parent_node.children[newObj.name] = newObj;
-//   parent_node = this.parent_node_for_path(file_name);
-// }
