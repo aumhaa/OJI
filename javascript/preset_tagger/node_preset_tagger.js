@@ -6,6 +6,8 @@ const path = require('path');
 const util = require('util');
 const { exec } = require("child_process");
 const open = require('../node_dependencies/node_modules/open');
+//for frozen build:
+// const open = require('node_modules/open');
 
 function arrayfromargs(){
 	return Array.prototype.slice.call(arguments, 0);

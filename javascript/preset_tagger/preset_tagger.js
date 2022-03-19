@@ -65,6 +65,7 @@ var dbg = new DebugNamespace(script._name+' async=>').debug;
 var finder;
 var prefFile_prefix = '~/Library/Preferences';
 var prefFile_path = prefFile_prefix + '/com.aumhaa.preset_tagger_preferences.json';
+var dbFile_path = prefFile_prefix + '/com.aumhaa.preset_tagger_DB';  //irregular...check it further down if you change it
 var default_prefs = {preferences:{path:''}};
 var preferences = {preferences:{path:''}};
 var library_directory = undefined;
@@ -81,7 +82,7 @@ var suppress_rescan = false;  //currently this is set in batch operations, but i
 var VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
 var VALID_MAX_FILE_TYPES = ['AUps', '.adg', '.adv', '.wav', '.aif', '.json'];
 var QUICKTAB_NAMES = ['BS', 'PD', 'LD', 'PL', 'SAMPLE', '-', '-', '-'];
-var SQLITE_DB_NAME = './PresetTaggerDB';
+// var SQLITE_DB_NAME = './PresetTaggerDB';
 
 var finder;
 var mod;
@@ -195,6 +196,22 @@ function setup_patcher(){
 }
 
 function setup_tagDB(){
+  //initialize the DB file in case it doesn't exist, because SQLite object can't write a new file.
+  var found = false;
+	var f = new Folder(prefFile_prefix);
+	while(!f.end){
+		f.next();
+		if(f.filename=='com.aumhaa.preset_tagger_DB'){
+			found = true;
+		}
+	}
+  f.close();
+	if(!found){
+		var text = this.patcher.newdefault(300, 300, "text");
+		text.message('write', dbFile_path);
+    this.patcher.remove(text);
+	}
+
   script.tagDB = new TagDatabase('TagDatabase', {window:sqliteWindow, display:sqliteDisplay});
   script.restore_snapshot = tagDB.restore_snapshot;
   script.merge_snapshot = tagDB.merge_snapshot;
@@ -1087,7 +1104,8 @@ function TagDatabase(name, args){
   this.snapshotDict = new Dict('snapshot');
   this._db = new SQLite;
   this._result = new SQLResult;
-  this._db.open(SQLITE_DB_NAME, 1);
+  this._db.open(dbFile_path, 1);
+  this._db.exec('CREATE TABLE IF NOT EXISTS filenames (filename TEXT PRIMARY KEY, tags TEXT, shortname TEXT)', this._result);
   TagDatabase.super_.call(this, name, args);
   // this._window.front();
 }
