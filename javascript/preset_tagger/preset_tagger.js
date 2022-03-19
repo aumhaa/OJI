@@ -3,9 +3,10 @@ autowatch = 1;
 /**TODO:
 Rewrite db logic so that only filename is needed instead of full file path
 Figure out exception protocol for filenames with apostrophes
-Test batch functions
 Add pref settings for quicktab names
 Add pref setting for Live.app name (for opening presets via node.open())
+Implement a scheme for finding the correct preview file for presets.
+Random button on Commander.
 */
 
 var unique = jsarguments[1];
@@ -18,12 +19,12 @@ var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0
 
 //util.inject(this, util);
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
+var SHOW_SNAPSHOT_DICT = false;
 var EDITOR_OPEN = false;
-var SHOW_SNAPSHOT_DICT = true;
 var BATCH_OPEN = false;
 var MOD_DEBUG = false;
 var EDITOR_FLOAT = true;
@@ -79,8 +80,8 @@ var nodeScriptInitialized = false;
 var suppress_rescan = false;  //currently this is set in batch operations, but its not observed anywhere.
 var VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
 var VALID_MAX_FILE_TYPES = ['AUps', '.adg', '.adv', '.wav', '.aif', '.json'];
-var QUICKTAB_NAMES = ['#bass', 'PD', 'LD', 'PL', 'SAMPLE', '-', '-', '-'];
-var SQLITE_DB_NAME = './testDB';
+var QUICKTAB_NAMES = ['BS', 'PD', 'LD', 'PL', 'SAMPLE', '-', '-', '-'];
+var SQLITE_DB_NAME = './PresetTaggerDB';
 
 var finder;
 var mod;
@@ -347,7 +348,7 @@ function setup_preferences(){
     'float':false
   });
   prefsWindow.lock();
-  debug('prefsWindow.lock');
+  // debug('prefsWindow.lock');
   script['prefsInput'] = function(){
     var args = arrayfromargs(arguments);
     if(args[0]=='close'){
@@ -613,6 +614,7 @@ function setup_tests(){
   // tagDB.prune();
   // debug(JSON.stringify(previewObj));
   // debug('previewObj:', JSON.stringify(previewObj));
+  // tagDB._db.open(SQLITE_DB_NAME, 1);
 }
 
 function setup_modes(){
@@ -1091,6 +1093,10 @@ function TagDatabase(name, args){
 }
 
 inherits(TagDatabase, EventEmitter);
+
+TagDatabase.prototype.close = function(){
+  this._db.close();
+}
 
 TagDatabase.prototype.set_tags = function(filename, tags){
   // debug('tagDB set_tags:', filename, tags);
@@ -3377,6 +3383,7 @@ function Search(){
 function dissolve(){
   if(mod){mod.dissolve();}
   if(found_mod){found_mod.dissolve();}
+  tagDB.close();
   // for(var p in this){
   //   this[p] = null;
   //   delete this[p];

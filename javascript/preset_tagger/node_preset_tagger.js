@@ -22,11 +22,11 @@ Debug = function(){
 	maxApi.post(args + '\n');
 }
 
-const DEBUG = true;
+const DEBUG = false;
 const debug = DEBUG&&Debug?Debug:function(){}
 
 const VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
-const LIVEAPP_PATH = '/Applications/Ableton Live 11.1 Beta.app';
+const LIVEAPP_PATH = '/Applications/Ableton Live 11 Suite.app';
 const namespace = 'com.aumhaa.Tag';
 const prefFile_prefix = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share");
 const prefFile_path = prefFile_prefix + '/com.aumhaa.preset_tagger_preferences.json';
