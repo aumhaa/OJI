@@ -76,6 +76,13 @@ function _append(){
   //_refresh();
 }
 
+function _set_contents_from_obj(obj){
+  _contents = obj;
+  outlet(1, 'rows', _contents.length);
+  outlet(1, 'set', 0, _contents.length-1, args);
+  outlet(1, 'vscroll', _contents.length>ROW_HEIGHT);
+}
+
 function _clear(){
   outlet(1, 'rows', 0);
   outlet(1, 'set', 0, 0, '');
@@ -105,10 +112,11 @@ function _refresh(){
     _active = _single_active ? [_contents[_single_active]] : [];
     _active_items = _single_active ? [_contents[_single_active].value] : [];
     _active_indexes = _single_active ? [_single_active] : [];
+    outlet(1, 'col', 0, parseInt(i), 'brgb', COLORS.white);
     for(var i in _contents){
       _contents[i].active = i == _single_active;
-      outlet(1, 'cell', 0, parseInt(i), 'brgb', parseInt(i) == _single_active ? COLORS.cyan : COLORS.white);
     }
+    outlet(1, 'cell', 0, parseInt(_single_active), 'brgb', COLORS.cyan);
   }
   outlet(1, 'vscroll', _contents.length>ROW_HEIGHT);
 }

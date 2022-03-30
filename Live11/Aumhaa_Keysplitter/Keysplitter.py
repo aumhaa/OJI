@@ -27,6 +27,16 @@ class KeysplitterComponent(Component):
 
 	low_assign_button = ButtonControl()
 	high_assign_button = ButtonControl()
+	low_octave_up_button = ButtonControl()
+	low_octave_down_button = ButtonControl()
+	high_octave_up_button = ButtonControl()
+	high_octave_down_button = ButtonControl()
+	mid_octave_up_button = ButtonControl()
+	mid_octave_down_button = ButtonControl()
+	low_octave_reset_button = ButtonControl()
+	mid_octave_reset_button = ButtonControl()
+	high_octave_reset_button = ButtonControl()
+	engage_button = ButtonControl()
 	select_matrix = control_matrix(PlayableControl)
 
 
@@ -34,7 +44,18 @@ class KeysplitterComponent(Component):
 		super(KeysplitterComponent, self).__init__()
 		self._low_split_index = 127
 		self._high_split_index = 127
+		self._low_octave_offset = 0
+		self._mid_octave_offset = 0
+		self._high_octave_offset = 0
+		self._is_engaged = False
 
+
+	def set_autoarm_component(self, component):
+		self._on_autoarm_changed.subject = component
+
+	@listens('autoarm_enabled')
+	def _on_autoarm_changed(self, value):
+		self.engaged = value
 
 	@listenable_property
 	def number_of_splits(self):
@@ -43,9 +64,98 @@ class KeysplitterComponent(Component):
 		splits += 1 if self._high_split_index != 127 else 0
 		return splits
 
+	@low_octave_reset_button.pressed
+	def low_octave_reset_button(self, button):
+		self.low_octave_offset = 0
+
+	@low_octave_up_button.pressed
+	def low_octave_up_button(self, button):
+		self.low_octave_offset = self._low_octave_offset + 1
+
+	@low_octave_down_button.pressed
+	def low_octave_down_button(self, button):
+		self.low_octave_offset = self._low_octave_offset - 1
+
+	@listenable_property
+	def low_octave_offset(self):
+		return self._low_octave_offset
+
+	@low_octave_offset.setter
+	def low_octave_offset(self, value):
+		self._low_octave_offset = min(max(value, -5), 5)
+		self._update_note_translations()
+		self.notify_low_octave_offset(self._low_octave_offset)
+
+
+
+	@mid_octave_reset_button.pressed
+	def mid_octave_reset_button(self, button):
+		self.mid_octave_offset = 0
+
+	@mid_octave_up_button.pressed
+	def mid_octave_up_button(self, button):
+		self.mid_octave_offset = self._mid_octave_offset + 1
+
+	@mid_octave_down_button.pressed
+	def mid_octave_down_button(self, button):
+		self.mid_octave_offset = self._mid_octave_offset - 1
+
+	@listenable_property
+	def mid_octave_offset(self):
+		return self._mid_octave_offset
+
+	@mid_octave_offset.setter
+	def mid_octave_offset(self, value):
+		self._mid_octave_offset = min(max(value, -5), 5)
+		self._update_note_translations()
+		self.notify_mid_octave_offset(self._mid_octave_offset)
+
+
+	@high_octave_reset_button.pressed
+	def high_octave_reset_button(self, button):
+		self.high_octave_offset = 0
+
+	@high_octave_up_button.pressed
+	def high_octave_up_button(self, button):
+		self.high_octave_offset = self._high_octave_offset + 1
+
+	@high_octave_down_button.pressed
+	def high_octave_down_button(self, button):
+		self.high_octave_offset = self._high_octave_offset - 1
+
+	@listenable_property
+	def high_octave_offset(self):
+		return self._high_octave_offset
+
+	@high_octave_offset.setter
+	def high_octave_offset(self, value):
+		self._high_octave_offset = min(max(value, -5), 5)
+		self._update_note_translations()
+		self.notify_high_octave_offset(self._high_octave_offset)
+
+
 	@select_matrix.pressed
 	def select_matrix(self, button):
 		self._on_select_matrix_pressed(button)
+
+
+
+
+	@listenable_property
+	def engaged(self):
+		return self._is_engaged
+
+	@engaged.setter
+	def engaged(self, value):
+		self._is_engaged = value
+		self._update_note_translations()
+		debug('about to notify')
+		self.notify_engaged(self.engaged)
+
+	@engage_button.pressed
+	def engage_button(self, button):
+		self.engaged = not self._is_engaged
+		# self._update_note_translations()
 
 
 	@low_assign_button.double_clicked
@@ -85,6 +195,36 @@ class KeysplitterComponent(Component):
 			button.set_mode(PlayableControl.Mode.playable_and_listenable)
 
 
+
+	def set_low_octave_up_button(self, button):
+		self.low_octave_up_button.set_control_element(button)
+
+	def set_low_octave_down_button(self, button):
+		self.low_octave_down_button.set_control_element(button)
+
+	def set_mid_octave_up_button(self, button):
+		self.mid_octave_up_button.set_control_element(button)
+
+	def set_mid_octave_down_button(self, button):
+		self.mid_octave_down_button.set_control_element(button)
+
+	def set_high_octave_up_button(self, button):
+		self.high_octave_up_button.set_control_element(button)
+
+	def set_high_octave_down_button(self, button):
+		self.high_octave_down_button.set_control_element(button)
+
+	def set_low_octave_reset_button(self, button):
+		self.low_octave_reset_button.set_control_element(button)
+
+	def set_mid_octave_reset_button(self, button):
+		self.mid_octave_reset_button.set_control_element(button)
+
+	def set_high_octave_reset_button(self, button):
+		self.high_octave_reset_button.set_control_element(button)
+
+
+
 	def set_low_assign_button(self, button):
 		self.low_assign_button.set_control_element(button)
 
@@ -93,15 +233,30 @@ class KeysplitterComponent(Component):
 		self.high_assign_button.set_control_element(button)
 
 
+	def set_engage_button(self, button):
+		self.engage_button.set_control_element(button)
+
+
 	def _update_note_translations(self):
+		debug('update_note_translations:', self.engaged)
 		for button in self.select_matrix:
 			identifier = button.coordinate[1]
-			if identifier <= self._low_split_index:
-				button.channel = 0
-			elif identifier <= self._high_split_index:
-				button.channel = 1
+			# original_id = button._control_element._original_identifier if hasattr(button, '_control_element') and hasattr(button._control_element._original_identifier) else identifier
+			if self.engaged:
+				# debug('is engaged')
+				if identifier <= self._low_split_index:
+					button.channel = 0
+					button.identifier = min(127, max(0, identifier + (self.low_octave_offset*12)))
+				elif identifier <= self._high_split_index:
+					button.channel = 1
+					button.identifier = min(127, max(0, identifier + (self.mid_octave_offset*12)))
+				else:
+					button.channel = 2
+					button.identifier = min(127, max(0, identifier + (self.high_octave_offset*12)))
 			else:
-				button.channel = 2
+				# debug('not engaged')
+				button.channel = 0
+				button.identifier = identifier
 
 
 class SpecialAutoArmComponent(AutoArmComponent):
@@ -113,6 +268,7 @@ class SpecialAutoArmComponent(AutoArmComponent):
 		self._keysplitter = keysplitter
 		super(SpecialAutoArmComponent, self).__init__(*a, **k)
 		self._on_number_of_splits_changed.subject = self._keysplitter
+		self._on_engaged.subject = self._keysplitter
 
 	def set_enabled(self, enable):
 		debug('set_enabled:', self.is_enabled())
@@ -143,6 +299,32 @@ class SpecialAutoArmComponent(AutoArmComponent):
 	def _on_number_of_splits_changed(self, splits):
 		self._update_implicit_arm()
 
+	@listens('engaged')
+	def _on_engaged(self, value):
+		debug('_on_engaged:', value)
+		if value:
+			self._update_implicit_arm_task.kill()
+			song = self.song
+			selected_track = song.view.selected_track
+			tracks = list(song.tracks)
+			if selected_track in tracks:
+				selected_index = tracks.index(selected_track)
+				for track in song.tracks:
+					if self.track_can_be_armed(track):
+						if track in tracks:
+							track_index = tracks.index(track)
+							track.implicit_arm = track_index in range(selected_index, selected_index + self._keysplitter.number_of_splits)
+							if track_index in range(selected_index, (selected_index + self._keysplitter.number_of_splits)):
+								if hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > (track_index - selected_index):
+									track.input_routing_channel = track.available_input_routing_channels[(track_index - selected_index)+1]
+							elif hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > 0:
+								track.input_routing_channel = track.available_input_routing_channels[0]
+		else:
+			self.__autoarm_enabled = False
+			self.update()
+			# self.notify_autoarm_enabled(self.__autoarm_enabled)
+			# pass
+
 	# def _number_of_splits_enabled(self):
 	# 	splits = 1
 	# 	splits += 1 if self._keysplitter._low_split_index != 127 else 0
@@ -150,7 +332,7 @@ class SpecialAutoArmComponent(AutoArmComponent):
 	# 	return splits
 
 
-	def _update_implicit_arm(self):
+	def _update_implicit_arm(self, force = False):
 		self._update_implicit_arm_task.kill()
 		song = self.song
 		selected_track = song.view.selected_track
@@ -163,7 +345,7 @@ class SpecialAutoArmComponent(AutoArmComponent):
 					if track in tracks:
 						track_index = tracks.index(track)
 						track.implicit_arm = can_auto_arm and track_index in range(selected_index, selected_index + self._keysplitter.number_of_splits) and self.can_auto_arm_track(track)
-						if self.autoarm_enabled:
+						if self.autoarm_enabled or force:
 							if track_index in range(selected_index, (selected_index + self._keysplitter.number_of_splits)):
 								if hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > (track_index - selected_index):
 									track.input_routing_channel = track.available_input_routing_channels[(track_index - selected_index)+1]
@@ -200,8 +382,10 @@ class SpecialAutoArmComponent(AutoArmComponent):
 							track.input_routing_channel = track.available_input_routing_channels[0]
 		else:
 			self.update()
+		self.notify_autoarm_enabled(self.__autoarm_enabled)
 
-	@property
+
+	@listenable_property
 	def autoarm_enabled(self):
 		return self.__autoarm_enabled
 
@@ -229,24 +413,35 @@ class Keysplitter(ControlSurface):
 		resource = PrioritizedResource
 		self._key = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = KEYSPLITTER_KEYS[index], name = 'Key_' + str(index)) for index in range(128)]
 		self._key_matrix = ButtonMatrixElement(name = 'KeyMatrix', rows = [self._key])
-		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = BUTTON_CHANNEL, identifier = KEYSPLITTER_ASSIGN_BUTTONS[index], name = 'Buttons_' + str(index)) for index in range(3)]
+		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = BUTTON_CHANNEL, identifier = KEYSPLITTER_ASSIGN_BUTTONS[index], name = 'Buttons_' + str(index)) for index in range(13)]
 
 	def _setup_background(self):
 		self._background = BackgroundComponent(name = 'Background')
 		self._background.layer = Layer(matrix = self._key_matrix)
 		self._background.set_enabled(False)
 
+	def _setup_keysplitter(self):
+		self._keysplitter = KeysplitterComponent(name = 'KeysplitterComponent')
+		self._keysplitter.layer = Layer(select_matrix = self._key_matrix,
+			low_assign_button = self._button[0],
+			high_assign_button = self._button[1],
+			engage_button = self._button[3],
+			low_octave_down_button = self._button[4],
+			low_octave_up_button = self._button[5],
+			mid_octave_down_button = self._button[6],
+			mid_octave_up_button = self._button[7],
+			high_octave_down_button = self._button[8],
+			high_octave_up_button = self._button[9],
+			low_octave_reset_button = self._button[10],
+			mid_octave_reset_button = self._button[11],
+			high_octave_reset_button = self._button[12],
+		)
+		self._keysplitter.set_enabled(False)
 
 	def _setup_autoarm(self):
 		self._autoarm = SpecialAutoArmComponent(keysplitter = self._keysplitter)
 		self._autoarm.layer = Layer(util_autoarm_toggle_button = self._button[2])
-
-
-	def _setup_keysplitter(self):
-		self._keysplitter = KeysplitterComponent(name = 'KeysplitterComponent')
-		self._keysplitter.layer = Layer(select_matrix = self._key_matrix, low_assign_button = self._button[0], high_assign_button = self._button[1])
-		self._keysplitter.set_enabled(False)
-
+		self._keysplitter.set_autoarm_component(self._autoarm)
 
 	def _setup_mixer(self):
 		self._mixer = MixerComponent()
