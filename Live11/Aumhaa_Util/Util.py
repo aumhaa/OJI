@@ -370,13 +370,81 @@ class TrackCreatorComponent(Component):
 	def create_midi_track(self):
 		self.song.create_midi_track()
 
+#ableton are you a bit of a gaslighting cunt??
+#this is only here because apparently Ableton is doing funky behind the scenes if
+#it finds an active component instance of AutoArmComponent, it overrides the python code
+#renaming the base class seems to defeat this buggery
 
-class UtilAutoArmComponent(AutoArmComponent):
+class MyAutoArmComponent(Component):
+	u"""
+	Component that implictly arms tracks to keep the selected track
+	always armed while there is no compatible red-armed track.
+	"""
+
+	def __init__(self, *a, **k):
+		super(MyAutoArmComponent, self).__init__(*a, **k)
+		self._on_tracks_changed.subject = self.song
+		self._on_exclusive_arm_changed.subject = self.song
+		self._on_tracks_changed()
+		self._on_selected_track_changed.subject = self.song.view
+
+	@property
+	def needs_restore_auto_arm(self):
+		song = self.song
+		exclusive_arm = song.exclusive_arm
+		return self.is_enabled() and self.can_auto_arm_track(song.view.selected_track) and not song.view.selected_track.arm and any(ifilter(lambda track: (exclusive_arm or self.can_auto_arm_track(track)) and track.can_be_armed and track.arm, song.tracks))
+
+	def track_can_be_armed(self, track):
+		return track.can_be_armed and track.has_midi_input
+
+	def can_auto_arm(self):
+		return self.is_enabled() and not self.needs_restore_auto_arm
+
+	def can_auto_arm_track(self, track):
+		return self.track_can_be_armed(track)
+
+	@listens(u'selected_track')
+	def _on_selected_track_changed(self):
+		self.update()
+
+	def update(self):
+		super(MyAutoArmComponent, self).update()
+		song = self.song
+		selected_track = song.view.selected_track
+		for track in song.tracks:
+			if self.track_can_be_armed(track):
+				track.implicit_arm = self.can_auto_arm() and selected_track == track and self.can_auto_arm_track(track)
+
+	@listens(u'tracks')
+	def _on_tracks_changed(self):
+		tracks = filter(lambda t: t.can_be_armed, self.song.tracks)
+		self._on_arm_changed.replace_subjects(tracks)
+		self._on_input_routing_type_changed.replace_subjects(tracks)
+		self._on_frozen_state_changed.replace_subjects(tracks)
+
+	@listens(u'exclusive_arm')
+	def _on_exclusive_arm_changed(self):
+		self.update()
+
+	@listens_group(u'arm')
+	def _on_arm_changed(self, track):
+		self.update()
+
+	@listens_group(u'input_routing_type')
+	def _on_input_routing_type_changed(self, track):
+		self.update()
+
+	@listens_group(u'is_frozen')
+	def _on_frozen_state_changed(self, track):
+		self.update()
+
+class UtilAutoArmComponent(MyAutoArmComponent):
 
 	util_autoarm_toggle_button = ButtonControl()
 	__autoarm_enabled = False
 
 	def __init__(self, *a, **k):
+		self._keysplitter_disable_autoarm = False
 		super(UtilAutoArmComponent, self).__init__(*a, **k)
 		self._update_autoarm_toggle_button.subject = self
 
@@ -400,12 +468,22 @@ class UtilAutoArmComponent(AutoArmComponent):
 		return self.__autoarm_enabled
 
 	def can_auto_arm_track(self, track):
-		return self.track_can_be_armed(track) and self.autoarm_enabled
+		if self._keysplitter_disable_autoarm:
+			return False
+		else:
+			return self.track_can_be_armed(track) and self.autoarm_enabled
 
 	@listens('autoarm_enabled')
 	def _update_autoarm_toggle_button(self, *a):
 		#debug('_update_autoarm_toggle_button')
 		self.util_autoarm_toggle_button.color = 'Auto_Arm.Enabled' if self.autoarm_enabled else 'Auto_Arm.Disabled'
+
+	def update(self):
+		if not self._keysplitter_disable_autoarm:
+			super(UtilAutoArmComponent, self).update()
+		else:
+			debug('autoarm.update(), keysplitter disabled')
+
 
 
 class UtilChannelStripComponent(MonoChannelStripComponent):
@@ -1344,15 +1422,15 @@ class HotswapComponent(Component):
 	def _on_selected_drum_pad_changed(self):
 		debug('_on_selected_drum_pad_changed', self._selected_drum_pad)
 
-    # @listens(u'selected_track')
-    # def __on_selected_track_changed(self):
-    #     self.__on_selected_device_changed.subject = self.song.view.selected_track.view
-    #     if self.device_selection_follows_track_selection:
-    #         self.update_device_selection()
+	# @listens(u'selected_track')
+	# def __on_selected_track_changed(self):
+	#     self.__on_selected_device_changed.subject = self.song.view.selected_track.view
+	#     if self.device_selection_follows_track_selection:
+	#         self.update_device_selection()
 	#
-    # @listens(u'selected_device')
-    # def __on_selected_device_changed(self):
-    #     self._update_appointed_device()
+	# @listens(u'selected_device')
+	# def __on_selected_device_changed(self):
+	#     self._update_appointed_device()
 
 
 class Util(ControlSurface):
@@ -1367,6 +1445,7 @@ class Util(ControlSurface):
 		self.show_message('Util Control Surface Loaded')
 		#self._controls = []
 		self._skin = Skin(UtilColors)
+		self._disable_autoarm = False
 		#self._real_time_mapper = c_instance.real_time_mapper
 		with self.component_guard():
 		#	self._setup_m4l_interface()
@@ -1668,6 +1747,7 @@ class Util(ControlSurface):
 											self._device_deleter,
 											self._hotswap])
 
+
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
 		self._main_modes.selected_mode = 'disabled'
 		# self._main_modes.layer = Layer(Main_button = self._button[44], Mod_button = self._button[45])
@@ -1690,6 +1770,15 @@ class Util(ControlSurface):
 	# def receive_cc(self, num, val, chan=0):
 	# 	# debug('receive_cc', num, val)
 	# 	self.receive_midi(tuple([176+chan, num, val]))
+
+	def connect_script_instances(self, instanciated_scripts):
+		hosts = []
+		for s in instanciated_scripts:
+			if hasattr(s, 'disable_autoarm') and s.disable_autoarm:
+				if hasattr(self, '_autoarm'):
+					self._autoarm._keysplitter_disable_autoarm = True
+					debug('setting _keysplitter_disable_autoarm to True')
+
 
 	@listens('device')
 	def _on_device_changed(self):
