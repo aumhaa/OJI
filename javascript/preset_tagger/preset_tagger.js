@@ -82,6 +82,7 @@ var suppress_rescan = false;  //currently this is set in batch operations, but i
 var VALID_FILE_TYPES = ['.aupreset', '.adg', '.adv', '.wav', '.aif', '.json'];
 var VALID_MAX_FILE_TYPES = ['AUps', '.adg', '.adv', '.wav', '.aif', '.json'];
 var QUICKTAB_NAMES = ['BS', 'PD', 'LD', 'PL', 'SAMPLE', '-', '-', '-'];
+// var QUICKTAB_NAMES = ['11BS', '11PD', '11LD', '11PL', '11SAMPLE', '-', '-', '-'];
 // var SQLITE_DB_NAME = './PresetTaggerDB';
 
 var finder;
@@ -827,6 +828,7 @@ function setup_audition_button(){
 
 function setup_quicktabs(){
   script.quicktabs = new QuicktabComponent('Quicktabs', {radio_buttons_raw:quicktab_controls, QUICKTAB_NAMES:QUICKTAB_NAMES, tag_filter:TagFilter, tag_chooser:tag_chooser});
+  debug('setup_quicktabs');
 }
 
 function setup_preference_file(){
@@ -3298,9 +3300,11 @@ inherits(QuicktabComponent, EventEmitter);
 
 QuicktabComponent.prototype._on_button_pushed = function(obj){
   // debug(this._name+'on_button_pushed:', obj._value);
-  if(obj._value>-1){
-    this._tag_filter._selected_tags.set_value([QUICKTAB_NAMES[obj._value]]);
-    tag_chooser._refresh();
+  if(Alive){
+    if(obj._value>-1){
+      this._tag_filter._selected_tags.set_value([QUICKTAB_NAMES[obj._value]]);
+      tag_chooser._refresh();
+    }
   }
 }
 
