@@ -370,81 +370,15 @@ class TrackCreatorComponent(Component):
 	def create_midi_track(self):
 		self.song.create_midi_track()
 
-#ableton are you a bit of a gaslighting cunt??
-#this is only here because apparently Ableton is doing funky behind the scenes if
-#it finds an active component instance of AutoArmComponent, it overrides the python code
-#renaming the base class seems to defeat this buggery
 
-class MyAutoArmComponent(Component):
-	u"""
-	Component that implictly arms tracks to keep the selected track
-	always armed while there is no compatible red-armed track.
-	"""
 
-	def __init__(self, *a, **k):
-		super(MyAutoArmComponent, self).__init__(*a, **k)
-		self._on_tracks_changed.subject = self.song
-		self._on_exclusive_arm_changed.subject = self.song
-		self._on_tracks_changed()
-		self._on_selected_track_changed.subject = self.song.view
-
-	@property
-	def needs_restore_auto_arm(self):
-		song = self.song
-		exclusive_arm = song.exclusive_arm
-		return self.is_enabled() and self.can_auto_arm_track(song.view.selected_track) and not song.view.selected_track.arm and any(ifilter(lambda track: (exclusive_arm or self.can_auto_arm_track(track)) and track.can_be_armed and track.arm, song.tracks))
-
-	def track_can_be_armed(self, track):
-		return track.can_be_armed and track.has_midi_input
-
-	def can_auto_arm(self):
-		return self.is_enabled() and not self.needs_restore_auto_arm
-
-	def can_auto_arm_track(self, track):
-		return self.track_can_be_armed(track)
-
-	@listens(u'selected_track')
-	def _on_selected_track_changed(self):
-		self.update()
-
-	def update(self):
-		super(MyAutoArmComponent, self).update()
-		song = self.song
-		selected_track = song.view.selected_track
-		for track in song.tracks:
-			if self.track_can_be_armed(track):
-				track.implicit_arm = self.can_auto_arm() and selected_track == track and self.can_auto_arm_track(track)
-
-	@listens(u'tracks')
-	def _on_tracks_changed(self):
-		tracks = filter(lambda t: t.can_be_armed, self.song.tracks)
-		self._on_arm_changed.replace_subjects(tracks)
-		self._on_input_routing_type_changed.replace_subjects(tracks)
-		self._on_frozen_state_changed.replace_subjects(tracks)
-
-	@listens(u'exclusive_arm')
-	def _on_exclusive_arm_changed(self):
-		self.update()
-
-	@listens_group(u'arm')
-	def _on_arm_changed(self, track):
-		self.update()
-
-	@listens_group(u'input_routing_type')
-	def _on_input_routing_type_changed(self, track):
-		self.update()
-
-	@listens_group(u'is_frozen')
-	def _on_frozen_state_changed(self, track):
-		self.update()
-
-class UtilAutoArmComponent(MyAutoArmComponent):
+class UtilAutoArmComponent(AutoArmComponent):
 
 	util_autoarm_toggle_button = ButtonControl()
 	__autoarm_enabled = False
 
 	def __init__(self, *a, **k):
-		self._keysplitter_disable_autoarm = False
+		# self._keysplitter_disable_autoarm = False
 		super(UtilAutoArmComponent, self).__init__(*a, **k)
 		self._update_autoarm_toggle_button.subject = self
 
@@ -462,27 +396,28 @@ class UtilAutoArmComponent(MyAutoArmComponent):
 		self.__autoarm_enabled = not self.__autoarm_enabled
 		#debug('toggle_autoarm')
 		self.notify_autoarm_enabled()
+		self.update()
 
 	@listenable_property
 	def autoarm_enabled(self):
 		return self.__autoarm_enabled
 
 	def can_auto_arm_track(self, track):
-		if self._keysplitter_disable_autoarm:
-			return False
-		else:
-			return self.track_can_be_armed(track) and self.autoarm_enabled
+		# if self._keysplitter_disable_autoarm:
+		# 	return False
+		# else:
+		return self.track_can_be_armed(track) and self.autoarm_enabled
 
 	@listens('autoarm_enabled')
 	def _update_autoarm_toggle_button(self, *a):
 		#debug('_update_autoarm_toggle_button')
 		self.util_autoarm_toggle_button.color = 'Auto_Arm.Enabled' if self.autoarm_enabled else 'Auto_Arm.Disabled'
 
-	def update(self):
-		if not self._keysplitter_disable_autoarm:
-			super(UtilAutoArmComponent, self).update()
-		else:
-			debug('autoarm.update(), keysplitter disabled')
+	# def update(self):
+	# 	if not self._keysplitter_disable_autoarm:
+	# 		super(UtilAutoArmComponent, self).update()
+	# 	else:
+	# 		debug('autoarm.update(), keysplitter disabled')
 
 
 
@@ -1771,13 +1706,13 @@ class Util(ControlSurface):
 	# 	# debug('receive_cc', num, val)
 	# 	self.receive_midi(tuple([176+chan, num, val]))
 
-	def connect_script_instances(self, instanciated_scripts):
-		hosts = []
-		for s in instanciated_scripts:
-			if hasattr(s, 'disable_autoarm') and s.disable_autoarm:
-				if hasattr(self, '_autoarm'):
-					self._autoarm._keysplitter_disable_autoarm = True
-					debug('setting _keysplitter_disable_autoarm to True')
+	# def connect_script_instances(self, instanciated_scripts):
+	# 	hosts = []
+	# 	for s in instanciated_scripts:
+	# 		if hasattr(s, 'disable_autoarm') and s.disable_autoarm:
+	# 			if hasattr(self, '_autoarm'):
+	# 				self._autoarm._keysplitter_disable_autoarm = True
+	# 				debug('setting _keysplitter_disable_autoarm to True')
 
 
 	@listens('device')

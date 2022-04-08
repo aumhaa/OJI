@@ -5,8 +5,9 @@
 
 import Live
 import math
+# from itertools import ifilter
 
-from ableton.v2.base import inject, listens, listenable_property
+from ableton.v2.base import inject, listens, listens_group, listenable_property, liveobj_valid
 from ableton.v2.control_surface import ControlSurface, ControlElement, Layer, Skin, PrioritizedResource, Component, ClipCreator, DeviceBankRegistry
 from ableton.v2.control_surface.elements import ButtonMatrixElement, ButtonElement
 from ableton.v2.control_surface.mode import AddLayerMode, ModesComponent, DelayMode, CompoundMode
@@ -146,13 +147,13 @@ class KeysplitterComponent(Component):
 	@engaged.setter
 	def engaged(self, value):
 		self._is_engaged = value
-		# debug('about to notify')
+		debug('about to notify')
 		self.notify_engaged(self._is_engaged)
 		self._update_note_translations()
 
 	@engage_button.pressed
 	def engage_button(self, button):
-		self._is_engaged = not self._is_engaged
+		self.engaged = not self._is_engaged
 		self._update_note_translations()
 		if self._autoarm_component != None:
 			self._autoarm_component._update_implicit_arm_task.kill()
@@ -273,7 +274,7 @@ class KeysplitterComponent(Component):
 		for button in self.select_matrix:
 			identifier = button.coordinate[1]
 			# original_id = button._control_element._original_identifier if hasattr(button, '_control_element') and hasattr(button._control_element._original_identifier) else identifier
-			if self.engaged:
+			if self.engaged or self._autoarm_component.autoarm_enabled:
 				# debug('is engaged')
 				if identifier <= self._low_split_index:
 					button.channel = 0
@@ -290,47 +291,63 @@ class KeysplitterComponent(Component):
 				button.identifier = identifier
 
 
+
+
 class SpecialAutoArmComponent(AutoArmComponent):
 
 	util_autoarm_toggle_button = ButtonControl()
 	__autoarm_enabled = False
 
 	def __init__(self, keysplitter, *a, **k):
+		AutoArmComponent.active_push_instances.append(self)
 		self._keysplitter = keysplitter
+		# self._last_number_splits = 0
 		super(SpecialAutoArmComponent, self).__init__(*a, **k)
-		# self._on_number_of_splits_changed.subject = self._keysplitter
-		# self._on_engaged.subject = self._keysplitter
+		self._on_number_of_splits_changed.subject = self._keysplitter
+		self._on_engaged.subject = self._keysplitter
+
+	def disconnect(self):
+		AutoArmComponent.active_push_instances.remove(self)
+		super(SpecialAutoArmComponent, self).disconnect()
 
 	def set_enabled(self, enable):
 		debug('set_enabled:', self.is_enabled())
 		super(SpecialAutoArmComponent, self).set_enabled(enable)
 
+	@property
+	def autoarm_enabled(self):
+		return self.__autoarm_enabled
 
 	@listens('number_of_splits')
-	def _on_number_of_splits_changed(self, splits):
+	def _on_number_of_splits_changed(self, splits = 0):
+		# debug('number_of_splits:', int(splits))
+		# if not self._last_number_splits == int(splits):
+			# debug('updating from here')
+			# self._last_number_splits = int(splits)
 		self._update_implicit_arm()
 
 
 	def _update_implicit_arm(self):
 		debug('update_implicit_arm')
 		self._update_implicit_arm_task.kill()
-		song = self.song
-		selected_track = song.view.selected_track
-		can_auto_arm = self.can_auto_arm()
-		tracks = list(song.tracks)
-		if selected_track in tracks:
-			selected_index = tracks.index(selected_track)
-			for track in song.tracks:
-				if self.track_can_be_armed(track):
-					if track in tracks:
-						track_index = tracks.index(track)
-						track.implicit_arm = can_auto_arm and track_index in range(selected_index, selected_index + self._keysplitter.number_of_splits) and self.can_auto_arm_track(track)
-						if self.autoarm_enabled:
-							if track_index in range(selected_index, (selected_index + self._keysplitter.number_of_splits)):
-								if hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > (track_index - selected_index):
-									track.input_routing_channel = track.available_input_routing_channels[(track_index - selected_index)+1]
-							elif hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > 0:
-								track.input_routing_channel = track.available_input_routing_channels[0]
+		if self.can_update_implicit_arm():
+			song = self.song
+			selected_track = song.view.selected_track
+			can_auto_arm = self.can_auto_arm()
+			tracks = list(song.tracks)
+			if selected_track in tracks:
+				selected_index = tracks.index(selected_track)
+				for track in song.tracks:
+					if self.track_can_be_armed(track):
+						if track in tracks:
+							track_index = tracks.index(track)
+							track.implicit_arm = can_auto_arm and track_index in range(selected_index, selected_index + self._keysplitter.number_of_splits) and self.can_auto_arm_track(track)
+							if self.autoarm_enabled:
+								if track_index in range(selected_index, (selected_index + self._keysplitter.number_of_splits)):
+									if hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > (track_index - selected_index):
+										track.input_routing_channel = track.available_input_routing_channels[(track_index - selected_index)+1]
+								elif hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > 0:
+									track.input_routing_channel = track.available_input_routing_channels[0]
 
 
 	def set_util_autoarm_toggle_button(self, button):
@@ -344,8 +361,10 @@ class SpecialAutoArmComponent(AutoArmComponent):
 		self.toggle_autoarm()
 
 	def toggle_autoarm(self):
+		if self._keysplitter.engaged:
+			self._keysplitter._is_engaged = False
 		self.__autoarm_enabled = not self.__autoarm_enabled
-		debug('toggle_autoarm')
+		debug('toggle_autoarm, is now:', self.__autoarm_enabled)
 		if not self.autoarm_enabled:
 			self._update_implicit_arm_task.kill()
 			song = self.song
@@ -364,17 +383,6 @@ class SpecialAutoArmComponent(AutoArmComponent):
 			self.update()
 		# self.notify_autoarm_enabled(self.__autoarm_enabled)
 
-	def update(self):
-		pass
-	# 	if self.__autoarm_enabled:
-	# 		self._update_implicit_arm()
-	# 	else:
-	# 		super(SpecialAutoArmComponent, self).update()
-	# 		song = self.song
-	# 		selected_track = song.view.selected_track
-	# 		for track in song.tracks:
-	# 			if self.track_can_be_armed(track):
-	# 				track.implicit_arm = self.can_auto_arm() and selected_track == track and self.can_auto_arm_track(track)
 
 	def can_auto_arm(self):
 		return self.is_enabled() and not self.needs_restore_auto_arm and self.__autoarm_enabled
@@ -387,6 +395,15 @@ class SpecialAutoArmComponent(AutoArmComponent):
 	def can_auto_arm_track(self, track):
 		return self.track_can_be_armed(track) and self.autoarm_enabled
 
+	def can_update_implicit_arm(self):
+		return (self.__autoarm_enabled and not self._keysplitter._is_engaged)
+
+	@listens('engaged')
+	def _on_engaged(self, engaged):
+		debug('autoarm received engaged:', engaged)
+		self.__autoarm_enabled = False
+
+
 
 class Keysplitter(ControlSurface):
 
@@ -398,7 +415,7 @@ class Keysplitter(ControlSurface):
 			self._setup_controls()
 			self._setup_background()
 			self._setup_keysplitter()
-			# self._setup_autoarm()
+			self._setup_autoarm()
 			self._setup_modes()
 		self._main_modes.selected_mode = 'Keysplitter'
 
@@ -453,8 +470,8 @@ class Keysplitter(ControlSurface):
 
 		self._main_modes = ModesComponent(name = 'MainModes')
 		self._main_modes.add_mode('disabled', [self._background])
-		# self._main_modes.add_mode('Keysplitter', [self._keysplitter, self._autoarm])
-		self._main_modes.add_mode('Keysplitter', [self._keysplitter])
+		self._main_modes.add_mode('Keysplitter', [self._keysplitter, self._autoarm])
+		# self._main_modes.add_mode('Keysplitter', [self._keysplitter])
 		self._main_modes.selected_mode = 'disabled'
 
 #	a
