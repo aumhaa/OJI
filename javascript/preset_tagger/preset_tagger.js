@@ -100,8 +100,8 @@ var BATCHXSIZE = 203;
 var BATCHYSIZE  = 550;
 var PREFSXSIZE = 100;
 var PREFSYSIZE  = 200;
-var SEARCHXSIZE = 500;
-var SEARCHYSIZE  = 80;
+var SEARCHXSIZE = 520;
+var SEARCHYSIZE  = 275;
 var MULTITAG_DELAY = 250;
 var MAX_MIRA_DROPDOWN_LENGTH = 1000;
 var MAX_FILE_LIST_LENGTH = 10000;
@@ -134,7 +134,7 @@ function init(){
   setup_mainfx_button();
   setup_tagmode_button();
   setup_audition_button();
-  setup_quicktabs();
+  // setup_quicktabs();
   setup_mod();
   setup_preference_file();
   NODE_DEBUG&&node_debug.front();
@@ -385,6 +385,21 @@ function setup_search_window(){
   var obj = search_window;
   var window_position =  obj.subpatcher().getnamed('window_position');
   var textedit = obj.subpatcher().getnamed('textedit');
+  // script.testchooser = obj.subpatcher().getnamed('test');
+
+  script.searchChooser = new CellBlockChooserComponent('SearchChooser', {
+    obj:obj.subpatcher().getnamed('searchchooser'),
+    row_height:25,
+    multiSelect:false,
+    reselect:false
+  });
+  script.toSearchChooser = searchChooser.input;
+
+  script.FilesearchFilter = new FilesearchFilterComponent('FilesearchFilter', {
+    search_filter_text:textedit,
+  });
+  script.toFilesearchFilter = FilesearchFilter.input;
+
   script.searchWindow = new FloatingWindowModule('SearchWindow', {
     'window_position':window_position,
     'obj':obj,
@@ -392,28 +407,34 @@ function setup_search_window(){
     'sizeY':SEARCHYSIZE,
     'nominimize':true,
     'nozoom':false,
-    'noclose':true,
+    'noclose':false,
     'nogrow':true,
-    'notitle':true,
+    'notitle':false,
     'float':true,
-    'textedit':textedit
+    'textedit':textedit,
+    'search_display':searchChooser
   });
   searchWindow.lock();
-  // debug('searchWindow.lock');
+
   script['searchWindowInput'] = function(){
-    var args = arrayfromargs(arguments);
-    if(args[0]=='texteditInput'){
-      debug('textedit_IN', args);
-      textFilter.message('set', args.slice(1));
-      textFilter.message('bang');
-      searchWindow.close();
-    }
-    else{
-      try{
-        searchWindow[args[0]].apply(prefsWindow, args.slice(1));
+    if(Alive){
+      var args = arrayfromargs(arguments);
+      if(FilesearchFilter[args[0]]){
+        toFilesearchFilter.apply(this, args);
+        //textFilter.message('set', args.slice(1));
+        //textFilter.message('bang');
+        //searchWindow.close();
       }
-      catch(err){
-        util.report_error(err);
+      else if(args[0]=='toSearchChooser'){
+        searchChooser.toSearchChooser(args.slice(1));
+      }
+      else{
+        try{
+          searchWindow[args[0]].apply(prefsWindow, args.slice(1));
+        }
+        catch(err){
+          util.report_error(err);
+        }
       }
     }
   }
@@ -633,14 +654,14 @@ function setup_tests(){
   // debug(JSON.stringify(previewObj));
   // debug('previewObj:', JSON.stringify(previewObj));
   // tagDB._db.open(SQLITE_DB_NAME, 1);
+  // debug('ALIVE______________:', Alive);
 }
 
 function setup_modes(){
 
 	//Page 1:  tagPage
 	script.tagPage = new Page('tagPage');
-	tagPage.enter_mode = function()
-	{
+	tagPage.enter_mode = function(){
 		debug('tagPage entered');
     KeyButtons[0]._send_text('<');
     KeyButtons[1]._send_text('>');
@@ -650,8 +671,7 @@ function setup_modes(){
     tagChooser.assign_grid(Grid);
     fileInfo.fileAccessButton.set_control(KeyButtons[6]);
 	}
-	tagPage.exit_mode = function()
-	{
+	tagPage.exit_mode = function(){
     fileInfo.fileAccessButton.set_control();
     tagChooser.offset.set_inc_dec_buttons();
     tagChooser.assign_grid();
@@ -660,27 +680,22 @@ function setup_modes(){
     KeyButtons[6]._send_text(' ');
 		debug('tagPage exited');
 	}
-	tagPage.update_mode = function()
-	{
+	tagPage.update_mode = function(){
 		debug('tagPage updated');
-		if(tagPage._shifted)
-		{
+		if(tagPage._shifted){
 			debug('tagPage._shifted');
 		}
-		else if(mainPage._alted)
-		{
+		else if(mainPage._alted){
 			debug('tagPage._alted');
 		}
-		else
-		{
+		else{
 			tagPage.enter_mode();
 		}
 	}
 
   //Page 2:  filterPage
 	script.filterPage = new Page('filterPage');
-	filterPage.enter_mode = function()
-	{
+	filterPage.enter_mode = function(){
 		debug('filterPage entered');
     filterChooser.assign_grid(Grid);
     filterChooser.offset.set_inc_dec_buttons(KeyButtons[1], KeyButtons[0]);
@@ -691,8 +706,7 @@ function setup_modes(){
     KeyButtons[0]._send_text('<');
     KeyButtons[1]._send_text('>');
 	}
-	filterPage.exit_mode = function()
-	{
+	filterPage.exit_mode = function(){
     TagFilter._filterMode.set_control();
     TagFilter.ClearFilter.set_control();
     filterChooser.offset.set_inc_dec_buttons();
@@ -707,24 +721,20 @@ function setup_modes(){
 	filterPage.update_mode = function()
 	{
 		debug('filterPage updated');
-		if(filterPage._shifted)
-		{
+		if(filterPage._shifted){
 			debug('filterPage._shifted');
 		}
-		else if(filterPage._alted)
-		{
+		else if(filterPage._alted){
 			debug('filterPage._alted');
 		}
-		else
-		{
+		else{
 			filterPage.enter_mode();
 		}
 	}
 
   //Page 2:  selectPage
 	script.selectPage = new Page('selectPage');
-  selectPage.enter_mode = function()
-	{
+  selectPage.enter_mode = function(){
 		debug('selectPage entered');
     targetChooser.assign_grid(Grid);
     targetChooser.offset.set_inc_dec_buttons(KeyButtons[1], KeyButtons[0]);
@@ -736,8 +746,7 @@ function setup_modes(){
     KeyButtons[0]._send_text('<');
     KeyButtons[1]._send_text('>');
 	}
-	selectPage.exit_mode = function()
-	{
+	selectPage.exit_mode = function(){
     //TagFilter._filterMode.set_control();
     TagFilter.ClearFilter.set_control();
     Randomizer.RandomControl.set_control();
@@ -753,16 +762,13 @@ function setup_modes(){
 	filterPage.update_mode = function()
 	{
 		debug('selectPage updated');
-		if(selectPage._shifted)
-		{
+		if(selectPage._shifted){
 			debug('selectPage._shifted');
 		}
-		else if(selectPage._alted)
-		{
+		else if(selectPage._alted){
 			debug('selectPage._alted');
 		}
-		else
-		{
+		else{
 			selectPage.enter_mode();
 		}
 	}
@@ -868,7 +874,7 @@ function setup_nodescript(){
   var restart_task = new Task(initialize_nodescript, this);
   var on_nodescript_terminated = function () {
     debug('on_nodescript_terminated');
-    // restart_task.schedule(1000);
+    restart_task.schedule(1000);
     Alive = false;
     nodeScriptInitialized = true;
     EditorButton.message(0);
@@ -878,8 +884,8 @@ function setup_nodescript(){
     // restart_button.hidden = 0;
     // restart_button.message('text', 'RESTART');
   }
-
-  NSProxy.addTerminationCallback(on_nodescript_terminated);
+  //this needs to be sorted, for now there is no termination callback coming from node when it crashes.
+  // NSProxy.addTerminationCallback(on_nodescript_terminated);
   initialize_nodescript();
 }
 
@@ -2547,15 +2553,20 @@ TagFilterComponent.prototype.redraw_tagchooser = function(){
   //repopulate the tag chooser box with current items
   mira_gate.message(0);
   tag_chooser.clear();
+  var found_tag;
+  var active_tags = [];
   messnamed('from_preset_tagger', 'filters', 'clear');
   for(var i in this.found_tags){
     found_tag = this.found_tags[i];
     tag_chooser.append(found_tag);
     messnamed('from_preset_tagger', 'filters', 'append', found_tag);
     if(this.selected_tags.indexOf(found_tag)>-1){
+      debug('setting:', i);
       tag_chooser.set(i);
+      // active_tags.append(i);
       messnamed('from_preset_tagger', 'filters', 'set', i, 1);
     }
+    // tag_chooser.set_multi(active_tags);
   }
   mira_gate.message(1);
 }
@@ -2788,6 +2799,215 @@ FilenameFilterComponent.prototype.convert_tagnames = function(oldtag, newtag){
   tagDB.set_folder_tags(filenames, newtag);
   TagFilter.refresh();
   fileInfo.update();
+}
+
+
+function FilesearchFilterComponent(name, args){
+  var self = this;
+  this.filtered_hash_list = {};
+  this._search_filters = new ArrayParameter(this._name + '_SearchFilters', {value:[]});
+  this._filtered_files = new ArrayParameter(this._name + '_FilteredFiles', {value:[]});
+  // this._tag_buffer = new ArrayParameter(this._name + '_TagBuffer', {value:[]});
+  // this._recursive_toggle = new ToggledParameter(this._name + '_RecursiveToggle', {value:false});
+  this._selected_file = new ParameterClass(this._name + '_SelectedFile', {value:''});
+  this._selected_file_index = new ParameterClass(this._name + '_SelectedFileIndex', {value:0});
+  this.add_bound_properties(this, [
+    'input',
+    'refresh',
+    '_search_filters',
+    '_filtered_files',
+    '_search_filter_text',
+    'refresh_filtered_chooser_selection',
+    '_result_display',
+    'filtered_hash_list',
+    'select_file',
+    '_selected_file',
+    'load_selected_file'
+  ]);
+  // '_recursive_toggle',
+  TagFilterComponent.super_.call(this, name, args);
+  this._init.apply(this);
+}
+
+util.inherits(FilesearchFilterComponent, EventEmitter);
+
+FilesearchFilterComponent.prototype.__defineGetter__('filtered_files', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._filtered_files._value
+});
+
+FilesearchFilterComponent.prototype.__defineGetter__('selected_file', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._selected_file._value
+});
+
+FilesearchFilterComponent.prototype.__defineGetter__('selected_file_index', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._selected_file_index._value
+});
+
+FilesearchFilterComponent.prototype.__defineGetter__('search_filters', function(){
+  // debug('selected tags:', this._selected_tags);
+  return this._search_filters._value
+});
+
+FilesearchFilterComponent.prototype.__defineGetter__('recursive_toggle', function(){
+  return false
+});
+
+FilesearchFilterComponent.prototype._init = function(args){
+  var self = this;
+  this._search_filters.add_listener(this.refresh);
+  this._search_filters.add_listener(function(){
+    self._search_filter_text.message('set', self.search_filters.join(' '));
+  });
+  this._search_filter_text.message('clear');
+  // this._tag_buffer_text.message('clear');
+  // this._batch_display.add_listener(function(obj){
+  //   //var args = arrayfromargs(arguments);
+  //   debug('batch_display input:', obj);
+  // })
+}
+
+FilesearchFilterComponent.prototype.refresh = function(){
+  debug('FilesearchFilterComponent.refresh');
+  this.display_filtered_files();
+}
+
+FilesearchFilterComponent.prototype.input = function(){
+  var args = arrayfromargs(arguments);
+  debug('FilesearchFilterComponent.input:', args);
+  try{
+    this[args[0]].apply(this, args.slice(1));
+  }
+  catch(err){
+    util.report_error(err);
+  }
+}
+
+FilesearchFilterComponent.prototype.set_filters = function(){
+  var filters = arrayfromargs(arguments);
+  debug('set_filters:', filters, filters.length);
+  this._search_filters.set_value(filters);  //this calls refresh
+  // searchChooser.set(0);
+  // search_window.subpatcher().getnamed('searchchooser').message('select', 0, 0);
+  // search_window.subpatcher().getnamed('searchchooser').bringtofront();
+  // testchooser.message('select');
+}
+
+FilesearchFilterComponent.prototype.Clear = function(){
+  this.clear_filter();
+  // this.clear_tag_buffer();
+}
+
+FilesearchFilterComponent.prototype.clear_filter = function(){
+  this._search_filters.set_value([]);
+  this.refresh();
+}
+
+FilesearchFilterComponent.prototype.display_filtered_files = function(){
+  // debug('display_filtered_files', this.search_filters);
+  var root_path = filetreeDict.get('root_path');
+  var filters = this.search_filters;
+  var filtered_files = [];
+  this.filtered_hash_list = {};
+  // this._search_display.clear();
+  searchChooser.clear();
+  if(filters.length){
+    var entry = 0;
+    var file, shortpath, shortname, tags, rgx, ret;
+    for(var path in libraryObj){
+      file = libraryObj[path];
+      shortpath = path.replace(root_path, '');
+      shortname = file.shortname;
+      tags = [].concat(file.tags);
+      for(var j in filters){
+        rgx = RegExp(filters[j], 'gi');
+        // var test_path = this.recursive_toggle ? shortpath : shortname;
+        ret = rgx.test(shortname);
+        for(var k in tags){
+          if(rgx.test(tags[k])){
+            ret = true;
+          }
+        }
+        if(ret){
+          this.filtered_hash_list[shortname] = {file:path, entry:entry};
+          // debug(shortname, ret);
+          // this._search_display.append(shortname);
+          searchChooser.append(shortname);
+          filtered_files.push(shortname);
+          entry += 1;
+          break;
+        }
+      }
+    }
+  }
+  this._filtered_files.set_value(filtered_files);
+  if(filtered_files.length){
+    this.select_file(0, 0, filtered_files[0]);
+  }
+  else{
+    this.select_file(-1);
+  }
+  // this.emit('FilteredHashListUpdated', this.filtered_hash_list);
+}
+
+FilesearchFilterComponent.prototype.update = function(){
+
+}
+
+FilesearchFilterComponent.prototype.select_file = function(col, row, shortname){
+  debug(this._name+'.select_file:', col, row, shortname);
+  if(row==-1){
+    this._selected_file.set_value('');
+    this._selected_file_index.set_value(-1);
+    searchChooser.clear();
+  }
+  if(this.filtered_hash_list[shortname]){
+    // FileTree.find_file(this.filtered_hash_list[shortname].file);
+    this._selected_file.set_value(shortname);
+    this._selected_file_index.set_value(row);
+    searchChooser.set(row);
+  }
+}
+
+FilesearchFilterComponent.prototype.load = function(){
+  debug('selected file is:', this.selected_file);
+  if(this.selected_file){
+    var path = this.filtered_hash_list[this.selected_file].file;
+    NSProxy.asyncCall('open_preset', path);
+    searchWindow.close();
+  }
+}
+
+FilesearchFilterComponent.prototype.up = function(){
+  // debug(this._name, 'up');
+  // debug('filtered_files:', this.filtered_files);
+  var len = this.filtered_files.length;
+  var index = this.selected_file_index;
+  if(len){
+    // this._selected_file_index.set_value(index < (len - 1) ? index + 1 : len -1);
+    index = index < (len - 1) ? index + 1 : len -1;
+    this.select_file(0, index, this.filtered_files[index]);
+  }
+  else{
+    // this._selected_file_index.set_value(-1)
+    this.select_file(-1);
+  }
+}
+
+FilesearchFilterComponent.prototype.down = function(){
+  // debug(this._name, 'down');
+  var len = this.filtered_files.length;
+  var index = this.selected_file_index;
+  if(len){
+    // this._selected_file_index.set_value(index > 0 ? index - 1 : 0);
+    index = index > 0 ? index - 1 : 0;
+    this.select_file(0, index, this.filtered_files[index]);
+  }
+  else{
+    this._selected_file_index.set_value(-1)
+  }
 }
 
 
@@ -3397,9 +3617,12 @@ function Prefs(val){
 }
 
 function Search(){
-  searchWindow.open();
-  search_window.front();
-  search_window.subpatcher().getnamed('textedit').message('select');
+  searchWindow._toggle.set_value(Math.abs(searchWindow._toggle._value -1));
+  if(searchWindow._toggle._value){
+    // searchWindow.open();
+    search_window.front();
+    search_window.subpatcher().getnamed('textedit').message('select');
+  }
 }
 
 function dissolve(){
