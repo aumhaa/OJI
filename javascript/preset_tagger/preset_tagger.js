@@ -28,7 +28,9 @@ var EDITOR_OPEN = false;
 var BATCH_OPEN = false;
 var MOD_DEBUG = false;
 var EDITOR_FLOAT = true;
-var INITIAL_FILTER_MODE = true;
+var INITIAL_FILTER_AND_MODE = true;
+var INITIAL_AUDITION_ENABLE = true;
+var AUDITION_WITHOUT_WAVEFORM = true;
 
 aumhaa.init(this);
 var script = this;
@@ -923,15 +925,11 @@ reload only the specific file that has changed*/
 function on_specific_file_changed(){
   var args = arrayfromargs(arguments);
   var filename = args[0];
-  var tags = args.slice(1);
-  debug('on_specific_file_changed', filename, 'tags:', tags, typeof tags);
-  // if(libraryObj[filename]){
-  //   libraryObj[filename].tags = tags;
-  // }
+  debug('on_specific_file_changed', filename);
   if(!fileInfo._needs_to_update){
     fileInfo.report_update(true);
-    // FileTree.update_file(filename);
-    FileTree.update_files();
+    FileTree.update_file(filename);
+    // FileTree.update_files();
     TagFilter.refresh();
     FileTagger.refresh();
     fileInfo.update();
