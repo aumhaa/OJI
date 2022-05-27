@@ -21,7 +21,7 @@ from aumhaa.v2.base import initialize_debug
 
 from .Map import *
 
-debug = initialize_debug()
+debug = initialize_debug(True)
 
 
 class KeysplitterComponent(Component):
@@ -153,6 +153,9 @@ class KeysplitterComponent(Component):
 
 	@engage_button.pressed
 	def engage_button(self, button):
+		self.toggle_engaged()
+
+	def toggle_engaged(self):
 		self.engaged = not self._is_engaged
 		self._update_note_translations()
 		if self._autoarm_component != None:
@@ -296,6 +299,7 @@ class KeysplitterComponent(Component):
 class SpecialAutoArmComponent(AutoArmComponent):
 
 	util_autoarm_toggle_button = ButtonControl()
+	util_arm_exclusive_button = ButtonControl()
 	__autoarm_enabled = False
 
 	def __init__(self, keysplitter, *a, **k):
@@ -350,6 +354,17 @@ class SpecialAutoArmComponent(AutoArmComponent):
 									track.input_routing_channel = track.available_input_routing_channels[0]
 
 
+	def set_util_arm_exclusive_button(self, button):
+		self.util_arm_exclusive_button.set_control_element(button)
+
+	@util_arm_exclusive_button.pressed
+	def util_arm_exclusive_button(self, button):
+		self._on_util_arm_exclusive_button_pressed(button)
+
+	def _on_util_arm_exclusive_button_pressed(self, button):
+		self.arm_exclusive()
+
+
 	def set_util_autoarm_toggle_button(self, button):
 		self.util_autoarm_toggle_button.set_control_element(button)
 
@@ -383,6 +398,28 @@ class SpecialAutoArmComponent(AutoArmComponent):
 			self.update()
 		# self.notify_autoarm_enabled(self.__autoarm_enabled)
 
+	def arm_exclusive(self):
+		debug('arm_exclusive')
+		if self.__autoarm_enabled:
+			self.toggle_autoarm()
+		elif self._keysplitter.engaged:
+			self._keysplitter.toggle_engaged()
+		self._update_implicit_arm_task.kill()
+		song = self.song
+		selected_track = song.view.selected_track
+		tracks = list(song.tracks)
+		selected_index = tracks.index(selected_track)
+		for track in tracks:
+			if track in tracks:
+				track_index = tracks.index(track)
+				if track_index == selected_index:
+					# debug('selected track is index')
+					if not track.implicit_arm:
+						track.implicit_arm = True
+						# debug('armed the track')
+				else:
+					if track.implicit_arm:
+						track.implicit_arm = False
 
 	def can_auto_arm(self):
 		return self.is_enabled() and not self.needs_restore_auto_arm and self.__autoarm_enabled
@@ -419,14 +456,13 @@ class Keysplitter(ControlSurface):
 			self._setup_modes()
 		self._main_modes.selected_mode = 'Keysplitter'
 
-
 	def _setup_controls(self):
 		is_momentary = True
 		optimized = True
 		resource = PrioritizedResource
 		self._key = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = CHANNEL, identifier = KEYSPLITTER_KEYS[index], name = 'Key_' + str(index)) for index in range(128)]
 		self._key_matrix = ButtonMatrixElement(name = 'KeyMatrix', rows = [self._key])
-		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = BUTTON_CHANNEL, identifier = KEYSPLITTER_ASSIGN_BUTTONS[index], name = 'Buttons_' + str(index)) for index in range(13)]
+		self._button = [ButtonElement(is_momentary = is_momentary, msg_type = MIDI_NOTE_TYPE, channel = BUTTON_CHANNEL, identifier = KEYSPLITTER_ASSIGN_BUTTONS[index], name = 'Buttons_' + str(index)) for index in range(14)]
 
 	def _setup_background(self):
 		self._background = BackgroundComponent(name = 'Background')
@@ -453,12 +489,11 @@ class Keysplitter(ControlSurface):
 
 	def _setup_autoarm(self):
 		self._autoarm = SpecialAutoArmComponent(keysplitter = self._keysplitter)
-		self._autoarm.layer = Layer(util_autoarm_toggle_button = self._button[2])
+		self._autoarm.layer = Layer(util_autoarm_toggle_button = self._button[2], util_arm_exclusive_button = self._button[13])
 		self._keysplitter.set_autoarm_component(self._autoarm)
 
 	def _setup_mixer(self):
 		self._mixer = MixerComponent()
-
 
 	def _setup_modes(self):
 		# self._autoarm_modes = ModesComponent(name = 'AutoArmModes')
