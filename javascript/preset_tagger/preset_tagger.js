@@ -18,9 +18,9 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.9001';
+var VERSION = 'version.9002';
 var FORCELOAD = false;
-var DEBUG = false;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -29,9 +29,9 @@ var EDITOR_OPEN = false;
 var BATCH_OPEN = false;
 var MOD_DEBUG = false;
 var EDITOR_FLOAT = true;
-var INITIAL_FILTER_AND_MODE = true;
+var INITIAL_FILTER_OR_MODE = false;
 var INITIAL_AUDITION_ENABLE = true;
-var AUDITION_WITHOUT_WAVEFORM = true;
+var AUDITION_SHOWS_WAVEFORM = false;
 
 aumhaa.init(this);
 var script = this;
@@ -101,8 +101,8 @@ var BROWSERXSIZE = 796;
 var BROWSERYSIZE = 826;
 var BATCHXSIZE = 203;
 var BATCHYSIZE  = 550;
-var PREFSXSIZE = 100;
-var PREFSYSIZE  = 200;
+var PREFSXSIZE = 180;
+var PREFSYSIZE  = 270;
 var SEARCHXSIZE = 520;
 var SEARCHYSIZE  = 275;
 var MULTITAG_DELAY = 250;
@@ -118,9 +118,9 @@ function init(){
   setup_library();
   setup_patcher();
   setup_tagDB();
+  setup_preferences();
   setup_browser();
   setup_batch_editor();
-  setup_preferences();
   setup_search_window();
   setup_fileinfo();
   setup_filetree();
@@ -138,6 +138,7 @@ function init(){
   setup_tagmode_button();
   setup_audition_button();
   // setup_quicktabs();
+  assign_preferences();
   setup_mod();
   setup_preference_file();
   NODE_DEBUG&&node_debug.front();
@@ -165,6 +166,7 @@ function setup_patcher(){
   script.current_selected_file = browser_patcher.subpatcher().getnamed('current_selected_file');
   script.selected_file_tags = browser_patcher.subpatcher().getnamed('selected_file_tags');
   script.tag_buffer_display = browser_patcher.subpatcher().getnamed('tag_buffer_display');
+  script.browser_tag_filter_toggle = browser_patcher.subpatcher().getnamed('browser_tag_filter_toggle');
   script.libPath = this.patcher.getnamed('libPath');
   script.EditorButton = this.patcher.getnamed('Editor');
   script.BatchButton = this.patcher.getnamed('BatchButton');
@@ -357,6 +359,13 @@ function setup_preferences(){
   var obj = prefs_patcher;
   var window_position =  obj.subpatcher().getnamed('window_position');
   var version = obj.subpatcher().getnamed('version_display');
+  var initial_filter_or_mode = obj.subpatcher().getnamed('Initial_Filter_OR_Mode').getvalueof();
+  var initial_audition_enable = obj.subpatcher().getnamed('Initial_Audition_Enable').getvalueof();
+  var audition_shows_waveform = obj.subpatcher().getnamed('Audition_Shows_Waveform').getvalueof();
+  INITIAL_FILTER_OR_MODE = initial_filter_or_mode!=undefined ? initial_filter_or_mode : INITIAL_FILTER_OR_MODE;
+  INITIAL_AUDITION_ENABLE = initial_audition_enable!=undefined ? initial_audition_enable : INITIAL_AUDITION_ENABLE;
+  AUDITION_SHOWS_WAVEFORM = audition_shows_waveform!=undefined ? audition_shows_waveform : AUDITION_SHOWS_WAVEFORM;
+  debug('INITIAL_FILTER_OR_MODE', INITIAL_FILTER_OR_MODE, 'INITIAL_AUDITION_ENABLE', INITIAL_AUDITION_ENABLE, 'AUDITION_SHOWS_WAVEFORM', AUDITION_SHOWS_WAVEFORM);
   version.message('set', VERSION);
   script.prefsWindow = new FloatingWindowModule('PrefsWindow', {
     'window_position':window_position,
@@ -660,6 +669,7 @@ function setup_tests(){
   // debug('previewObj:', JSON.stringify(previewObj));
   // tagDB._db.open(SQLITE_DB_NAME, 1);
   // debug('ALIVE______________:', Alive);
+  debug('TagFilter._filterMode._value:', TagFilter._filterMode._value);
 }
 
 function setup_modes(){
@@ -892,6 +902,12 @@ function setup_nodescript(){
   //this needs to be sorted, for now there is no termination callback coming from node when it crashes.
   // NSProxy.addTerminationCallback(on_nodescript_terminated);
   initialize_nodescript();
+}
+
+function assign_preferences(){
+  // TagFilter._filterMode.receive(INITIAL_FILTER_OR_MODE);
+  debug('TagFilter._filterMode._value:', TagFilter._filterMode._value);
+  // TagFilter.refresh();
 }
 
 function activate(){
@@ -1511,7 +1527,8 @@ function PreviewPlayerComponent(name, args){
   this._bufferObj = undefined;
   this._playObj = undefined;
   this._sfplayObj = undefined;
-  this._togglePreview = new ToggledParameter(this._name + '_Toggle', {value:0, onValue:1,offValue:7});
+  var init_audition = (INITIAL_AUDITION_ENABLE>0)?1:0;
+  this._togglePreview = new ToggledParameter(this._name + '_Toggle', {value:init_audition, onValue:1,offValue:7});
   this.add_bound_properties(this, ['_waveform', '_preview', 'preview', 'input', '_playObj', '_bufferObj', '_sfplayObj']);
   PreviewPlayerComponent.super_.call(this, name, args);
   this._init.call(this);
@@ -1521,7 +1538,11 @@ util.inherits(PreviewPlayerComponent, Bindable);
 
 PreviewPlayerComponent.prototype._init = function(){
   this._waveform.gridcolor = [0, 0, 0, 1];
-  preview_button.message('bgcolor', [.2, .2, .2, 1]);
+  var button_color = this._togglePreview._value ? [0, .2, .8, 1] : [.2, .2, .2, 1]
+  preview_button.message('bgcolor', button_color);
+  if(this._togglePreview._value){
+    fileInfo._filepath.add_listener(this._preview);
+  }
 }
 
 PreviewPlayerComponent.prototype.input = function(){
@@ -1542,15 +1563,18 @@ PreviewPlayerComponent.prototype.preview = function(filename){
     fileInfo._filepath.add_listener(this._preview);
     this._preview(fileInfo._filepath);
     preview_button.message('bgcolor', [0, .2, .8, 1]);
-    editor._sizeY = BROWSERYSIZE+102;
-    editor.lock();
+    // if(AUDITION_SHOWS_WAVEFORM){
+    //   editor._sizeY = BROWSERYSIZE+102;
+    //   editor.lock();
+    // }
   }
   else{
     fileInfo._filepath.remove_listener(this._preview);
     preview_button.message('bgcolor', [.2, .2, .2, 1]);
-    editor._sizeY = BROWSERYSIZE;
-    editor.lock();
+    // editor._sizeY = BROWSERYSIZE;
+    // editor.lock();
   }
+  this.update_editor_window();
 }
 
 PreviewPlayerComponent.prototype._preview = function(obj){
@@ -1584,6 +1608,15 @@ PreviewPlayerComponent.prototype._preview = function(obj){
   }
 }
 
+PreviewPlayerComponent.prototype.update_editor_window = function(){
+  if((this._togglePreview._value)&&(AUDITION_SHOWS_WAVEFORM>0)){
+    editor._sizeY = BROWSERYSIZE+102;
+  }
+  else{
+    editor._sizeY = BROWSERYSIZE;
+  }
+  editor.lock();
+}
 
 
 function FileInfoComponent(name, args){
@@ -2253,8 +2286,11 @@ function TagFilterComponent(name, args){
   this._selected_tags = new ArrayParameter(this._name + '_SelectedTags', {value:[]});
   this._tagList = new ArrayParameter(this._name + '_TagList', {value:[]});
   this._textFilter = new ParameterClass(this._name + '_TextFilter', {value:''});
+  //this textbutton is in mira, not browser...beware.
+  //and omfg, why we can't just assing value:INITIAL_FILTER_OR_MODE here is beyond me.  what a shitshow.
+  var init_filter_value = (INITIAL_FILTER_OR_MODE == true) ? 1 : 0;
   this._filterMode = new TextToggleParameter(this._name + '_FilterMode', {
-    value:true,
+    value:init_filter_value,
     onValue:6,
     offValue:5,
     textOnValue:'OR',
@@ -2329,10 +2365,11 @@ TagFilterComponent.prototype._init = function(args){
   this._filterMode.on('NotifyTarget', this.update_mira_filter_mode_button);
   this._filterMode.update_control();
   this.update_mira_filter_mode_button();
+  browser_tag_filter_toggle.message('set', this._filterMode._value);
 }
 
 TagFilterComponent.prototype.refresh = function(){
-  // debug('TagFilterComponent.refresh');
+  debug('TagFilterComponent.refresh', this._filterMode._value, this.filter_mode_value);
   this.display_filtered_files();
   this.refresh_filtered_chooser_selection();
   this.refresh_tagchooser();
@@ -2350,7 +2387,7 @@ TagFilterComponent.prototype.input = function(){
 }
 
 TagFilterComponent.prototype.filter_mode = function(val){
-  this._filterMode.set_value(!val);
+  this._filterMode.set_value(val);
 }
 
 TagFilterComponent.prototype.tag_selection = function(){
@@ -2399,7 +2436,8 @@ TagFilterComponent.prototype.display_filtered_files = function(){
   if(this.selected_tags.length){
     debug('display_filtered_files, selected_tags.length > 0');
     //OR//
-    if(this.filter_mode_value){
+    if(this.filter_mode_value>0){
+      debug('filter mode OR', this._filterMode._value);
       var entry = 0;
       var text_filter = this.text_filter;
       var text_regexp = new RegExp(text_filter, 'gi');
@@ -2428,6 +2466,7 @@ TagFilterComponent.prototype.display_filtered_files = function(){
     }
     //AND//
     else{
+      debug('filter mode AND', this._filterMode._value);
       var text_filter = this.text_filter;
       var text_regexp = new RegExp(text_filter, 'gi');
       var file, tags, shortname, add, j;
@@ -2588,8 +2627,8 @@ TagFilterComponent.prototype.detect_found_tags = function(){
   this.last_found_tags = this.found_tags.slice();
   this.found_tags = [];
   // debug('last_found_tags:', this.last_found_tags);
-  var hide_invalid_choices = ((!this.filter_mode_value) && (!this.show_all_value) && (this.selected_tags.length));
-  // debug('hide_invalid_choices:', hide_invalid_choices);
+  var hide_invalid_choices = ((this.filter_mode_value==0) && (!this.show_all_value) && (this.selected_tags.length));
+  debug('hide_invalid_choices:', hide_invalid_choices);
 
   var selected_tags = this.selected_tags;
   var selected_tags_length = selected_tags.length;
@@ -3640,6 +3679,22 @@ function Search(){
     // searchWindow.open();
     search_window.front();
     search_window.subpatcher().getnamed('textedit').message('select');
+  }
+}
+
+function Audition_Shows_Waveform_On(){
+  if(Alive){
+    debug('setting AUDITION_SHOWS_WAVEFORM:', 1);
+    AUDITION_SHOWS_WAVEFORM = true;
+    this.previewPlayer.update_editor_window();
+  }
+}
+
+function Audition_Shows_Waveform_Off(){
+  if(Alive){
+    debug('setting AUDITION_SHOWS_WAVEFORM:', 0);
+    AUDITION_SHOWS_WAVEFORM = false;
+    this.previewPlayer.update_editor_window();
   }
 }
 

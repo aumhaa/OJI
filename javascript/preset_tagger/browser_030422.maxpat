@@ -3,8 +3,8 @@
 		"fileversion" : 1,
 		"appversion" : 		{
 			"major" : 8,
-			"minor" : 3,
-			"revision" : 0,
+			"minor" : 1,
+			"revision" : 11,
 			"architecture" : "x64",
 			"modernui" : 1
 		}
@@ -754,22 +754,6 @@
 					"presentation_rect" : [ 21.0625, 29.5, 18.5625, 19.0 ],
 					"rounded" : 1.0,
 					"saved_attribute_attributes" : 					{
-						"activebgcolor" : 						{
-							"expression" : ""
-						}
-,
-						"activebgoncolor" : 						{
-							"expression" : ""
-						}
-,
-						"bordercolor" : 						{
-							"expression" : ""
-						}
-,
-						"focusbordercolor" : 						{
-							"expression" : ""
-						}
-,
 						"valueof" : 						{
 							"parameter_defer" : 1,
 							"parameter_enum" : [ "close", "close" ],
@@ -814,30 +798,6 @@
 					"presentation_rect" : [ 0.5, 29.5, 18.5625, 19.0 ],
 					"rounded" : 100.0,
 					"saved_attribute_attributes" : 					{
-						"activebgcolor" : 						{
-							"expression" : ""
-						}
-,
-						"activebgoncolor" : 						{
-							"expression" : ""
-						}
-,
-						"bordercolor" : 						{
-							"expression" : ""
-						}
-,
-						"focusbordercolor" : 						{
-							"expression" : ""
-						}
-,
-						"textcolor" : 						{
-							"expression" : ""
-						}
-,
-						"textoffcolor" : 						{
-							"expression" : ""
-						}
-,
 						"valueof" : 						{
 							"parameter_defer" : 1,
 							"parameter_enum" : [ "close", "close" ],
@@ -884,10 +844,11 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 727.844994184513212, 97.123515683376482, 62.995618949187929, 20.0 ],
 					"rounded" : 9.0,
-					"text" : "||",
-					"textcolor" : [ 0.207843137254902, 0.498039215686275, 0.243137254901961, 1.0 ],
-					"texton" : "&&",
-					"textoncolor" : [ 0.607843137254902, 0.215686274509804, 0.105882352941176, 1.0 ]
+					"text" : "AND",
+					"textcolor" : [ 0.607843137254902, 0.215686274509804, 0.105882352941176, 1.0 ],
+					"texton" : "OR",
+					"textoncolor" : [ 0.207843137254902, 0.498039215686275, 0.243137254901961, 1.0 ],
+					"varname" : "browser_tag_filter_toggle"
 				}
 
 			}
