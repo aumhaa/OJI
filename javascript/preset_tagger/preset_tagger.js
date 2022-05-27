@@ -18,6 +18,7 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
+var VERSION = 'version.9001';
 var FORCELOAD = false;
 var DEBUG = false;
 var NODE_DEBUG = false;
@@ -355,6 +356,8 @@ function setup_batch_editor(){
 function setup_preferences(){
   var obj = prefs_patcher;
   var window_position =  obj.subpatcher().getnamed('window_position');
+  var version = obj.subpatcher().getnamed('version_display');
+  version.message('set', VERSION);
   script.prefsWindow = new FloatingWindowModule('PrefsWindow', {
     'window_position':window_position,
     'obj':obj,
@@ -1478,6 +1481,18 @@ RandomizerComponent.prototype.input = function(){
 }
 
 RandomizerComponent.prototype.select_random_preset = function(){
+  debug('select_random_preset');
+  var hashlist = TagFilter.filtered_files;
+  var shortnames = Object.keys(hashlist);
+  var len = shortnames.length;
+  var randN = parseInt(Math.random()*len);
+  var path = hashlist[shortnames[randN]].file;
+  debug('file to open:', path);
+  // NSProxy.asyncCall('open_preset', path);
+  FileTree.find_file(path);
+}
+
+RandomizerComponent.prototype.load_random_preset = function(){
   debug('select_random_preset');
   var hashlist = TagFilter.filtered_files;
   var shortnames = Object.keys(hashlist);
@@ -3541,6 +3556,11 @@ QuicktabComponent.prototype._update_radio_component = function(){
 
 //Remote key functions//
 function Random(){
+  debug('Random');
+  randomizer.load_random_preset();
+}
+
+function SelectRandom(){
   debug('Random');
   randomizer.select_random_preset();
 }
