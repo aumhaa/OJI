@@ -414,8 +414,8 @@ class SpecialAutoArmComponent(AutoArmComponent):
 				track_index = tracks.index(track)
 				if track_index == selected_index:
 					# debug('selected track is index')
-					if not track.implicit_arm:
-						track.implicit_arm = True
+					if not track.arm:
+						track.arm = True
 						# debug('armed the track')
 				else:
 					if track.implicit_arm:
