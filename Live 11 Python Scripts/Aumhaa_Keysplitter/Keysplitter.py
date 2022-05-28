@@ -420,6 +420,8 @@ class SpecialAutoArmComponent(AutoArmComponent):
 				else:
 					if track.implicit_arm:
 						track.implicit_arm = False
+					if track.arm:
+						track.arm = False
 
 	def can_auto_arm(self):
 		return self.is_enabled() and not self.needs_restore_auto_arm and self.__autoarm_enabled
