@@ -1650,7 +1650,9 @@ class Util(ControlSurface):
 														shift_loop_left_keycommand_button=self._button2[47],
 														shift_loop_right_keycommand_button=self._button2[48],
 														play_selected_clip_button=self._button2[49],
-														latest_loop_keycommand_button=self._button2[51])
+														latest_loop_keycommand_button=self._button2[51],
+														toggle_recording_on_all_clips_and_loop_button=self._button2[3])
+
 		self._audiolooper.set_enabled(False)
 
 	def _setup_main_modes(self):

@@ -8,7 +8,7 @@ _Q = Live.Song.Quantization
 
 from .Map import FAVORITE_CLIP_COLOR
 
-from ableton.v2.base import EventObject, clamp, listenable_property, listens, liveobj_changed, liveobj_valid, nop, task
+from ableton.v2.base import EventObject, clamp, listenable_property, listens, listens_group, liveobj_changed, liveobj_valid, nop, task
 from ableton.v2.control_surface import defaults, Component
 from ableton.v2.control_surface.control import ButtonControl, control_matrix, PlayableControl
 from pushbase.step_duplicator import NullStepDuplicator, set_loop
@@ -36,6 +36,23 @@ def create_clip_in_selected_slot(creator, song, clip_length = None):
 
 def clip_is_new_recording(clip):
 	return clip.is_recording and not clip.is_overdubbing
+
+
+# class FuncTaskWithArg(FuncTask):
+#
+#     def __init__(self, func=None, arg, equivalent=None, *a, **k):
+#         (super(FuncTask, self).__init__)(*a, **k)
+#         self._func = func
+# 		self._arg = arg
+#         self._equivalent = equivalent
+#
+#     def do_update(self, timer):
+#         super(FuncTask, self).do_update(timer)
+#         action = self._func(self._arg)
+#         if not action or action == KILLED:
+#             self.kill()
+#         elif action == PAUSED:
+#             self.pause()
 
 
 class Paginator(EventObject):
@@ -148,11 +165,14 @@ class LoopSelectorComponent(Component, Messenger):
 	shift_loop_left_button = ButtonControl(color="LoopSelector.ShiftLoop")
 	latest_loop_button = ButtonControl(color="LoopSelector.LatestLoop")
 	latest_loop_keycommand_button = ButtonControl(color="LoopSelector.LatestLoop")
+	toggle_recording_on_all_clips_and_loop_button = ButtonControl(color="LoopSelector.LatestLoop")
 	delete_button = ButtonControl()
 	select_button = ButtonControl()
 	loop_selector_matrix = control_matrix(PadControl, sensitivity_profile='loop', mode=PlayableControl.Mode.listenable)
 	short_loop_selector_matrix = control_matrix(ButtonControl)
 	is_following = listenable_property.managed(False)
+	clips_to_loop = []
+	clipslots_to_loop = []
 
 	def __init__(self, clip_creator = None, measure_length = 4.0, follow_detail_clip = False, paginator = None, default_size = None, *a, **k):
 		super(LoopSelectorComponent, self).__init__(*a, **k)
@@ -656,6 +676,59 @@ class LoopSelectorComponent(Component, Messenger):
 			set_loop(clip, loop_start, loop_end)
 			self._sequencer_clip.view.show_loop()
 			self._try_select_page(self.pos_to_page(clip.loop_start))
+
+	@toggle_recording_on_all_clips_and_loop_button.pressed
+	def toggle_recording_on_all_clips_and_loop(self, button):
+		debug('toggle_recording_on_all_clips_and_loop')
+		clips = []
+		clipslots = []
+		for track in self.song.tracks:
+			index = track.playing_slot_index
+			if index > -1:
+				clipslot = track.clip_slots[index]
+				clip = clipslot.clip
+				if clip.is_recording:
+					clipslot.fire()
+					clips.append(clip)
+					clipslots.append(clipslot)
+		# for clip in clips:
+		# 	self.latest_loop_clip(clip)
+		self.on_clip_recording_status_changed.replace_subjects(clips)
+
+
+
+	@listens_group('is_recording')
+	def on_clip_recording_status_changed(self, sender=None):
+		debug('on_clip_recording_status_changed', sender)
+		if liveobj_valid(sender):
+			if not sender.is_recording:
+				# self.latest_loop_clip(sender)
+				self._tasks.add(task.sequence(task.wait(.1), task.run(self.latest_loop_clip, sender)))
+
+		self.remove_clip_from_is_recording_listener(sender)
+
+
+	def remove_clip_from_is_recording_listener(self, clip):
+		# subjects = self.on_clip_recording_status_changed.subjects
+		# if clip in subjects:
+		if self.on_clip_recording_status_changed.has_subject(clip):
+			self.on_clip_recording_status_changed.remove_subject(clip)
+			# subjects.remove(clip)
+			# self.on_clip_recording_status_changed.replace_subjects(subjects)
+
+
+	def latest_loop_clip(self, clip):
+		debug('lastest_loop_clip', clip)
+		if liveobj_valid(clip):
+			# debug('clip.loop_start:', clip.loop_start, 'loop_end', clip.loop_end, 'length', clip.length, 'end_time:', clip.end_time, 'start_marker:', clip.start_marker,  'start_time:', clip.start_time)
+			loop_length = 16
+			loop_end = clip.length
+			loop_start = max(0, loop_end - loop_length)
+			set_loop(clip, loop_start, loop_end)
+
+			# clip.view.show_loop()
+			# self._try_select_page(self.pos_to_page(clip.loop_start))
+
 
 	@favorite_clip_color_button.pressed
 	def favorite_clip_color_button(self, button):
