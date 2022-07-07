@@ -7,7 +7,7 @@ util = require('aumhaa_util');
 util.inject(this, util);
 var api_util = require('aumhaa_LiveAPI_util');
 
-var FORCELOAD = true;
+var FORCELOAD = false;
 var DEBUG = true;
 
 var script = this;
