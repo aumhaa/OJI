@@ -157,6 +157,8 @@ class LoopSelectorComponent(Component, Messenger):
 	loop_length_4_button = ButtonControl(color="LoopSelector.Bank")
 	loop_length_8_button = ButtonControl(color="LoopSelector.Bank")
 	loop_length_16_button = ButtonControl(color="LoopSelector.Bank")
+	loop_length_halve_button = ButtonControl(color="LoopSelector.Bank")
+	loop_length_double_button = ButtonControl(color="LoopSelector.Bank")
 	next_page_button = ButtonControl(color="LoopSelector.Bank")
 	prev_page_button = ButtonControl(color="LoopSelector.Bank")
 	shift_loop_right_keycommand_button = ButtonControl(color="LoopSelector.ShiftLoop")
@@ -776,6 +778,38 @@ class LoopSelectorComponent(Component, Messenger):
 		debug('loop_length_16_button.pressed')
 		self.set_loop_length(64)
 
+	@loop_length_halve_button.pressed
+	def loop_length_halve_button(self, button):
+		debug('loop_length_halve_button.pressed')
+		self.halve_loop_length()
+
+	def halve_loop_length(self):
+		clip = self._sequencer_clip
+		if liveobj_valid(clip):
+			debug('clip.loop_start:', clip.loop_start, 'loop_end', clip.loop_end, 'length', clip.length, 'end_time:', clip.end_time, 'start_marker:', clip.start_marker,  'start_time:', clip.start_time)
+			loop_start = clip.loop_start
+			loop_end = clip.loop_end
+			loop_length = loop_end - loop_start
+			new_loop_length = max(2, round(loop_length/2))
+			debug('loop_start:', loop_start, 'loop_end:', loop_end, 'new_loop_length:', new_loop_length)
+			self.set_loop_length(new_loop_length)
+
+
+	@loop_length_double_button.pressed
+	def loop_length_double_button(self, button):
+		debug('loop_length_double_button.pressed')
+		self.double_loop_length()
+
+	def double_loop_length(self):
+		clip = self._sequencer_clip
+		if liveobj_valid(clip):
+			debug('clip.loop_start:', clip.loop_start, 'loop_end', clip.loop_end, 'length', clip.length, 'end_time:', clip.end_time, 'start_marker:', clip.start_marker,  'start_time:', clip.start_time)
+			loop_start = clip.loop_start
+			loop_end = clip.loop_end
+			loop_length = loop_end - loop_start
+			new_loop_length = min(64, round(loop_length*2))
+			debug('loop_start:', loop_start, 'loop_end:', loop_end, 'new_loop_length:', new_loop_length)
+			self.set_loop_length(new_loop_length)
 
 	def set_loop_length(self, length):
 		clip = self._sequencer_clip

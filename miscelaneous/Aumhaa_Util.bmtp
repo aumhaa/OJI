@@ -207,10 +207,22 @@ Name49=LatestLoop
 Incoming49=KAM10000KSQ100040120DC2DC212
 Outgoing49=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x33"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options49=Actv01Stop00OutO00
-Name50=ReduceAllTrackVolumes
-Incoming50=KAM10000KSQ10004012051251212
-Outgoing50=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x34"/><Value2 num="0x7F"/></Simple></Outgoing>
+Name50=ReduceSelectedTrackVolume
+Incoming50=KAM10000KSQ10004012057257212
+Outgoing50=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x35"/><Value2 num="0x7F"/></Simple></Outgoing>
 Options50=Actv01Stop00OutO00
+Name51=ReduceAllTrackVolumes
+Incoming51=KAM10000KSQ10004012051251212
+Outgoing51=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x34"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options51=Actv01Stop00OutO00
+Name52=LoopLengthHalve
+Incoming52=KAM10000KSQ10004012045245212
+Outgoing52=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x47"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options52=Actv01Stop00OutO00
+Name53=LoopLengthDouble
+Incoming53=KAM10000KSQ10004012041241212
+Outgoing53=MID3<Outgoing Action="MIDI"><Simple Type="NoteOn"><Channel num="1"/><Value1 num="0x48"/><Value2 num="0x7F"/></Simple></Outgoing>
+Options53=Actv01Stop00OutO00
 [Project]
 Version=2
 Author=åååå
@@ -222,5 +234,5 @@ DefaultInPorts=MIDA0000
 DefaultOutPorts=MIDA00010013Bome Virtual Port 1
 [Signatures]
 SigName-1=[Midi Translator Pro Internal]
-Signature-1=VZCY+TElg5y75ZoCbHEujnxefknbKF/EhwfD9EdRKscUQj0x5V+dQFuPuWI4aLKyt/r3vK/RhoiGzl2bQCgvsxlKHu9SZpe3Pmmo4HogTatdtZNo1NRscufyPFXi6jZ8QTi4fOsdG+18G72NeiaAK0VVEbt8Cfx63hlPtM91RwE=
+Signature-1=aeQfpY+5l+BhK2j2tA+zAMev/a+gOzzIJfDWEAolHOM431QYd8WVF8+eoST5FJYejxNGMErw2QkATGqt/MB9yKQzq858N+yzJzvdXpZaPVmY4NRENo206LAki5FO/C/wJMQE6qUaa33How+YmACT1JvAlrEvlQHTBzvIcnm/5r0=
 SignedBy-1=OJI Music LLC

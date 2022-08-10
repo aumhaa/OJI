@@ -3,7 +3,7 @@
 		"fileversion" : 1,
 		"appversion" : 		{
 			"major" : 8,
-			"minor" : 3,
+			"minor" : 5,
 			"revision" : 0,
 			"architecture" : "x64",
 			"modernui" : 1
@@ -39,6 +39,58 @@
 		"subpatcher_template" : "",
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
+				"box" : 				{
+					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"fontsize" : 8.0,
+					"id" : "obj-317",
+					"maxclass" : "live.text",
+					"mode" : 0,
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 1073.768695926225064, 440.5, 44.0, 15.0 ],
+					"presentation" : 1,
+					"presentation_rect" : [ 676.5, 483.75, 44.0, 31.0 ],
+					"saved_attribute_attributes" : 					{
+						"activetextcolor" : 						{
+							"expression" : ""
+						}
+,
+						"activetextoncolor" : 						{
+							"expression" : ""
+						}
+,
+						"textcolor" : 						{
+							"expression" : ""
+						}
+,
+						"textoffcolor" : 						{
+							"expression" : ""
+						}
+,
+						"valueof" : 						{
+							"parameter_enum" : [ "val1", "val2" ],
+							"parameter_invisible" : 2,
+							"parameter_linknames" : 1,
+							"parameter_longname" : "end_and_loop",
+							"parameter_mmax" : 1,
+							"parameter_shortname" : "end_and_loop",
+							"parameter_type" : 2
+						}
+
+					}
+,
+					"text" : "end+loop",
+					"textcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"textoffcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
+					"texton" : "Metro",
+					"varname" : "end_and_loop"
+				}
+
+			}
+, 			{
 				"box" : 				{
 					"activetextcolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
 					"activetextoncolor" : [ 0.996078431372549, 0.996078431372549, 0.996078431372549, 1.0 ],
@@ -392,7 +444,7 @@
 						"fileversion" : 1,
 						"appversion" : 						{
 							"major" : 8,
-							"minor" : 3,
+							"minor" : 5,
 							"revision" : 0,
 							"architecture" : "x64",
 							"modernui" : 1
@@ -911,11 +963,11 @@
 				"box" : 				{
 					"id" : "obj-316",
 					"maxclass" : "newobj",
-					"numinlets" : 6,
+					"numinlets" : 8,
 					"numoutlets" : 1,
 					"outlettype" : [ "list" ],
-					"patching_rect" : [ 747.5, 464.5, 292.268695926224837, 22.0 ],
-					"text" : "funnel 6 64"
+					"patching_rect" : [ 747.5, 464.5, 401.576174296714726, 22.0 ],
+					"text" : "funnel 8 64"
 				}
 
 			}
@@ -1059,7 +1111,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 1095.0, 450.0, 138.0, 22.0 ],
+					"patching_rect" : [ 1562.0, 449.0, 138.0, 22.0 ],
 					"text" : "prepend mod_button_IN"
 				}
 
@@ -9856,7 +9908,7 @@
 						"fileversion" : 1,
 						"appversion" : 						{
 							"major" : 8,
-							"minor" : 3,
+							"minor" : 5,
 							"revision" : 0,
 							"architecture" : "x64",
 							"modernui" : 1
@@ -11588,6 +11640,7 @@
 , 			{
 				"patchline" : 				{
 					"destination" : [ "obj-245", 0 ],
+					"midpoints" : [ 1104.5, 390.499992499999962, 1571.5, 390.499992499999962 ],
 					"source" : [ "obj-232", 0 ]
 				}
 
@@ -11716,7 +11769,7 @@
 , 			{
 				"patchline" : 				{
 					"destination" : [ "obj-43", 0 ],
-					"midpoints" : [ 1104.5, 881.5, 33.5, 881.5 ],
+					"midpoints" : [ 1571.5, 881.5, 33.5, 881.5 ],
 					"source" : [ "obj-245", 0 ]
 				}
 
@@ -12010,6 +12063,13 @@
 				"patchline" : 				{
 					"destination" : [ "obj-315", 0 ],
 					"source" : [ "obj-316", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-316", 6 ],
+					"source" : [ "obj-317", 0 ]
 				}
 
 			}
@@ -12586,6 +12646,7 @@
 			"obj-312" : [ "delete_button", "delete_button", 0 ],
 			"obj-313" : [ "device_bank_right", "device_bank_right", 0 ],
 			"obj-314" : [ "device_bank_left", "device_bank_left", 0 ],
+			"obj-317" : [ "end_and_loop", "end_and_loop", 0 ],
 			"obj-32" : [ "fire_next_clip_abs", "fire_next_clip_abs", 0 ],
 			"obj-33" : [ "fire_prev_clip_abs", "fire_prev_clip_abs", 0 ],
 			"obj-34" : [ "prev_track", "prev_track", 0 ],
@@ -12646,9 +12707,30 @@
 				"type" : "iLaX"
 			}
 , 			{
+				"name" : "aumhaa_util.js",
+				"bootpath" : "~/Documents/Max 8/Packages/mod/javascript/aumhaa_js/base",
+				"patcherrelativepath" : "../../../mod/javascript/aumhaa_js/base",
+				"type" : "TEXT",
+				"implicit" : 1
+			}
+, 			{
 				"name" : "commander.js",
 				"bootpath" : "~/Documents/Max 8/Packages/OJI/javascript/commander",
 				"patcherrelativepath" : "../../javascript/commander",
+				"type" : "TEXT",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "commander_map.js",
+				"bootpath" : "~/Documents/Max 8/Packages/OJI/javascript/commander",
+				"patcherrelativepath" : "../../javascript/commander",
+				"type" : "TEXT",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "dial_override.js",
+				"bootpath" : "~/Documents/Max 8/Packages/mod/javascript/jsui",
+				"patcherrelativepath" : "../../../mod/javascript/jsui",
 				"type" : "TEXT",
 				"implicit" : 1
 			}

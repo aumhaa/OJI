@@ -18,9 +18,9 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.9002';
+var VERSION = 'version.9003';
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -102,7 +102,7 @@ var BROWSERYSIZE = 826;
 var BATCHXSIZE = 203;
 var BATCHYSIZE  = 550;
 var PREFSXSIZE = 180;
-var PREFSYSIZE  = 270;
+var PREFSYSIZE  = 280;
 var SEARCHXSIZE = 520;
 var SEARCHYSIZE  = 275;
 var MULTITAG_DELAY = 250;
@@ -1129,6 +1129,7 @@ function TagDatabase(name, args){
   this.snapshotDict = new Dict('snapshot');
   this._db = new SQLite;
   this._result = new SQLResult;
+  this._subResult = new SQLResult;
   this._db.open(dbFile_path, 1);
   this._db.exec('CREATE TABLE IF NOT EXISTS filenames (filename TEXT PRIMARY KEY, tags TEXT, shortname TEXT)', this._result);
   TagDatabase.super_.call(this, name, args);
@@ -1154,7 +1155,7 @@ TagDatabase.prototype.set_tags = function(filename, tags){
 }
 
 TagDatabase.prototype.apply_tag = function(filename, tags){
-  // debug('tagDB apply_tag:', filename, tags);
+  debug('tagDB apply_tag:', filename, tags);
   if(libraryObj[filename]){
     var stored_tags = [].concat(libraryObj[filename].tags);
     debug('tags are:', tags, stored_tags);
@@ -1313,8 +1314,23 @@ TagDatabase.prototype.read_tags_from_database = function(){
     // debug('filename:', this._result.value(0, i), this._result.value(2,i), this._result.value(1,i));
     var filepath = this._result.value(0, i);
     var tags = this._result.value(1,i).split(',');
+    var shortname = this._result.value(2, i);
+    this.consolidate_tags_for_identical_shortnames(shortname);
     if((libraryObj[filepath])&&(tags!='')){
       libraryObj[filepath].tags = tags;
+    }
+  }
+}
+
+TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
+  var entries = this._db.exec("SELECT shortname FROM filenames WHERE shortname = '"+shortname+"'", this._subResult);
+  var len = this._subResult.numrecords();
+  if(len > 0){
+    for(var i=0;i<len;i++){
+      var filepath = this._result.value(0, i);
+      var shortname = this._result.value(2, i);
+      var tags = this._result.value(1,i).split(',');
+      debug('duplicate entry:', shortname, filepath, tags);
     }
   }
 }
@@ -3594,6 +3610,11 @@ QuicktabComponent.prototype._update_radio_component = function(){
 
 
 //Remote key functions//
+function ClearFilter(){
+  debug(ClearFilter);
+  TagFilter.clear_filter();
+}
+
 function Random(){
   debug('Random');
   randomizer.load_random_preset();

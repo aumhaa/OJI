@@ -508,6 +508,7 @@ class UtilMixerComponent(MonoMixerComponent):
 	util_mute_flip_button = ButtonControl()
 	util_select_first_armed_track_button = ButtonControl()
 	util_lower_all_track_volumes_button = ButtonControl()
+	util_lower_selected_track_volume_button = ButtonControl()
 
 	def __init__(self, *a, **k):
 		super(UtilMixerComponent, self).__init__(*a, **k)
@@ -637,6 +638,22 @@ class UtilMixerComponent(MonoMixerComponent):
 		for t in self.get_tracks():
 			if liveobj_valid(t) and t.has_audio_output:
 				t.mixer_device.volume.value = t.mixer_device.volume.value*.95
+
+	def set_util_lower_selected_track_volume_button(self, button):
+		self.util_lower_selected_track_volume_button.set_control_element(button)
+
+	@util_lower_selected_track_volume_button.pressed
+	def util_lower_selected_track_volume_button(self, button):
+		self._on_util_lower_selected_track_volume_button_pressed(button)
+
+	def _on_util_lower_selected_track_volume_button_pressed(self, button):
+		self.lower_selected_track_volume()
+
+	def lower_selected_track_volume(self):
+		debug('lower_selected_track_volume')
+		t = self.song.view.selected_track
+		if liveobj_valid(t) and t.has_audio_output:
+			t.mixer_device.volume.value = t.mixer_device.volume.value*.95
 
 
 class UtilSessionComponent(SessionComponent):
@@ -1431,7 +1448,7 @@ class Util(ControlSurface):
 
 	def _setup_controls(self):
 		def is_momentary(id):
-			return id > 34 and id not in (42,43,44,45,46,47,64,65,66,69)
+			return id > 34 and id not in (42,43,44,45,46,47,64,65,66,69,70)
 		def is_momentary2(id):
 			return id < 40
 		optimized = True
@@ -1499,8 +1516,22 @@ class Util(ControlSurface):
 
 	def _setup_mixer_control(self):
 		self._mixer = UtilMixerComponent(name = 'Mixer', tracks_provider = self._session_ring, track_assigner = SimpleTrackAssigner(), auto_name = True, channel_strip_component_type = UtilChannelStripComponent)
-		self._mixer.layer = Layer(prehear_volume_control = self._dial, util_arm_kill_button = self._button[9], util_mute_kill_button = self._button[10], util_solo_kill_button = self._button[11], util_mute_flip_button = self._button[12], util_select_first_armed_track_button = self._button[23], arming_track_select_buttons = self._track_select_matrix, util_lower_all_track_volumes_button = self._button2[52])
-		self._mixer._selected_strip.layer = Layer(volume_control = self._fader, arm_button = self._button[0], mute_button = self._button[1], solo_button = self._button[2], util_arm_exclusive_button = self._button[13], util_mute_exclusive_button = self._button[14], util_solo_exclusive_button = self._button[15])
+		self._mixer.layer = Layer(prehear_volume_control = self._dial,
+								util_arm_kill_button = self._button[9],
+								util_mute_kill_button = self._button[10],
+								util_solo_kill_button = self._button[11],
+								util_mute_flip_button = self._button[12],
+								util_select_first_armed_track_button = self._button[23],
+								arming_track_select_buttons = self._track_select_matrix,
+								util_lower_all_track_volumes_button = self._button2[52],
+								util_lower_selected_track_volume_button = self._button2[53],)
+		self._mixer._selected_strip.layer = Layer(volume_control = self._fader,
+								arm_button = self._button[0],
+								mute_button = self._button[1],
+								solo_button = self._button[2],
+								util_arm_exclusive_button = self._button[13],
+								util_mute_exclusive_button = self._button[14],
+								util_solo_exclusive_button = self._button[15],)
 		self._mixer._assign_skin_colors()
 		self._mixer.set_enabled(False)
 
@@ -1634,7 +1665,7 @@ class Util(ControlSurface):
 
 	def _setup_audiolooper(self):
 		self._audiolooper = LoopSelectorComponent(follow_detail_clip=True, measure_length=4.0, name='Loop_Selector', default_size = 32)
-		self._audiolooper.layer = Layer(priority = 6, loop_selector_matrix=self._grid,
+		self._audiolooper.mod_layer = AddLayerMode(self._audiolooper, Layer(priority = 6, loop_selector_matrix=self._grid,
 														prev_page_button=self._button2[6],
 														next_page_button=self._button2[7],
 														shift_loop_left_button=self._button2[0],
@@ -1645,21 +1676,23 @@ class Util(ControlSurface):
 														loop_length_4_button=self._button2[42],
 														loop_length_8_button=self._button2[43],
 														loop_length_16_button=self._button2[44],
+														loop_length_halve_button=self._button2[71],
+														loop_length_double_button=self._button2[72],
 														fix_grid_button=self._button2[45],
 														favorite_clip_color_button=self._button2[46],
 														shift_loop_left_keycommand_button=self._button2[47],
 														shift_loop_right_keycommand_button=self._button2[48],
-														play_selected_clip_button=self._button2[49],
-														latest_loop_keycommand_button=self._button2[51],
-														toggle_recording_on_all_clips_and_loop_button=self._button2[3])
+														play_selected_clip_button=self._button2[49],))
 
+		self._audiolooper.layer = Layer(priority=6, toggle_recording_on_all_clips_and_loop_button=self._button[70],
+										latest_loop_keycommand_button=self._button2[51],)
 		self._audiolooper.set_enabled(False)
 
 	def _setup_main_modes(self):
 		self._modswitcher = ModesComponent(name = 'ModSwitcher')
 		self._modswitcher.add_mode('disabled', [])
 		self._modswitcher.add_mode('mod', [self.modhandler])
-		self._modswitcher.add_mode('audiolooper', [self._audiolooper])
+		self._modswitcher.add_mode('audiolooper', [self._audiolooper.mod_layer])
 		self._modswitcher.selected_mode = 'disabled'
 		self._modswitcher.set_enabled(False)
 
@@ -1682,7 +1715,8 @@ class Util(ControlSurface):
 											self._session_navigation,
 											self._autoarm,
 											self._device_deleter,
-											self._hotswap])
+											self._hotswap,
+											self._audiolooper])
 
 
 		# self._main_modes.add_mode('Mod', [self.modhandler, self._device, self._device_navigation, self._session_ring, self._transport, self._view_control, self._undo_redo, self._track_creator, self._mixer, self._mixer._selected_strip, self._session, self._session_navigation, self._autoarm])
