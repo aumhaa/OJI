@@ -1,3 +1,4 @@
+
 autowatch = 1;
 
 /**TODO:
@@ -18,9 +19,9 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.9003';
-var FORCELOAD = false;
-var DEBUG = false;
+var VERSION = 'version.9004';
+var FORCELOAD = true;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -109,11 +110,18 @@ var MULTITAG_DELAY = 250;
 var MAX_MIRA_DROPDOWN_LENGTH = 1000;
 var MAX_FILE_LIST_LENGTH = 10000;
 
+var time = Date.now();
+
 function anything(){}
+
+function setup_profile(){
+  debug("___STARTING:", Date.now()-time);
+}
 
 function init(){
   debug('init', this._name);
   finder = new LiveAPI();
+  setup_profile();
   setup_tasks();
   setup_library();
   setup_patcher();
@@ -148,6 +156,7 @@ function init(){
   deprivatize_script_functions(script);  /**this is needed for _grid, _key, etc mod funcs */
   library_directory&&activate();
   setup_tests();
+  debug("__ENDING:", Date.now() - time);
 }
 
 function setup_tasks(){
@@ -639,7 +648,7 @@ function setup_controls(){
 }
 
 function setup_tests(){
-  debug('setup_tests');
+  // debug('setup_tests');
   // NSProxy.asyncCall('test_function', 'blah', true)
   // .then(function(res){
   //   debug('test_function success', res)})
@@ -669,7 +678,7 @@ function setup_tests(){
   // debug('previewObj:', JSON.stringify(previewObj));
   // tagDB._db.open(SQLITE_DB_NAME, 1);
   // debug('ALIVE______________:', Alive);
-  debug('TagFilter._filterMode._value:', TagFilter._filterMode._value);
+  // debug('TagFilter._filterMode._value:', TagFilter._filterMode._value);
 }
 
 function setup_modes(){
@@ -961,11 +970,15 @@ function on_specific_file_changed(){
 /** called from nodescript instance when it finishes its update*/
 function library_changed(){
   debug('library_changed triggered...');
-  tagDB.rebuild_libraryObj();
-  FileTree.update_files();
-  TagFilter.refresh();
-  FileTagger.refresh();
-  fileInfo.update();
+  tagDB.rebuild_libraryObj()
+    .then(function(){
+      debug('FINISHED');
+      FileTree.update_files();
+      TagFilter.refresh();
+      FileTagger.refresh();
+      fileInfo.update();
+    })
+    .catch(function(e){report_error(e)});
 
   show_lib_dict();
   show_tree_dict();
@@ -1123,7 +1136,11 @@ function TagDatabase(name, args){
     'scan_folder',
     'scan_file',
     'scan_preview_file',
-    'scan_preview_folder'
+    'scan_preview_folder',
+    'async_scan_folder',
+    'async_scan_file',
+    'async_scan_preview_folder',
+    'async_scan_preview_file'
   ]);
   this.libraryData = {};
   this.snapshotDict = new Dict('snapshot');
@@ -1302,24 +1319,43 @@ TagDatabase.prototype.save_snapshot = function(){
 }
 
 TagDatabase.prototype.rebuild_libraryObj = function(){
-  this.create_file_database_from_directory(library_directory);
-  this.read_tags_from_database();
+  var self = this;
+  return new Promise(function(resolve, reject){
+    self.create_file_database_from_directory(library_directory)
+      .then(function(){
+        self.read_tags_from_database().then(resolve).catch(function(e){reject(e)});
+      })
+      .catch(function(e){
+        report_error(e);
+        reject(e);
+      });
+    });
+  // this.read_tags_from_database();
   // this.create_preview_database_from_directory();
 }
 
 TagDatabase.prototype.read_tags_from_database = function(){
-  this._db.exec("SELECT * FROM filenames", this._result);
-  var len = this._result.numrecords();
-  for(var i=0;i<len;i++){
-    // debug('filename:', this._result.value(0, i), this._result.value(2,i), this._result.value(1,i));
-    var filepath = this._result.value(0, i);
-    var tags = this._result.value(1,i).split(',');
-    var shortname = this._result.value(2, i);
-    this.consolidate_tags_for_identical_shortnames(shortname);
-    if((libraryObj[filepath])&&(tags!='')){
-      libraryObj[filepath].tags = tags;
+  var self = this;
+  return new Promise(function(resolve, reject){
+    try{
+      self._db.exec("SELECT * FROM filenames", self._result);
+      var len = self._result.numrecords();
+      for(var i=0;i<len;i++){
+        // debug('filename:', this._result.value(0, i), this._result.value(2,i), this._result.value(1,i));
+        var filepath = self._result.value(0, i);
+        var tags = self._result.value(1,i).split(',');
+        var shortname = self._result.value(2, i);
+        self.consolidate_tags_for_identical_shortnames(shortname);
+        if((libraryObj[filepath])&&(tags!='')){
+          libraryObj[filepath].tags = tags;
+        }
+      }
+      resolve();
     }
-  }
+    catch(e){
+      reject(e);
+    }
+  });
 }
 
 TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
@@ -1336,27 +1372,132 @@ TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(short
 }
 
 TagDatabase.prototype.create_file_database_from_directory = function(library_directory){
+  var self = this;
   libraryObj = {};
   previewObj = {};
+  // debug("STARTING:", Date.now() - time);
+  // time = Date.now();
 
-  var folder = new Folder(library_directory);
-  if((folder)&&(folder.pathname==library_directory)){
-    debug('library_dir is:', library_directory);
+  return new Promise(function(resolve, reject){
+    var folder = new Folder(library_directory);
     try{
-      this.scan_folder(library_directory);
+      if((folder)&&(folder.pathname==library_directory)){
+        debug('library_dir is:', library_directory);
+        self.async_scan_folder(library_directory)
+          .then(function(){
+            debug('Main Library Scan Resolve....');
+            resolve();
+          })
+          .catch(function(e){
+            debug('Main Library Scan ERROR:', report_error(e));
+            reject(e);
+          });
+      }
+      else{
+        debug('problem with tagDB.load_database_into_memory');
+        reject({message:'problem with tagDB.load_database_into_memory'});
+      }
+      folder.close();
+      previewObj.check = {filename:'fuck you'};
     }
     catch(e){
-      debug('problem with tagDB.load_database_into_memory', e.message);
+      reject(e);
     }
-  }
-  else{
-    debug('problem with tagDB.load_database_into_memory');
-  }
-  folder.close();
-  previewObj.check = {filename:'fuck you'};
+  })
+
+  // debug("ENDING:", Date.now() - time);
+  // time = Date.now();
+}
+
+TagDatabase.prototype.async_scan_folder = function(dir_name){
+  var self = this;
+  return new Promise(function(resolve, reject){
+    try{
+      var promises = [];
+      var f = new Folder(dir_name);
+      var count = f.count
+      for(var i=0;i<count;i++){
+        if(f.filetype == 'fold'){
+          if(f.filename=='_Preview'){
+            promises.push(self.async_scan_preview_folder(pathJoin([f.pathname, f.filename])));
+          }
+          else{
+            promises.push(self.async_scan_folder(pathJoin([f.pathname, f.filename])));
+          }
+        }
+        else if(VALID_FILE_TYPES.indexOf(f.extension)>-1){
+          promises.push(self.async_scan_file(pathJoin([f.pathname, f.filename]), f.filename));
+        }
+        f.next();
+      }
+      f.close();
+      Promise.all(promises)
+        .then(resolve)
+        .catch(function(e){reject(e)});
+    }
+    catch(e){
+      reject(e);
+    }
+  })
+}
+
+TagDatabase.prototype.async_scan_file = function(file_name, shortname){
+  return new Promise(function(resolve, reject){
+    try{
+      libraryObj[file_name] = {tags:[], shortname:shortname, preview:''};
+      resolve();
+    }
+    catch(e){
+      reject(e);
+    }
+  })
+}
+
+TagDatabase.prototype.async_scan_preview_folder = function(dir_name){
+  var self = this;
+  return new Promise(function(resolve, reject){
+    try{
+      var promises = [];
+      var f = new Folder(dir_name);
+      var filename, shortname;
+      var count = f.count
+      for(var i=0;i<count;i++){
+        filename = pathJoin([f.pathname, f.filename]);
+        if(f.filetype == 'fold'){
+          promises.push(self.async_scan_preview_folder(pathJoin([f.pathname, f.filename])));
+        }
+        else if(['.wav', '.aif'].indexOf(f.extension)>-1){
+          shortname = f.filename;
+          promises.push(self.async_scan_preview_file(filename, shortname));
+        }
+        f.next();
+      }
+      f.close();
+      Promise.all(promises)
+        .then(resolve)
+        .catch(function(e){reject(e)});
+    }
+    catch(e){
+      reject(e);
+    }
+  })
+}
+
+TagDatabase.prototype.async_scan_preview_file = function(file_name, shortname){
+  return new Promise(function(resolve, reject){
+    try{
+      var new_shortname = shortname.substr(0, shortname.lastIndexOf('.'))
+      previewObj[new_shortname] = {filename:file_name};
+      resolve();
+    }
+    catch(e){
+      reject(e);
+    }
+  })
 }
 
 TagDatabase.prototype.scan_folder = function(dir_name){
+  //deprecated for async methods
   var f = new Folder(dir_name);
   while(!f.end){
     if(f.filetype == 'fold'){
@@ -1376,12 +1517,13 @@ TagDatabase.prototype.scan_folder = function(dir_name){
 }
 
 TagDatabase.prototype.scan_file = function(file_name, shortname){
+  // deprecated for async methods
   libraryObj[file_name] = {tags:[], shortname:shortname, preview:''};
   // this._db.exec("INSERT INTO all_filenames(file_name, shortname) VALUES('"+file_name+"', '"+shortname+"')", this._result);
 }
 
 TagDatabase.prototype.scan_preview_folder = function(dir_name){
-  // debug('_________________________________________________scan preview folder', dir_name);
+  //deprecated for async methods
   var f = new Folder(dir_name);
   // f.typelist = ['WAVE', 'AIFF'];
   var filename, shortname;
@@ -1400,6 +1542,7 @@ TagDatabase.prototype.scan_preview_folder = function(dir_name){
 }
 
 TagDatabase.prototype.scan_preview_file = function(filename, shortname){
+  //deprecated for async methods
   // shortname = shortname.replace(/\.[^/.]+$/, "");
   //var new_shortname = shortname.substr(0, shortname.lastIndexOf('.')).split('[')[0].replace('Freeze ', ''); //.replace(/\.[^/.]+$/, "");
   var new_shortname = shortname.substr(0, shortname.lastIndexOf('.'))
@@ -1448,6 +1591,7 @@ TagDatabase.prototype._update_window = function(){
     }
   }
 }
+
 
 
 
@@ -1595,7 +1739,7 @@ PreviewPlayerComponent.prototype.preview = function(filename){
 
 PreviewPlayerComponent.prototype._preview = function(obj){
   var file = fileInfo.selected_file;
-  debug('preview', obj._value);
+  // debug('preview', obj._value);
   if(file!=''){
     var f = new File(file, 'read');
     var type = f.filetype;
@@ -1609,11 +1753,11 @@ PreviewPlayerComponent.prototype._preview = function(obj){
       this._playObj.message('start', 0, 200000, 200000);
     }
     else if(libraryObj[file]){
-      debug('previewObj:', JSON.stringify(previewObj));
+      // debug('previewObj:', JSON.stringify(previewObj));
       var prev_shortname = libraryObj[file].shortname.substr(0, libraryObj[file].shortname.lastIndexOf('.'));
-      debug('preview shortname', prev_shortname);
+      // debug('preview shortname', prev_shortname);
       var prevfile = previewObj[prev_shortname];
-      debug('preview file', prevfile);
+      // debug('preview file', prevfile);
       if(prevfile){
         this._bufferObj.message('sizeinsamps', 20000);
         this._bufferObj.message('clear')
