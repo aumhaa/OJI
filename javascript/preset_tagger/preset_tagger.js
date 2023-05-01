@@ -19,9 +19,9 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.9004';
+var VERSION = 'version.90041';
 var FORCELOAD = false;
-var DEBUG = false;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -1340,6 +1340,7 @@ TagDatabase.prototype.read_tags_from_database = function(){
     try{
       self._db.exec("SELECT * FROM filenames", self._result);
       var len = self._result.numrecords();
+      debug('DB num records:', len);
       for(var i=0;i<len;i++){
         // debug('filename:', this._result.value(0, i), this._result.value(2,i), this._result.value(1,i));
         var filepath = self._result.value(0, i);
@@ -1369,6 +1370,10 @@ TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(short
       debug('duplicate entry:', shortname, filepath, tags);
     }
   }
+}
+
+TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
+
 }
 
 TagDatabase.prototype.create_file_database_from_directory = function(library_directory){
