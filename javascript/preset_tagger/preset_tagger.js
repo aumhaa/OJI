@@ -21,7 +21,7 @@ var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0
 //util.inject(this, util);
 var VERSION = 'version.90041';
 var FORCELOAD = false;
-var DEBUG = true;
+var DEBUG = false;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -1373,7 +1373,7 @@ TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(short
 }
 
 TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
-
+  //this was doing nothing, and was causing a huge hang.....needs to be revisited.
 }
 
 TagDatabase.prototype.create_file_database_from_directory = function(library_directory){
