@@ -19,7 +19,7 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.90041';
+var VERSION = 'version.90042';
 var FORCELOAD = false;
 var DEBUG = false;
 var NODE_DEBUG = false;
@@ -674,7 +674,7 @@ function setup_tests(){
   // tagDB.update_all();
   // load_preferences();
   // tagDB.prune();
-  // debug(JSON.stringify(previewObj));
+  // debug(JSON.stringify(libraryObj));
   // debug('previewObj:', JSON.stringify(previewObj));
   // tagDB._db.open(SQLITE_DB_NAME, 1);
   // debug('ALIVE______________:', Alive);
@@ -1160,20 +1160,26 @@ TagDatabase.prototype.close = function(){
 }
 
 TagDatabase.prototype.set_tags = function(filename, tags){
-  // debug('tagDB set_tags:', filename, tags);
+  debug('tagDB set_tags:', filename, tags);
   if((tags=='')||(tags==[])||(tags==undefined)){
     this.clear_tags(filename);
   }
   else{
-    libraryObj[filename].tags = tags;
-    var shortname = libraryObj[filename].shortname;
-    this._db.exec("INSERT OR REPLACE into filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+tags+"', '"+shortname+"')", this._result);
+    try{
+      libraryObj[filename].tags = tags;
+      var shortname = libraryObj[filename].shortname;
+      this._db.exec("INSERT OR REPLACE into filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+tags+"', '"+shortname+"')", this._result);
+    }
+    catch(e){
+      report_error(e);
+    }
   }
 }
 
 TagDatabase.prototype.apply_tag = function(filename, tags){
   debug('tagDB apply_tag:', filename, tags);
-  if(libraryObj[filename]){
+  // if(libraryObj[filename]){
+  try{
     var stored_tags = [].concat(libraryObj[filename].tags);
     debug('tags are:', tags, stored_tags);
     var tag_buf = [].concat(tags);
@@ -1188,11 +1194,15 @@ TagDatabase.prototype.apply_tag = function(filename, tags){
     libraryObj[filename].tags = new_tags;
     this._db.exec("INSERT OR REPLACE into filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+new_tags+"', '"+shortname+"')", this._result);
   }
+  catch(e){
+    report_error(e);
+  }
 }
 
 TagDatabase.prototype.remove_tag = function(filename, tags){
-  // debug('tagDB remove_tag:', filename, tags);
-  if(libraryObj[filename]){
+  debug('tagDB remove_tag:', filename, tags);
+  // if(libraryObj[filename]){
+  try{
     var stored_tags = [].concat(libraryObj[filename].tags);
     debug('tags are:', tags, stored_tags);
     var tag_buf = [].concat(tags);
@@ -1213,13 +1223,20 @@ TagDatabase.prototype.remove_tag = function(filename, tags){
       this._db.exec("DELETE FROM filenames WHERE filename = '"+filename+"'", this._result);
     }
   }
+  catch(e){
+    report_error(e);
+  }
 }
 
 TagDatabase.prototype.clear_tags = function(filename){
   debug('tagDB clear_tags:', filename);
-  if(libraryObj[filename]){
+  // if(libraryObj[filename]){
+  try{
     libraryObj[filename].tags = [];
     this._db.exec("DELETE FROM filenames WHERE filename = '"+filename+"'", this._result);
+  }
+  catch(e){
+    report_error(e);
   }
 }
 
@@ -1261,7 +1278,7 @@ TagDatabase.prototype.restore_snapshot = function(filename){
         this._db.exec("INSERT INTO filenames(filename, tags, shortname) VALUES('"+file+"','"+tags+"','"+shortname+"')", this._result); //" ON CONFLICT(filename) DO UPDATE SET tags='"+consolidated_tags+" WHERE TRUE );", this._result);
       }
       catch(e){
-        debug('error:', e);
+        report_error(e);
       }
   	}
   }
@@ -1296,7 +1313,7 @@ TagDatabase.prototype.merge_snapshot = function(filename){
         this._db.exec("INSERT OR REPLACE INTO filenames(filename, tags, shortname) VALUES('"+file+"','"+consolidated_tags+"','"+shortname+"')", this._result); //" ON CONFLICT(filename) DO UPDATE SET tags='"+consolidated_tags+" WHERE TRUE );", this._result);
       }
       catch(e){
-        debug('error:', e);
+        report_error(e);
       }
     }
 	}
@@ -1359,18 +1376,18 @@ TagDatabase.prototype.read_tags_from_database = function(){
   });
 }
 
-TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
-  var entries = this._db.exec("SELECT shortname FROM filenames WHERE shortname = '"+shortname+"'", this._subResult);
-  var len = this._subResult.numrecords();
-  if(len > 0){
-    for(var i=0;i<len;i++){
-      var filepath = this._result.value(0, i);
-      var shortname = this._result.value(2, i);
-      var tags = this._result.value(1,i).split(',');
-      debug('duplicate entry:', shortname, filepath, tags);
-    }
-  }
-}
+// TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
+//   var entries = this._db.exec("SELECT shortname FROM filenames WHERE shortname = '"+shortname+"'", this._subResult);
+//   var len = this._subResult.numrecords();
+//   if(len > 0){
+//     for(var i=0;i<len;i++){
+//       var filepath = this._result.value(0, i);
+//       var shortname = this._result.value(2, i);
+//       var tags = this._result.value(1,i).split(',');
+//       debug('duplicate entry:', shortname, filepath, tags);
+//     }
+//   }
+// }
 
 TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
   //this was doing nothing, and was causing a huge hang.....needs to be revisited.
@@ -1420,8 +1437,7 @@ TagDatabase.prototype.async_scan_folder = function(dir_name){
     try{
       var promises = [];
       var f = new Folder(dir_name);
-      var count = f.count
-      for(var i=0;i<count;i++){
+      while(!f.end){
         if(f.filetype == 'fold'){
           if(f.filename=='_Preview'){
             promises.push(self.async_scan_preview_folder(pathJoin([f.pathname, f.filename])));
