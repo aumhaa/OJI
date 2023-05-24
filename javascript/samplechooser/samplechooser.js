@@ -12,8 +12,8 @@ var uid = jsarguments[1];
 var unique = jsarguments[1];
 
 aumhaa = require('_base');
-var FORCELOAD = true;
-var DEBUG = true;
+var FORCELOAD = false;
+var DEBUG = false;
 var VIEW_DEVICEDICT = false;
 aumhaa.init(this);
 
@@ -1138,9 +1138,14 @@ RackDevice.prototype.set_layerChooser = function(obj){
 }
 
 RackDevice.prototype.set_parameter_value = function(obj){
-	debug('RackDevice.prototype.set_parameter_value:', obj._value, this._api_parameter.id);
-	if(this._api_parameter.id>0){
-		this._api_parameter.set('value', obj._value);
+	debug('RackDevice.prototype.set_parameter_value:', obj._value, this._api_parameter.id, this._api_parameter.type)
+	try{
+		if((this._api_parameter.id>0)&&(this._api_parameter.id != this_device_id)){
+			this._api_parameter.set('value', obj._value);
+		}
+	}
+	catch(e){
+		report_error(e);
 	}
 }
 
