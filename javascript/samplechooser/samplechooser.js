@@ -1,3 +1,5 @@
+//last edit 052323
+
 autowatch = 1;
 
 inlets = 1;
@@ -25,7 +27,9 @@ var Mod = ModComponent.bind(script);
 var ModProxy = ModProxyComponent.bind(script);
 var this_device_id = 0;
 
+var USE_DEVICE = false;
 
+var USE_GLOBAL_LINKING = false;
 var INIT_GLOBAL = true;
 var aumhaaGlobal = new Global('aumhaaGlobal');
 
@@ -33,6 +37,7 @@ if((!aumhaaGlobal.sampleChooser)||(INIT_GLOBAL)){
 	debug('making sampleChooser global');
 	aumhaaGlobal.sampleChooser = {};
 }
+
 
 var compatible_relays = [];
 var check_relays = false;
@@ -82,13 +87,20 @@ function init(){
 	setup_editor();
 	setup_components();
 	setup_parameter_controls();
-	// setup_device();
+	if(USE_DEVICE){
+		setup_device();
+	}
 	setup_modes();
 	setup_listeners();
 	setup_storage();
-	// setup_global_link();
+	if(USE_GLOBAL_LINKING){
+		setup_global_link();
+	}
+	else{
+		set_global_gate(1);
+	}
 	setup_tests();
-	deprivatize_script_functions(this);
+	deprivatize_script_functions(script);
 
 	update_background();
 
@@ -105,7 +117,9 @@ function dissolve(){
 		mod.restart.cancel();
 	}
 	catch(error){}
-	dissolve_global_link();
+	if(USE_GLOBAL_LINKING){
+		dissolve_global_link();
+	}
 }
 
 function mod_callback(args){
@@ -147,7 +161,7 @@ function setup_colors(){}
 
 function setup_patchers(){
 	//this collects all named objects in the main patcher and makes them members of the root script
-	find_patcher_objects(script, patcher, get_patcher_script_names(patcher));
+	find_patcher_objects(script, this.patcher, get_patcher_script_names(this.patcher));
 }
 
 function setup_controls(){
@@ -290,7 +304,7 @@ function setup_device(){
 	{
 		for(var bank_num in DRUMCHOOSER_BANKS[dev_type])
 		{
-			debug('Sending bank:', dev_type, bank_num, DRUMCHOOSER_BANKS[dev_type][bank_num]);
+			// debug('Sending bank:', dev_type, bank_num, DRUMCHOOSER_BANKS[dev_type][bank_num]);
 			mod.SendDirect('receive_device_proxy', 'set_bank_dict_entry', dev_type, bank_num, DRUMCHOOSER_BANKS[dev_type][bank_num]);
 		}
 		//mod.Send('receive_device_proxy', 'update_parameters');
@@ -369,7 +383,12 @@ function setup_global_link(){
 
 function dissolve_global_link(){
 	var glob = aumhaaGlobal.sampleChooser;
-	delete glob.chooser_list[unique];
+	try{
+		delete glob.chooser_list[unique];
+	}
+	catch(e){
+		report_error(e);
+	}
 	debug('chooser instance disolved');
 }
 
@@ -378,6 +397,8 @@ function dissolve_global_link(){
 function setup_tests(){
   //introspect_global();
 	// layerChooser.update_controls();
+	// debug("were setting the global_gate to 1 here in tests because some logic was removed due to new features of live and appointed device selection and consequently we disabled that portion of code which actually utilizes the global_gate");
+	// set_global_gate(1);
 }
 
 
@@ -394,7 +415,8 @@ function appointed_device_listener(args){
 
 function reevaluate_global_gate(){
 	debug('gateLogic:', aumhaaGlobal.sampleChooser.last_selected, this_device_id);
-	set_global_gate(aumhaaGlobal.sampleChooser.last_selected == this_device_id ? 1 : 0);
+	// set_global_gate(aumhaaGlobal.sampleChooser.last_selected == this_device_id ? 1 : 0);
+	set_global_gate(aumhaaGlobal.sampleChooser.last_selected == this_device_id ? 1 : 1);
 }
 
 function assign_last_selected_instance(id){
@@ -533,7 +555,7 @@ function _Parameters(val){
 }
 
 function _Audition(val){
-	//debug('Audition', val);
+	debug('Audition', val);
 	if(val){
 		audition({'_value':1});
 	}
@@ -1016,6 +1038,7 @@ RackDevice.prototype.detect_next_device_in_track = function(){
 		if((this_device_index>-1)&&(device_ids[this_device_index+1])){
 			debug('found a device....');
 			finder.goto('devices', this_device_index+1);
+			// debug('type is:', finder.get('type'));
 			if(finder.get('can_have_chains')!=0){
 				debug('...and its a rack device');
 				this._api_device.id = Math.floor(finder.id);
@@ -1026,6 +1049,7 @@ RackDevice.prototype.detect_next_device_in_track = function(){
 			}
 		}
 		else{
+			this._api_parameter.id = 0;
 			post('No Adjacent Rack Device found.');
 		}
 	}
@@ -1067,7 +1091,8 @@ RackDevice.prototype.detect_containing_rack = function(){
 		this_device_id = Math.floor(finder.id);
 		finder.goto('canonical_parent');
 		finder.goto('canonical_parent');
-		if(finder.get('can_have_chains')!=0){
+		debug('type is:', finder.type);
+		if((finder.type=="RackDevice")&&(finder.get('can_have_chains')!=0)){
 			debug('found a container');
 			this._api_device.id = Math.floor(finder.id);
 			finder.goto('parameters', 1);
@@ -1113,7 +1138,7 @@ RackDevice.prototype.set_layerChooser = function(obj){
 }
 
 RackDevice.prototype.set_parameter_value = function(obj){
-	debug('RackDevice.prototype.set_parameter_value:', obj._value);
+	debug('RackDevice.prototype.set_parameter_value:', obj._value, this._api_parameter.id);
 	if(this._api_parameter.id>0){
 		this._api_parameter.set('value', obj._value);
 	}
