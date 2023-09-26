@@ -1,5 +1,6 @@
 # by amounra 0320 : http://www.aumhaa.com
 # written against Live 10.1.9 on 0320
+# updated against Live 11.3.2 on 092523
 
 
 
@@ -170,7 +171,7 @@ class KeysplitterComponent(Component):
 				for track in song.tracks:
 					if track in tracks:
 						track_index = tracks.index(track)
-						track.implicit_arm = track_index in range(selected_index, selected_index + self.number_of_splits)
+						track.arm = track_index in range(selected_index, selected_index + self.number_of_splits)
 						if track_index in range(selected_index, (selected_index + self.number_of_splits)):
 							if hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > (track_index - selected_index):
 								track.input_routing_channel = track.available_input_routing_channels[(track_index - selected_index)+1]
@@ -186,6 +187,8 @@ class KeysplitterComponent(Component):
 					if track_index in range(selected_index, (selected_index + self.number_of_splits)):
 						if track.implicit_arm:
 							track.implicit_arm = False
+						if track.arm:
+							track.arm = False
 						if hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > 0:
 							track.input_routing_channel = track.available_input_routing_channels[0]
 

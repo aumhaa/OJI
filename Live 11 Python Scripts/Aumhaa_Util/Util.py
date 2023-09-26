@@ -1,5 +1,6 @@
 # by amounra 0420 : http://www.aumhaa.com
 # written against Live 10.1.9 release on 040520
+# updated against Live 11.3.2 on 092523
 
 
 import Live
@@ -509,6 +510,7 @@ class UtilMixerComponent(MonoMixerComponent):
 	util_select_first_armed_track_button = ButtonControl()
 	util_lower_all_track_volumes_button = ButtonControl()
 	util_lower_selected_track_volume_button = ButtonControl()
+	util_raise_selected_track_volume_button = ButtonControl()
 
 	def __init__(self, *a, **k):
 		super(UtilMixerComponent, self).__init__(*a, **k)
@@ -654,6 +656,22 @@ class UtilMixerComponent(MonoMixerComponent):
 		t = self.song.view.selected_track
 		if liveobj_valid(t) and t.has_audio_output:
 			t.mixer_device.volume.value = t.mixer_device.volume.value*.95
+
+	def set_util_raise_selected_track_volume_button(self, button):
+		self.util_raise_selected_track_volume_button.set_control_element(button)
+
+	@util_raise_selected_track_volume_button.pressed
+	def util_raise_selected_track_volume_button(self, button):
+		self._on_util_raise_selected_track_volume_button_pressed(button)
+
+	def _on_util_raise_selected_track_volume_button_pressed(self, button):
+		self.raise_selected_track_volume()
+
+	def raise_selected_track_volume(self):
+		debug('raise_selected_track_volume')
+		t = self.song.view.selected_track
+		if liveobj_valid(t) and t.has_audio_output:
+			t.mixer_device.volume.value = min(t.mixer_device.volume.value*1.05, t.mixer_device.volume.max)
 
 
 class UtilSessionComponent(SessionComponent):
@@ -1524,7 +1542,8 @@ class Util(ControlSurface):
 								util_select_first_armed_track_button = self._button[23],
 								arming_track_select_buttons = self._track_select_matrix,
 								util_lower_all_track_volumes_button = self._button2[52],
-								util_lower_selected_track_volume_button = self._button2[53],)
+								util_lower_selected_track_volume_button = self._button2[53],
+								util_raise_selected_track_volume_button = self._button2[54],)
 		self._mixer._selected_strip.layer = Layer(volume_control = self._fader,
 								arm_button = self._button[0],
 								mute_button = self._button[1],
