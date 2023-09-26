@@ -19,7 +19,7 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.90042';
+var VERSION = 'version.90043';
 var FORCELOAD = false;
 var DEBUG = false;
 var NODE_DEBUG = false;
@@ -145,7 +145,7 @@ function init(){
   setup_mainfx_button();
   setup_tagmode_button();
   setup_audition_button();
-  // setup_quicktabs();
+  setup_quicktabs();
   assign_preferences();
   setup_mod();
   setup_preference_file();
