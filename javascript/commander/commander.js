@@ -206,7 +206,7 @@ function setup_controls(){
 		return callback;
 	}
 	for(var i=0;i<8;i++){
-		var name = 'Button_'+(i+120);
+		var name = 'Button_'+(i+112);
 		var control = finder.call('get_control', name);
 		debug('control is:', control);
 		presetButtons[i] = new LiveAPI(make_presetButton_callback(i), control);

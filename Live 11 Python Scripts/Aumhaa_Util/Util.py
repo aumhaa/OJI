@@ -513,6 +513,8 @@ class UtilMixerComponent(MonoMixerComponent):
 	util_raise_selected_track_volume_button = ButtonControl()
 	util_select_track_with_ch1_input_button = ButtonControl()
 	util_select_track_with_ch2_input_button = ButtonControl()
+	util_pan_left_button = ButtonControl()
+	util_pan_right_button = ButtonControl()
 
 	def __init__(self, *a, **k):
 		super(UtilMixerComponent, self).__init__(*a, **k)
@@ -707,7 +709,31 @@ class UtilMixerComponent(MonoMixerComponent):
 						# debug('should have set view....')
 						# break
 
+	def set_util_pan_left_button(self, button):
+		self.util_pan_left_button.set_control_element(button)
 
+	@util_pan_left_button.pressed
+	def util_pan_left_button(self, button):
+		self._on_util_pan_left_button_pressed(button)
+
+	def _on_util_pan_left_button_pressed(self, button):
+		self.set_hard_pan(0)
+
+	def set_util_pan_right_button(self, button):
+		self.util_pan_right_button.set_control_element(button)
+
+	@util_pan_right_button.pressed
+	def util_pan_right_button(self, button):
+		self._on_util_pan_right_button_pressed(button)
+
+	def _on_util_pan_right_button_pressed(self, button):
+		self.set_hard_pan(1)
+
+	def set_hard_pan(self, side=0):
+		track = self.song.view.selected_track
+		if liveobj_valid(track) and hasattr(track, 'mixer_device'):
+			if hasattr(track.mixer_device, 'panning'):
+				track.mixer_device.panning.value = track.mixer_device.panning.min if side is 0 else track.mixer_device.panning.max
 
 class UtilSessionComponent(SessionComponent):
 
@@ -1580,7 +1606,9 @@ class Util(ControlSurface):
 								util_lower_selected_track_volume_button = self._button2[53],
 								util_raise_selected_track_volume_button = self._button2[54],
 								util_select_track_with_ch1_input_button = self._button2[55],
-								util_select_track_with_ch2_input_button = self._button2[56],)
+								util_select_track_with_ch2_input_button = self._button2[56],
+								util_pan_left_button = self._button2[57],
+								util_pan_right_button = self._button2[58],)
 		self._mixer._selected_strip.layer = Layer(volume_control = self._fader,
 								arm_button = self._button[0],
 								mute_button = self._button[1],
