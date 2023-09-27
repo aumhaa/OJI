@@ -205,7 +205,7 @@ function setup_controls(){
 		}
 		return callback;
 	}
-	for(var i=0;i<8;i++){
+	for(var i=0;i<16;i++){
 		var name = 'Button_'+(i+112);
 		var control = finder.call('get_control', name);
 		debug('control is:', control);
