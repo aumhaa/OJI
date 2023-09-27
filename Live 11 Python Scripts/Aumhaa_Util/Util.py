@@ -511,8 +511,8 @@ class UtilMixerComponent(MonoMixerComponent):
 	util_lower_all_track_volumes_button = ButtonControl()
 	util_lower_selected_track_volume_button = ButtonControl()
 	util_raise_selected_track_volume_button = ButtonControl()
-	util_set_input_to_ch1_button = ButtonControl()
-	util_set_input_to_ch2_button = ButtonControl()
+	util_select_track_with_ch1_input_button = ButtonControl()
+	util_select_track_with_ch2_input_button = ButtonControl()
 
 	def __init__(self, *a, **k):
 		super(UtilMixerComponent, self).__init__(*a, **k)
@@ -675,33 +675,37 @@ class UtilMixerComponent(MonoMixerComponent):
 		if liveobj_valid(t) and t.has_audio_output:
 			t.mixer_device.volume.value = min(t.mixer_device.volume.value*1.05, t.mixer_device.volume.max)
 
-	def set_util_set_input_to_ch1_button(self, button):
-		self.util_set_input_to_ch1_button.set_control_element(button)
+	def set_util_select_track_with_ch1_input_button(self, button):
+		self.util_select_track_with_ch1_input_button.set_control_element(button)
 
-	@util_set_input_to_ch1_button.pressed
-	def util_set_input_to_ch1_button(self, button):
-		self._on_util_set_input_to_ch1_button_pressed(button)
+	@util_select_track_with_ch1_input_button.pressed
+	def util_select_track_with_ch1_input_button(self, button):
+		self._on_util_select_track_with_ch1_input_button_pressed(button)
 
-	def _on_util_set_input_to_ch1_button_pressed(self, button):
-		self.set_input_to_channel(channel=1)
+	def _on_util_select_track_with_ch1_input_button_pressed(self, button):
+		self.select_first_armed_track_with_channel_input(channel=1)
 
-	def set_util_set_input_to_ch2_button(self, button):
-		self.util_set_input_to_ch2_button.set_control_element(button)
+	def set_util_select_track_with_ch2_input_button(self, button):
+		self.util_select_track_with_ch2_input_button.set_control_element(button)
 
-	@util_set_input_to_ch2_button.pressed
-	def util_set_input_to_ch2_button(self, button):
-		self._on_util_set_input_to_ch2_button_pressed(button)
+	@util_select_track_with_ch2_input_button.pressed
+	def util_select_track_with_ch2_input_button(self, button):
+		self._on_util_select_track_with_ch2_input_button_pressed(button)
 
-	def _on_util_set_input_to_ch2_button_pressed(self, button):
-		self.set_input_to_channel(channel=2)
+	def _on_util_select_track_with_ch2_input_button_pressed(self, button):
+		self.select_first_armed_track_with_channel_input(channel=2)
 
-	def set_input_to_channel(self, channel=0):
-		debug('set_input_to_channel', channel)
+	def select_first_armed_track_with_channel_input(self, channel=0):
+		debug('select_first_armed_track_with_channel_input', channel)
 		tracks = list(self.song.tracks)
 		for track in tracks:
 			if liveobj_valid(track) and hasattr(track, 'arm') and track.arm:
 				if hasattr(track, 'available_input_routing_channels') and len(track.available_input_routing_channels) > channel:
-					track.input_routing_channel = track.available_input_routing_channels[channel]
+					# debug('input_routing_channel:', track.input_routing_channel, track.available_input_routing_channels[channel])
+					if track.input_routing_channel == track.available_input_routing_channels[channel]:
+						self.song.view.selected_track = track
+						# debug('should have set view....')
+						# break
 
 
 
@@ -1575,8 +1579,8 @@ class Util(ControlSurface):
 								util_lower_all_track_volumes_button = self._button2[52],
 								util_lower_selected_track_volume_button = self._button2[53],
 								util_raise_selected_track_volume_button = self._button2[54],
-								util_set_input_to_ch1_button = self._button2[55],
-								util_set_input_to_ch2_button = self._button2[56],)
+								util_select_track_with_ch1_input_button = self._button2[55],
+								util_select_track_with_ch2_input_button = self._button2[56],)
 		self._mixer._selected_strip.layer = Layer(volume_control = self._fader,
 								arm_button = self._button[0],
 								mute_button = self._button[1],
