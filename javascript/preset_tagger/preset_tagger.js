@@ -19,7 +19,7 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.90043';
+var VERSION = 'version.90044';
 var FORCELOAD = false;
 var DEBUG = false;
 var NODE_DEBUG = false;
@@ -103,7 +103,7 @@ var BROWSERYSIZE = 826;
 var BATCHXSIZE = 203;
 var BATCHYSIZE  = 550;
 var PREFSXSIZE = 180;
-var PREFSYSIZE  = 280;
+var PREFSYSIZE  = 450;
 var SEARCHXSIZE = 520;
 var SEARCHYSIZE  = 275;
 var MULTITAG_DELAY = 250;
@@ -859,6 +859,16 @@ function setup_audition_button(){
 function setup_quicktabs(){
   script.quicktabs = new QuicktabComponent('Quicktabs', {radio_buttons_raw:quicktab_controls, QUICKTAB_NAMES:QUICKTAB_NAMES, tag_filter:TagFilter, tag_chooser:tag_chooser});
   debug('setup_quicktabs');
+  var make_quicktab_key_command_closure = function(index){
+    var callback = function(){
+      debug('callback:', index);
+      quicktabs._on_button_pushed({_value:index});
+    }
+    return callback
+  }
+  for(var i=0;i<8;i++){
+    script['QuickFilter'+(i+1)] = make_quicktab_key_command_closure(i);
+  }
 }
 
 function setup_preference_file(){

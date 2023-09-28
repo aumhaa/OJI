@@ -194,6 +194,7 @@ function setup_controls(){
 
 	script.presetButtons = [];
 	//afterthought here, there should be a better, more systematic way to deal with these.
+	//these are responding to mapped key commands in Bomes, sent to the util script, then intercepted here and sent back to the modHandler of the script. 
 	function make_presetButton_callback(index){
 		var callback = function(args)
 		{
