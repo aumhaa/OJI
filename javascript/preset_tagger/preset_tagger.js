@@ -19,9 +19,9 @@ util = require('aumhaa_util');
 var MaxColors = {OFF : [0, 0, 0], WHITE : [1, 1, 1], YELLOW: [1, 1, 0], CYAN: [0, 1, 1], MAGENTA: [1, 0, 1], RED: [1, 0, 0], GREEN: [0, 1, 0], BLUE: [0, 0, 1]};
 
 //util.inject(this, util);
-var VERSION = 'version.90044';
+var VERSION = 'version.91';
 var FORCELOAD = false;
-var DEBUG = false;
+var DEBUG = true;
 var NODE_DEBUG = false;
 var SHOW_TREE_DICT = false;
 var SHOW_LIB_DICT = false;
@@ -29,13 +29,17 @@ var SHOW_SNAPSHOT_DICT = false;
 var EDITOR_OPEN = false;
 var BATCH_OPEN = false;
 var MOD_DEBUG = false;
+var SQL_WINDOW = false;
 var EDITOR_FLOAT = true;
 var INITIAL_FILTER_OR_MODE = false;
 var INITIAL_AUDITION_ENABLE = true;
 var AUDITION_SHOWS_WAVEFORM = false;
+var CONVERT_FROM_OLD_DATABASE = false;
+var INIT_DB_ON_LOAD = false;
 
 aumhaa.init(this);
 var script = this;
+var tagDB;
 
 Array.prototype.equals = function (array) {
     // if the other array is a falsy value, return
@@ -103,7 +107,7 @@ var BROWSERYSIZE = 826;
 var BATCHXSIZE = 203;
 var BATCHYSIZE  = 550;
 var PREFSXSIZE = 180;
-var PREFSYSIZE  = 450;
+var PREFSYSIZE  = 460;
 var SEARCHXSIZE = 520;
 var SEARCHYSIZE  = 275;
 var MULTITAG_DELAY = 250;
@@ -228,10 +232,20 @@ function setup_tagDB(){
 	}
 
   script.tagDB = new TagDatabase('TagDatabase', {window:sqliteWindow, display:sqliteDisplay});
+  if(CONVERT_FROM_OLD_DATABASE){
+    tagDB.convert_old_database()
+    .then(function(){
+      debug('FINISHED Conversion...');
+    })
+    .catch(function(e){report_error(e)});
+  }
   script.restore_snapshot = tagDB.restore_snapshot;
   script.merge_snapshot = tagDB.merge_snapshot;
   script.save_snapshot = tagDB.save_snapshot;
+  script.restore_legacy_snapshot = tagDB.restore_legacy_snapshot;
   script.prune = tagDB.prune;
+
+  tagDB.update_all();
 }
 
 function setup_browser(){
@@ -989,7 +1003,6 @@ function library_changed(){
       fileInfo.update();
     })
     .catch(function(e){report_error(e)});
-
   show_lib_dict();
   show_tree_dict();
 
@@ -1138,10 +1151,13 @@ function TagDatabase(name, args){
   this.add_bound_properties(this, [
     '_db',
     '_result',
+    '_subResult',
     'libraryData',
+    'tagsScanData',
     'snapshotDict',
     'merge_snapshot',
     'restore_snapshot',
+    'restore_legacy_snapshot',
     'save_snapshot',
     'scan_folder',
     'scan_file',
@@ -1153,14 +1169,17 @@ function TagDatabase(name, args){
     'async_scan_preview_file'
   ]);
   this.libraryData = {};
+  this.tagsScanData = {};
   this.snapshotDict = new Dict('snapshot');
   this._db = new SQLite;
   this._result = new SQLResult;
   this._subResult = new SQLResult;
   this._db.open(dbFile_path, 1);
   this._db.exec('CREATE TABLE IF NOT EXISTS filenames (filename TEXT PRIMARY KEY, tags TEXT, shortname TEXT)', this._result);
+  this._db.exec('CREATE TABLE IF NOT EXISTS shortnames (shortname TEXT PRIMARY KEY, tags TEXT)', this._result);
+  INIT_DB_ON_LOAD&&this.initialize_database();
   TagDatabase.super_.call(this, name, args);
-  // this._window.front();
+  SQL_WINDOW&&this._window.front();
 }
 
 inherits(TagDatabase, EventEmitter);
@@ -1178,7 +1197,9 @@ TagDatabase.prototype.set_tags = function(filename, tags){
     try{
       libraryObj[filename].tags = tags;
       var shortname = libraryObj[filename].shortname;
-      this._db.exec("INSERT OR REPLACE into filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+tags+"', '"+shortname+"')", this._result);
+      tags = tags.join(',');
+      // this._db.exec("INSERT OR REPLACE INTO filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+tags+"', '"+shortname+"')", this._result);
+      this._db.exec("INSERT OR REPLACE INTO shortnames (shortname, tags) VALUES ('"+shortname+"', '"+tags+"')", this._result);
     }
     catch(e){
       report_error(e);
@@ -1202,11 +1223,15 @@ TagDatabase.prototype.apply_tag = function(filename, tags){
 		}
 		new_tags = stored_tags.concat(new_tags);
     libraryObj[filename].tags = new_tags;
-    this._db.exec("INSERT OR REPLACE into filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+new_tags+"', '"+shortname+"')", this._result);
+    new_tags = tags.join(',');
+    // this._db.exec("INSERT OR REPLACE INTO filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+new_tags+"', '"+shortname+"')", this._result);
+    this._db.exec("INSERT OR REPLACE INTO shortnames (shortname, tags) VALUES ('"+shortname+"', '"+new_tags+"')", this._result);
+    // this._db.exec()
   }
   catch(e){
     report_error(e);
   }
+  this.update_all();
 }
 
 TagDatabase.prototype.remove_tag = function(filename, tags){
@@ -1227,10 +1252,13 @@ TagDatabase.prototype.remove_tag = function(filename, tags){
     new_tags = [].concat(new_tags);
     libraryObj[filename].tags = new_tags;
     if(new_tags.length){
-      this._db.exec("INSERT OR REPLACE into filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+new_tags+"', '"+shortname+"')", this._result);
+      new_tags = new_tags.join(',');
+      // this._db.exec("INSERT OR REPLACE INTO filenames (filename, tags, shortname) VALUES ('"+filename+"', '"+new_tags+"', '"+shortname+"')", this._result);
+      this._db.exec("INSERT OR REPLACE INTO shortnames (shortname, tags) VALUES ('"+shortname+"', '"+new_tags+"')", this._result);
     }
     else{
-      this._db.exec("DELETE FROM filenames WHERE filename = '"+filename+"'", this._result);
+      // this._db.exec("DELETE FROM filenames WHERE filename = '"+filename+"'", this._result);
+      this._db.exec("DELETE FROM shortnames WHERE shortname = '"+shortname+"'", this._result);
     }
   }
   catch(e){
@@ -1243,7 +1271,8 @@ TagDatabase.prototype.clear_tags = function(filename){
   // if(libraryObj[filename]){
   try{
     libraryObj[filename].tags = [];
-    this._db.exec("DELETE FROM filenames WHERE filename = '"+filename+"'", this._result);
+    // this._db.exec("DELETE FROM filenames WHERE filename = '"+filename+"'", this._result);
+    this._db.exec("DELETE FROM shortnames WHERE shortname = '"+shortname+"'", this._subResult);
   }
   catch(e){
     report_error(e);
@@ -1268,96 +1297,18 @@ TagDatabase.prototype.clear_folder_tags = function(filenames, tags){
   }
 }
 
-TagDatabase.prototype.restore_snapshot = function(filename){
-  // /**restore a dict json to the current library, delets all entries and adds entries from json**/
-	debug('restore_snapshot:', filename, typeof filename);
-  snapshotDictObj.message('import', filename);
-  SHOW_SNAPSHOT_DICT&&snapshotDictObj.edit();
-  var snapshotContents = JSON.parse(snapshotDict.stringify());
-  var libObj = snapshotContents.data;
-  var libDir = library_directory;
-  this._db.exec('DELETE FROM filenames', this._result);
-  var file, tags, shortname;
-	for(var item in libObj){
-		file = libDir+item.toString();
-    if(file.indexOf("'")==-1){
-  		tags = [].concat(libObj[item].tags.toString().split(',')).filter(Boolean).sort();
-      shortname = libObj[item].shortname;
-      try{
-        // this._db.exec("INSERT OR REPLACE INTO filenames(filename, tags, shortname) VALUES('"+file+"', '"+tags+"', '"+shortname+"')", this._result); // "ON CONFLICT(filename) DO UPDATE SET tags='"+tags+"')", this._result);
-        this._db.exec("INSERT INTO filenames(filename, tags, shortname) VALUES('"+file+"','"+tags+"','"+shortname+"')", this._result); //" ON CONFLICT(filename) DO UPDATE SET tags='"+consolidated_tags+" WHERE TRUE );", this._result);
-      }
-      catch(e){
-        report_error(e);
-      }
-  	}
-  }
-  library_changed();
-}
-
-TagDatabase.prototype.merge_snapshot = function(filename){
-  // /**additively restore a dict json to the current library, merely adds new entries to existing db */
-
-  var unique = function(item, index, array){
-    return array.indexOf(item) == index;
-  }
-
-  debug('merge_snapshot:', filename, typeof filename);
-  snapshotDictObj.message('import', filename);
-  SHOW_SNAPSHOT_DICT&&snapshotDictObj.edit();
-  var snapshotContents = JSON.parse(snapshotDict.stringify());
-  var libObj = snapshotContents.data;
-  var libDir = library_directory;
-  var file, snapshot_tags, shortname, db_tags, consolidated_tags;
-	for(var item in libObj){
-  	file = libDir+item.toString(); //.replace("'", "\'");
-    if(file.indexOf("'")==-1){
-  		snapshot_tags = [].concat(libObj[item].tags.toString().split(',')).filter(Boolean).sort();
-      shortname = libObj[item].shortname; //.replace("'", "\'");
-      this._db.exec("SELECT * FROM filenames WHERE filename = '"+file+"'", this._result);
-      db_tags = this._result.value(0, 1);
-      db_tags = db_tags ? db_tags.toString().split(',') : [];
-      consolidated_tags = db_tags.concat(snapshot_tags).filter(unique);
-      // debug('db_tags:', db_tags, 'snapshot_tags:', snapshot_tags, 'consolidated_tags:', consolidated_tags);
-      try{
-        this._db.exec("INSERT OR REPLACE INTO filenames(filename, tags, shortname) VALUES('"+file+"','"+consolidated_tags+"','"+shortname+"')", this._result); //" ON CONFLICT(filename) DO UPDATE SET tags='"+consolidated_tags+" WHERE TRUE );", this._result);
-      }
-      catch(e){
-        report_error(e);
-      }
-    }
-	}
-  library_changed();
-}
-
-TagDatabase.prototype.save_snapshot = function(){
-  // var args = arrayfromargs(arguments);
-  debug('save_snapshot'); //, args);
-  var snapshotData = {};
-  for(var i in libraryObj){
-    //debug('entry:', i, JSON.stringify(libraryObj[i]));
-    if((libraryObj[i].tags)&&(libraryObj[i].tags.length)&&(libraryObj[i].tags!=[""])){
-      var name = i.replace(library_directory, '');
-      snapshotData[name] = libraryObj[i];
-    }
-  }
-  snapshotDict.parse(JSON.stringify({library_directory:library_directory, data:snapshotData}));
-  snapshotDictObj.message('export');
-}
-
 TagDatabase.prototype.rebuild_libraryObj = function(){
   var self = this;
   return new Promise(function(resolve, reject){
-    self.create_file_database_from_directory(library_directory)
+    self.read_tags_from_database()
       .then(function(){
-        self.read_tags_from_database().then(resolve).catch(function(e){reject(e)});
+        self.create_file_database_from_directory(library_directory).then(resolve).catch(function(e){reject(e)});
       })
       .catch(function(e){
         report_error(e);
         reject(e);
       });
     });
-  // this.read_tags_from_database();
   // this.create_preview_database_from_directory();
 }
 
@@ -1365,18 +1316,16 @@ TagDatabase.prototype.read_tags_from_database = function(){
   var self = this;
   return new Promise(function(resolve, reject){
     try{
-      self._db.exec("SELECT * FROM filenames", self._result);
+      self._db.exec("SELECT * FROM shortnames", self._result);
       var len = self._result.numrecords();
       debug('DB num records:', len);
       for(var i=0;i<len;i++){
-        // debug('filename:', this._result.value(0, i), this._result.value(2,i), this._result.value(1,i));
-        var filepath = self._result.value(0, i);
-        var tags = self._result.value(1,i).split(',');
-        var shortname = self._result.value(2, i);
-        self.consolidate_tags_for_identical_shortnames(shortname);
-        if((libraryObj[filepath])&&(tags!='')){
-          libraryObj[filepath].tags = tags;
-        }
+        var shortname = self._result.value(0, i);
+        // var tags = self._result.value(1, i).split(',');
+        var tags = self._result.value(1, i).split(',');
+        tags = [].concat(tags);
+        // debug('RECALL:', shortname, tags);
+        self.tagsScanData[shortname] = {tags: tags};
       }
       resolve();
     }
@@ -1384,23 +1333,6 @@ TagDatabase.prototype.read_tags_from_database = function(){
       reject(e);
     }
   });
-}
-
-// TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
-//   var entries = this._db.exec("SELECT shortname FROM filenames WHERE shortname = '"+shortname+"'", this._subResult);
-//   var len = this._subResult.numrecords();
-//   if(len > 0){
-//     for(var i=0;i<len;i++){
-//       var filepath = this._result.value(0, i);
-//       var shortname = this._result.value(2, i);
-//       var tags = this._result.value(1,i).split(',');
-//       debug('duplicate entry:', shortname, filepath, tags);
-//     }
-//   }
-// }
-
-TagDatabase.prototype.consolidate_tags_for_identical_shortnames = function(shortname){
-  //this was doing nothing, and was causing a huge hang.....needs to be revisited.
 }
 
 TagDatabase.prototype.create_file_database_from_directory = function(library_directory){
@@ -1426,8 +1358,8 @@ TagDatabase.prototype.create_file_database_from_directory = function(library_dir
           });
       }
       else{
-        debug('problem with tagDB.load_database_into_memory');
-        reject({message:'problem with tagDB.load_database_into_memory'});
+        debug('problem with tagDB.create_file_database_from_directory');
+        reject({message:'problem with tagDB.create_file_database_from_directory'});
       }
       folder.close();
       previewObj.check = {filename:'fuck you'};
@@ -1473,9 +1405,15 @@ TagDatabase.prototype.async_scan_folder = function(dir_name){
 }
 
 TagDatabase.prototype.async_scan_file = function(file_name, shortname){
+  var self = this;
   return new Promise(function(resolve, reject){
     try{
-      libraryObj[file_name] = {tags:[], shortname:shortname, preview:''};
+      var stored_tags = [];
+      if(self.tagsScanData[shortname]!=undefined){
+        stored_tags = self.tagsScanData[shortname].tags;
+        // debug('found tags for:', shortname, stored_tags);
+      }
+      libraryObj[file_name] = {tags: stored_tags, shortname:shortname, preview:''};
       resolve();
     }
     catch(e){
@@ -1588,24 +1526,75 @@ TagDatabase.prototype.prune = function(){
   //remove all filename entries that don't have tags assigned.
   this._db.exec('DELETE FROM filenames WHERE tags IS NULL', this._result);
   this._db.exec('DELETE FROM filenames WHERE tags = ""', this._result);
+  this._db.exec('DELETE FROM shortnames WHERE tags IS NULL', this._result);
+  this._db.exec('DELETE FROM shortnames WHERE tags = ""', this._result);
+}
+
+TagDatabase.prototype.convert_old_database = function(){
+  var self = this;
+  return new Promise(function(resolve, reject){
+    try{
+      self._db.exec("SELECT * FROM filenames", self._result);
+      var len = self._result.numrecords();
+      debug('DB num records:', len);
+      for(var i=0;i<len;i++){
+        // var filename = self._result.value(0, i);
+        var filepath = self._result.value(0, i);
+        var tags = self._result.value(1, i).split(',');
+        var shortname = self._result.value(2, i);
+        tags = tags ? [].concat(tags) : [];
+        // debug('CONVERSION_RECORD:', i, 'filepath', self._result.value(0, i), 'tags', self._result.value(1, i), 'shortname', self._result.value(2, i),  filepath, tags, shortname);
+        self.add_old_tags_to_database(shortname, tags);
+      }
+      resolve();
+    }
+    catch(e){
+      reject(e);
+    }
+  });
+}
+
+TagDatabase.prototype.add_old_tags_to_database = function(shortname, tags){
+  var self = this;
+  var result = [];
+  try{
+    // tags = [].concat(tags);
+    var stored_tags = [];
+    self._db.exec("SELECT tags FROM shortnames WHERE shortname = '"+shortname+"'", self._subResult);
+    if (self._subResult.value(0, 0)){
+      // debug(':::result:', shortname, tags, ':::', self._subResult.value(0, 0).split(','));
+      stored_tags = [].concat(self._subResult.value(0, 0).split(','));
+    }
+    for(var i in tags){
+      if(stored_tags.indexOf(tags[i])==-1){
+        stored_tags.push(tags[i]);
+      }
+    }
+    stored_tags = stored_tags.join(',');
+    this._db.exec("INSERT OR REPLACE INTO shortnames (shortname, tags) VALUES ('"+shortname+"', '"+stored_tags+"')", this._subResult);
+  } catch(e){
+    util.display_error(e);
+  }
 }
 
 TagDatabase.prototype.update_all = function(){
-  this._db.exec("SELECT * FROM filenames", this._result);
+  if(SQL_WINDOW){
+    this._db.exec("SELECT * FROM shortnames", this._result);
 
-  var numfields = this._result.numfields();
-  var numrecords = this._result.numrecords();
-  var fieldnames = new Array(numfields);
-  var values = new Array(numfields);
+    var numfields = this._result.numfields();
+    var numrecords = this._result.numrecords();
+    var fieldnames = new Array(numfields);
+    var values = new Array(numfields);
 
-  this._display.message("clear", "all");
-  this._display.message("cols", numfields);
-  this._display.message("rows", numrecords + 1);    // rows +1 so we can create a header row
+    this._display.message("clear", "all");
+    this._display.message("cols", numfields);
+    this._display.message("rows", numrecords + 1);    // rows +1 so we can create a header row
 
-  for(var i=0; i<numfields; i++)
-    this._display.message("set", i, 0, this._result.fieldname(i));
+    for(var i=0; i<numfields; i++)
+      this._display.message("set", i, 0, this._result.fieldname(i));
 
-  this._update_window();
+    this._update_window();
+  }
 }
 
 TagDatabase.prototype._update_window = function(){
@@ -1621,6 +1610,121 @@ TagDatabase.prototype._update_window = function(){
       this._display.message("set", j, i+1, this._result.value(j, i));
     }
   }
+}
+
+
+TagDatabase.prototype.restore_snapshot = function(filename){
+  // /**restore a dict json to the current library, delets all entries and adds entries from json**/
+	debug('restore_snapshot:', filename, typeof filename);
+  snapshotDictObj.message('import', filename);
+  SHOW_SNAPSHOT_DICT&&snapshotDictObj.edit();
+  var snapshotContents = JSON.parse(snapshotDict.stringify());
+  var libObj = snapshotContents.data;
+  var libDir = library_directory;
+  this._db.exec('DELETE FROM shortnames', this._result);
+  var file, tags, shortname;
+	for(var item in libObj){
+		file = libDir+item.toString();
+    if(file.indexOf("'")==-1){
+  		tags = [].concat(libObj[item].tags.toString().split(',')).filter(Boolean).sort();
+      shortname = libObj[item].shortname;
+      try{
+        this._db.exec("INSERT INTO shortnames(shortname, tags) VALUES('"+shortname+"','"+tags+"')", this._result);
+      }
+      catch(e){
+        report_error(e);
+      }
+  	}
+  }
+  library_changed();
+}
+
+TagDatabase.prototype.merge_snapshot = function(filename){
+  // /**additively restore a dict json to the current library, merely adds new entries to existing db */
+
+  var unique = function(item, index, array){
+    return array.indexOf(item) == index;
+  }
+
+  debug('merge_snapshot:', filename, typeof filename);
+  snapshotDictObj.message('import', filename);
+  SHOW_SNAPSHOT_DICT&&snapshotDictObj.edit();
+  var snapshotContents = JSON.parse(snapshotDict.stringify());
+  var libObj = snapshotContents.data;
+  var libDir = library_directory;
+  var file, snapshot_tags, shortname, db_tags, consolidated_tags;
+	for(var item in libObj){
+  	file = libDir+item.toString(); //.replace("'", "\'");
+    if(file.indexOf("'")==-1){
+  		snapshot_tags = [].concat(libObj[item].tags.toString().split(',')).filter(Boolean).sort();
+      shortname = libObj[item].shortname; //.replace("'", "\'");
+      this._db.exec("SELECT * FROM shortnames WHERE shortname = '"+shortname+"'", this._result);
+      db_tags = this._result.value(0, 1);
+      db_tags = db_tags ? db_tags.toString().split(',') : [];
+      consolidated_tags = db_tags.concat(snapshot_tags).filter(unique);
+      // debug('db_tags:', db_tags, 'snapshot_tags:', snapshot_tags, 'consolidated_tags:', consolidated_tags);
+      try{
+        this._db.exec("INSERT OR REPLACE INTO shortnames(shortname, tags) VALUES('"+shortname+"','"+consolidated_tags+"')", this._result); 
+      }
+      catch(e){
+        report_error(e);
+      }
+    }
+	}
+  library_changed();
+}
+
+TagDatabase.prototype.save_snapshot = function(){
+  // var args = arrayfromargs(arguments);
+  debug('save_snapshot'); //, args);
+  var snapshotData = {};
+  for(var i in libraryObj){
+    //debug('entry:', i, JSON.stringify(libraryObj[i]));
+    if((libraryObj[i].tags)&&(libraryObj[i].tags.length)&&(libraryObj[i].tags!=[""])){
+      var name = i.replace(library_directory, '');
+      snapshotData[name] = libraryObj[i];
+    }
+  }
+  snapshotDict.parse(JSON.stringify({library_directory:library_directory, data:snapshotData}));
+  snapshotDictObj.message('export');
+}
+
+
+TagDatabase.prototype.restore_legacy_snapshot = function(filename){
+  debug('what the fuck');
+  // /**restore a legacy dict json (based on full path) to the current library, deletes all entries and adds entries from json**/
+	debug('restore_legacy_snapshot:', filename, typeof filename);
+  try{
+    snapshotDictObj.message('import', filename);
+    SHOW_SNAPSHOT_DICT&&snapshotDictObj.edit();
+    var snapshotContents = JSON.parse(snapshotDict.stringify());
+    var libObj = snapshotContents.data;
+    var libDir = library_directory;
+    this._db.exec('DELETE FROM filenames', this._result);
+    this._db.exec('DELETE FROM shortnames', this._result);
+    var file, tags, shortname;
+    for(var item in libObj){
+      file = libDir+item.toString();
+      if(file.indexOf("'")==-1){
+        tags = [].concat(libObj[item].tags.toString().split(',')).filter(Boolean).sort();
+        shortname = libObj[item].shortname;
+        try{
+          this._db.exec("INSERT OR REPLACE INTO shortnames(shortname, tags) VALUES('"+shortname+"','"+tags+"')", this._result);
+        }
+        catch(e){
+          report_error(e);
+        }
+      }
+    }
+    library_changed();
+  } catch(e) {
+    util.report_error(e);
+  }
+}
+
+TagDatabase.prototype.initialize_database = function(){
+  this._db.exec('DELETE FROM filenames', this._result);
+  this._db.exec('DELETE FROM shortnames', this._result);
 }
 
 
@@ -3897,7 +4001,9 @@ function Audition_Shows_Waveform_Off(){
 function dissolve(){
   if(mod){mod.dissolve();}
   if(found_mod){found_mod.dissolve();}
-  tagDB.close();
+  if(tagDB){
+    tagDB.close();
+  }
   // for(var p in this){
   //   this[p] = null;
   //   delete this[p];
