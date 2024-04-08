@@ -347,6 +347,7 @@ class TrackCreatorComponent(Component):
 
 	create_audio_track_button = ButtonControl()
 	create_midi_track_button = ButtonControl()
+	create_track_from_current_output_routing_button = ButtonControl()
 
 	def __init__(self, *a, **k):
 		super(TrackCreatorComponent, self).__init__(*a, **k)
@@ -370,6 +371,48 @@ class TrackCreatorComponent(Component):
 
 	def create_midi_track(self):
 		self.song.create_midi_track()
+
+	@create_track_from_current_output_routing_button.pressed
+	def create_track_from_current_output_routing_button(self, button):
+		self._on_create_track_from_current_output_routing_button_pressed(button)
+
+	def _on_create_track_from_current_output_routing_button_pressed(self, button):
+		self.create_track_from_current_output_routing()
+
+	def create_track_from_current_output_routing(self):
+		# self.song.create_audio_track()
+		# debug('create_track_from_current_output_routing')
+  
+		current_track = self.song.view.selected_track
+		current_track_name = current_track.name
+		# tracks = self.song.view
+		current_output_routing = current_track.current_output_routing
+		has_audio_output = current_track.has_audio_output
+		if has_audio_output:
+			new_track = self.song.create_audio_track()
+			# debug('made track:', new_track)
+			input_routing_channels = new_track.available_input_routing_channels
+			input_routing_types = new_track.available_input_routing_types
+			input_channel = new_track.input_routing_channel
+			input_type= new_track.input_routing_type
+			types_list = list(type.display_name for type in input_routing_types)
+			type_name = input_type.display_name
+			# debug('input_routing_channels:', list(channel.display_name for channel in input_routing_channels))
+			# debug('input_channel:', input_channel.display_name)
+			# debug('input_routing_types:', types_list)
+			# debug('input_type:', input_type.display_name)
+			type_index = types_list.index(current_track_name)
+			# debug('index:', type_index)
+			if type_index > -1:
+				new_track.input_routing_type = input_routing_types[type_index]
+				new_track.arm = True
+			 
+
+
+
+		
+		
+		# output_routing = current_track
 
 
 
@@ -419,7 +462,6 @@ class UtilAutoArmComponent(AutoArmComponent):
 	# 		super(UtilAutoArmComponent, self).update()
 	# 	else:
 	# 		debug('autoarm.update(), keysplitter disabled')
-
 
 
 class UtilChannelStripComponent(MonoChannelStripComponent):
@@ -734,6 +776,7 @@ class UtilMixerComponent(MonoMixerComponent):
 		if liveobj_valid(track) and hasattr(track, 'mixer_device'):
 			if hasattr(track.mixer_device, 'panning'):
 				track.mixer_device.panning.value = track.mixer_device.panning.min if side is 0 else track.mixer_device.panning.max
+
 
 class UtilSessionComponent(SessionComponent):
 
@@ -1622,7 +1665,7 @@ class Util(ControlSurface):
 
 	def _setup_track_creator(self):
 		self._track_creator = TrackCreatorComponent()
-		self._track_creator.layer = Layer(create_audio_track_button = self._button[18], create_midi_track_button = self._button[19])
+		self._track_creator.layer = Layer(create_audio_track_button = self._button[18], create_midi_track_button = self._button[19], create_track_from_current_output_routing_button = self._button[73])
 
 
 	def _setup_undo_redo(self):
