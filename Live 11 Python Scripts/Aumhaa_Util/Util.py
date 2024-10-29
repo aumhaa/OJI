@@ -1570,7 +1570,7 @@ class Util(ControlSurface):
 
 	def _setup_controls(self):
 		def is_momentary(id):
-			return id > 34 and id not in (42,43,44,45,46,47,64,65,66,69,70)
+			return id > 34 and id not in (42,43,44,45,46,47,64,65,66,69,70,73)
 		def is_momentary2(id):
 			return id < 40
 		optimized = True
